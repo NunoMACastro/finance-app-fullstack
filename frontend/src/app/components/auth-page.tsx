@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../lib/auth-context";
+import { isApiError } from "../lib/http-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
@@ -8,19 +9,29 @@ import { Wallet, Loader2, Mail, Lock, UserCircle } from "lucide-react";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
-  const [loginEmail, setLoginEmail] = useState("joao@exemplo.pt");
-  const [loginPassword, setLoginPassword] = useState("123456");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
   const [error, setError] = useState("");
 
+  const getErrorMessage = (err: unknown, fallback: string) => {
+    if (isApiError(err)) return err.message;
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!loginEmail || !loginPassword) { setError("Preencha todos os campos"); return; }
-    try { await login(loginEmail, loginPassword); } catch { setError("Erro ao iniciar sessao"); }
+    try {
+      await login(loginEmail, loginPassword);
+    } catch (err) {
+      setError(getErrorMessage(err, "Erro ao iniciar sessao"));
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -29,7 +40,11 @@ export function AuthPage() {
     if (!regName || !regEmail || !regPassword) { setError("Preencha todos os campos"); return; }
     if (regPassword !== regConfirm) { setError("As passwords nao coincidem"); return; }
     if (regPassword.length < 6) { setError("Password deve ter pelo menos 6 caracteres"); return; }
-    try { await register(regName, regEmail, regPassword); } catch { setError("Erro ao criar conta"); }
+    try {
+      await register(regName, regEmail, regPassword);
+    } catch (err) {
+      setError(getErrorMessage(err, "Erro ao criar conta"));
+    }
   };
 
   return (
