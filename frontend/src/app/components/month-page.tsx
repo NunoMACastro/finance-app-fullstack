@@ -35,6 +35,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { transactionsApi, budgetApi, resolveCategoryName } from "../lib/api";
+import { useAccount } from "../lib/account-context";
 import type { MonthSummary, MonthBudget, Transaction, BudgetCategory, BudgetTemplate } from "../lib/types";
 
 function formatCurrency(val: number) {
@@ -91,6 +92,7 @@ function catEur(cat: BudgetCategory, totalBudget: number): number {
 // MAIN PAGE
 // ============================================================
 export function MonthPage() {
+  const { activeAccountId, activeAccountRole, canWriteFinancial } = useAccount();
   const now = new Date();
   const [monthOffset, setMonthOffset] = useState(0);
   const [summary, setSummary] = useState<MonthSummary | null>(null);
@@ -119,7 +121,7 @@ export function MonthPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentMonth]);
+  }, [activeAccountId, currentMonth]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -188,13 +190,14 @@ export function MonthPage() {
           data-tour="month-add-transaction"
           className="flex-1 rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30 h-10"
           onClick={() => {
+            if (!canWriteFinancial) return;
             if (isBudgetReady) {
               setShowAddDialog(true);
               return;
             }
             setShowBudgetEditor(true);
           }}
-          disabled={!isBudgetReady}
+          disabled={!isBudgetReady || !canWriteFinancial}
         >
           <Plus className="w-4 h-4" />
           Novo lancamento
@@ -204,11 +207,20 @@ export function MonthPage() {
           variant="outline"
           className="rounded-xl border-sky-200 text-sky-600 hover:bg-sky-50 h-10 px-4"
           onClick={() => setShowBudgetEditor(true)}
+          disabled={!canWriteFinancial}
         >
           <Settings2 className="w-4 h-4" />
           {isBudgetReady ? "Orcamento" : "Criar orcamento"}
         </Button>
       </div>
+
+      {!canWriteFinancial && (
+        <Card className="border-sky-100 bg-sky-50/60 shadow-sm">
+          <div className="p-3 text-xs text-sky-700">
+            Modo leitura ({activeAccountRole}): nao tens permissao para criar ou editar lancamentos/orcamento.
+          </div>
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -219,7 +231,7 @@ export function MonthPage() {
         </div>
       ) : summary && budget ? (
         <motion.div className="flex flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-          {!isBudgetReady && (
+          {!isBudgetReady && canWriteFinancial && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
                 <div className="p-4 flex items-start justify-between gap-3">
@@ -482,7 +494,7 @@ export function MonthPage() {
                                           <span className="text-xs text-foreground truncate flex-1">{tx.description}</span>
                                           <span className="text-[10px] text-muted-foreground/40 shrink-0">{formatDate(tx.date)}</span>
                                           <span className="text-xs text-red-600 tabular-nums shrink-0">-{formatCurrency(tx.amount)}</span>
-                                          {tx.origin === "manual" && (
+                                          {tx.origin === "manual" && canWriteFinancial && (
                                             <button
                                               className="opacity-0 group-hover/tx:opacity-100 text-muted-foreground/40 hover:text-destructive transition-all shrink-0 p-0.5"
                                               onClick={(e) => { e.stopPropagation(); handleDelete(tx.id); }}
@@ -549,7 +561,7 @@ export function MonthPage() {
                             <p className="text-sm text-emerald-600 tabular-nums shrink-0">
                               +{formatCurrency(tx.amount)}
                             </p>
-                            {tx.origin === "manual" && (
+                            {tx.origin === "manual" && canWriteFinancial && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -588,9 +600,10 @@ export function MonthPage() {
         month={currentMonth}
         onAdded={loadData}
         categories={budget?.categories ?? []}
+        canWriteFinancial={canWriteFinancial}
       />
 
-      {budget && (
+      {budget && canWriteFinancial && (
         <BudgetEditorDialog
           open={showBudgetEditor}
           onClose={() => setShowBudgetEditor(false)}
@@ -612,12 +625,14 @@ function AddTransactionDialog({
   month,
   onAdded,
   categories,
+  canWriteFinancial,
 }: {
   open: boolean;
   onClose: () => void;
   month: string;
   onAdded: () => void;
   categories: BudgetCategory[];
+  canWriteFinancial: boolean;
 }) {
   const [type, setType] = useState<"income" | "expense">("expense");
   const [description, setDescription] = useState("");
@@ -634,6 +649,7 @@ function AddTransactionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWriteFinancial) return;
     if (!description || !amount || !categoryId) return;
     setSaving(true);
     try {
@@ -728,7 +744,7 @@ function AddTransactionDialog({
             </Button>
             <Button
               type="submit"
-              disabled={saving || !description || !amount}
+              disabled={saving || !description || !amount || !canWriteFinancial}
               className="rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}

@@ -2,6 +2,12 @@ import { Schema, model, Types, type InferSchemaType } from "mongoose";
 
 const recurringRuleSchema = new Schema(
   {
+    accountId: {
+      type: Schema.Types.ObjectId,
+      ref: "Account",
+      required: true,
+      index: true,
+    },
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -54,9 +60,10 @@ const recurringRuleSchema = new Schema(
   },
 );
 
-recurringRuleSchema.index({ userId: 1, active: 1, startMonth: 1 });
+recurringRuleSchema.index({ accountId: 1, active: 1, startMonth: 1 });
 
 export type RecurringRuleDocument = InferSchemaType<typeof recurringRuleSchema> & {
+  accountId: Types.ObjectId;
   userId: Types.ObjectId;
 };
 

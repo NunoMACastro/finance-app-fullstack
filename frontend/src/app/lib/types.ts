@@ -36,6 +36,7 @@ export interface UserProfile {
   currency: string;
   locale: string;
   tutorialSeenAt: string | null;
+  personalAccountId: string;
 }
 
 // ── Budget ────────────────────────────────────────────────
@@ -49,7 +50,7 @@ export interface BudgetCategory {
 
 /** Monthly budget — each month has its own budget */
 export interface MonthBudget {
-  userId: string;
+  accountId: string;
   month: MonthKey;
   totalBudget: number; // total available money
   categories: BudgetCategory[];
@@ -76,6 +77,7 @@ export interface AddCategoryDto {
 
 export interface Transaction {
   id: string;
+  accountId: string;
   userId: string;
   month: MonthKey;
   date: string;
@@ -112,6 +114,7 @@ export interface UpdateTransactionDto {
 
 export interface RecurringRule {
   id: string;
+  accountId: string;
   userId: string;
   type: "income" | "expense";
   name: string;
@@ -203,4 +206,29 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
   hasMore: boolean;
+}
+
+// ── Accounts / Workspaces ───────────────────────────────
+
+export type AccountRole = "owner" | "editor" | "viewer";
+
+export interface AccountSummary {
+  id: string;
+  name: string;
+  type: "personal" | "shared";
+  role: AccountRole;
+  isPersonalDefault: boolean;
+}
+
+export interface InviteCodeResponse {
+  code: string;
+  expiresAt: string;
+}
+
+export interface AccountMember {
+  userId: string;
+  name: string;
+  email: string;
+  role: AccountRole;
+  status: "active" | "inactive";
 }

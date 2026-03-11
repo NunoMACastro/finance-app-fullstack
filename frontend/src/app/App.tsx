@@ -1,7 +1,10 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AuthProvider, useAuth } from "./lib/auth-context";
+import { AccountProvider } from "./lib/account-context";
+import { config } from "./lib/config";
 import { AuthPage } from "./components/auth-page";
+import { MaintenancePage } from "./components/maintenance-page";
 import { Loader2 } from "lucide-react";
 
 function AppContent() {
@@ -25,9 +28,15 @@ function AppContent() {
 }
 
 export default function App() {
+  if (config.maintenanceMode) {
+    return <MaintenancePage />;
+  }
+
   return (
     <AuthProvider>
-      <AppContent />
+      <AccountProvider>
+        <AppContent />
+      </AccountProvider>
     </AuthProvider>
   );
 }

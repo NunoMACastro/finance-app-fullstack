@@ -11,6 +11,12 @@ const budgetCategorySchema = new Schema(
 
 const budgetSchema = new Schema(
   {
+    accountId: {
+      type: Schema.Types.ObjectId,
+      ref: "Account",
+      required: true,
+      index: true,
+    },
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -38,11 +44,12 @@ const budgetSchema = new Schema(
   },
 );
 
-budgetSchema.index({ userId: 1, month: 1 }, { unique: true });
+budgetSchema.index({ accountId: 1, month: 1 }, { unique: true });
 
 export type BudgetCategory = InferSchemaType<typeof budgetCategorySchema>;
 
 export type BudgetDocument = InferSchemaType<typeof budgetSchema> & {
+  accountId: Types.ObjectId;
   userId: Types.ObjectId;
 };
 

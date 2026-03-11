@@ -2,10 +2,16 @@ import { Schema, model, Types, type InferSchemaType } from "mongoose";
 
 const statsSnapshotSchema = new Schema(
   {
+    accountId: {
+      type: Schema.Types.ObjectId,
+      ref: "Account",
+      required: true,
+      index: true,
+    },
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
       index: true,
     },
     periodType: {
@@ -29,10 +35,11 @@ const statsSnapshotSchema = new Schema(
   },
 );
 
-statsSnapshotSchema.index({ userId: 1, periodType: 1, periodKey: 1 }, { unique: true });
+statsSnapshotSchema.index({ accountId: 1, periodType: 1, periodKey: 1 }, { unique: true });
 
 export type StatsSnapshotDocument = InferSchemaType<typeof statsSnapshotSchema> & {
-  userId: Types.ObjectId;
+  accountId: Types.ObjectId;
+  userId: Types.ObjectId | null;
 };
 
 export const StatsSnapshotModel = model<StatsSnapshotDocument>("StatsSnapshot", statsSnapshotSchema);

@@ -13,6 +13,7 @@ import type {
 // Current month helper
 const now = new Date();
 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+export const PERSONAL_ACCOUNT_ID = "acc_personal_u1";
 
 export const mockUser: UserProfile = {
   id: "u1",
@@ -21,6 +22,7 @@ export const mockUser: UserProfile = {
   currency: "EUR",
   locale: "pt-PT",
   tutorialSeenAt: null,
+  personalAccountId: PERSONAL_ACCOUNT_ID,
 };
 
 // Default budget categories
@@ -37,7 +39,7 @@ export const defaultCategories: BudgetCategory[] = [
 ];
 
 export const mockMonthBudget: MonthBudget = {
-  userId: "u1",
+  accountId: PERSONAL_ACCOUNT_ID,
   month: currentMonth,
   totalBudget: 2200,
   categories: defaultCategories,
@@ -47,6 +49,7 @@ export const mockMonthBudget: MonthBudget = {
 export const mockRecurringRules: RecurringRule[] = [
   {
     id: "rr1",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     type: "income",
     name: "Ordenado",
@@ -58,6 +61,7 @@ export const mockRecurringRules: RecurringRule[] = [
   },
   {
     id: "rr2",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     type: "income",
     name: "Freelance",
@@ -69,6 +73,7 @@ export const mockRecurringRules: RecurringRule[] = [
   },
   {
     id: "rr3",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     type: "expense",
     name: "Renda",
@@ -80,6 +85,7 @@ export const mockRecurringRules: RecurringRule[] = [
   },
   {
     id: "rr4",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     type: "expense",
     name: "Ginasio",
@@ -91,6 +97,7 @@ export const mockRecurringRules: RecurringRule[] = [
   },
   {
     id: "rr5",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     type: "expense",
     name: "Seguro Auto",
@@ -102,6 +109,7 @@ export const mockRecurringRules: RecurringRule[] = [
   },
   {
     id: "rr6",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     type: "expense",
     name: "Netflix + Spotify",
@@ -116,6 +124,7 @@ export const mockRecurringRules: RecurringRule[] = [
 export const mockTransactions: Transaction[] = [
   {
     id: "t1",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-01`,
@@ -130,6 +139,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t2",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-15`,
@@ -144,6 +154,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t3",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-01`,
@@ -158,6 +169,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t4",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-05`,
@@ -172,6 +184,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t5",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-10`,
@@ -186,6 +199,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t6",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-08`,
@@ -200,6 +214,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t7",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-03`,
@@ -213,6 +228,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t8",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-06`,
@@ -226,6 +242,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t9",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-12`,
@@ -239,6 +256,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t10",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-14`,
@@ -252,6 +270,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t11",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-02`,
@@ -265,6 +284,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t12",
+    accountId: PERSONAL_ACCOUNT_ID,
     userId: "u1",
     month: currentMonth,
     date: `${currentMonth}-02`,

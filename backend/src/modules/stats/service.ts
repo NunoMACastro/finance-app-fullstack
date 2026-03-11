@@ -78,18 +78,18 @@ export function buildForecast(trend: TrendItem[]) {
 }
 
 async function buildStats(
-  userId: string,
+  accountId: string,
   periodType: "semester" | "year",
   periodKey: string,
   months: string[],
 ): Promise<StatsSnapshotDto> {
   const transactions = await TransactionModel.find({
-    userId,
+    accountId,
     month: { $in: months },
   }).lean();
 
   const budgets = await BudgetModel.find({
-    userId,
+    accountId,
     month: { $in: months },
   }).lean();
 
@@ -132,10 +132,7 @@ async function buildStats(
   const totalIncome = trend.reduce((sum, item) => sum + item.income, 0);
   const totalExpense = trend.reduce((sum, item) => sum + item.expense, 0);
 
-  const categoryIds = new Set<string>([
-    ...actualByCategory.keys(),
-    ...budgetByCategory.keys(),
-  ]);
+  const categoryIds = new Set<string>([...actualByCategory.keys(), ...budgetByCategory.keys()]);
 
   const budgetVsActual: BudgetVsActualItem[] = Array.from(categoryIds).map((categoryId) => {
     const budgeted = Math.round((budgetByCategory.get(categoryId) ?? 0) * 100) / 100;
@@ -165,25 +162,25 @@ async function buildStats(
   };
 }
 
-export async function getSemesterStats(userId: string, endingMonth?: string): Promise<StatsSnapshotDto> {
+export async function getSemesterStats(accountId: string, endingMonth?: string): Promise<StatsSnapshotDto> {
   const anchor = endingMonth ?? monthFromDate(new Date());
   const months = lastNMonthsEndingAt(anchor, 6);
   const periodKey = semesterKey(anchor);
-  return buildStats(userId, "semester", periodKey, months);
+  return buildStats(accountId, "semester", periodKey, months);
 }
 
-export async function getYearStats(userId: string, year?: number): Promise<StatsSnapshotDto> {
+export async function getYearStats(accountId: string, year?: number): Promise<StatsSnapshotDto> {
   if (year) {
-    return buildStats(userId, "year", String(year), monthsForYear(year));
+    return buildStats(accountId, "year", String(year), monthsForYear(year));
   }
 
   const anchor = monthFromDate(new Date());
   const months = lastNMonthsEndingAt(anchor, 12);
   const periodKey = anchor.slice(0, 4);
-  return buildStats(userId, "year", periodKey, months);
+  return buildStats(accountId, "year", periodKey, months);
 }
 
-export async function compareBudget(userId: string, from: string, to: string): Promise<BudgetCompareDto> {
+export async function compareBudget(accountId: string, from: string, to: string): Promise<BudgetCompareDto> {
   const fromYear = Number(from.slice(0, 4));
   const fromMonth = Number(from.slice(5, 7));
   const toYear = Number(to.slice(0, 4));
@@ -200,7 +197,7 @@ export async function compareBudget(userId: string, from: string, to: string): P
     if (months.length > 36) break;
   }
 
-  const stats = await buildStats(userId, "semester", `${from}_${to}`, months);
+  const stats = await buildStats(accountId, "semester", `${from}_${to}`, months);
   const budgeted = stats.budgetVsActual.reduce((sum, item) => sum + item.budgeted, 0);
   const actual = stats.budgetVsActual.reduce((sum, item) => sum + item.actual, 0);
 
@@ -216,14 +213,14 @@ export async function compareBudget(userId: string, from: string, to: string): P
   };
 }
 
-export async function materializeCurrentSnapshots(userId: string): Promise<void> {
+export async function materializeCurrentSnapshots(accountId: string): Promise<void> {
   const nowMonth = monthFromDate(new Date());
-  const semesterStats = await getSemesterStats(userId, nowMonth);
-  const yearStats = await getYearStats(userId);
+  const semesterStats = await getSemesterStats(accountId, nowMonth);
+  const yearStats = await getYearStats(accountId);
 
   await StatsSnapshotModel.findOneAndUpdate(
     {
-      userId,
+      accountId,
       periodType: "semester",
       periodKey: semesterStats.periodKey,
     },
@@ -241,7 +238,7 @@ export async function materializeCurrentSnapshots(userId: string): Promise<void>
 
   await StatsSnapshotModel.findOneAndUpdate(
     {
-      userId,
+      accountId,
       periodType: "year",
       periodKey: yearStats.periodKey,
     },

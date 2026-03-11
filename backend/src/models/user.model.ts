@@ -23,6 +23,12 @@ const userSchema = new Schema(
       type: Date,
       default: null,
     },
+    personalAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: "Account",
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,

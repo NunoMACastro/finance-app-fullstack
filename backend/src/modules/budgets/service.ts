@@ -2,6 +2,7 @@ import { BudgetModel } from "../../models/budget.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import { newCategoryId } from "../../lib/hash.js";
 import { notFound, unprocessable } from "../../lib/api-error.js";
+import { Types } from "mongoose";
 
 interface BudgetCategoryDto {
   id: string;
@@ -10,7 +11,7 @@ interface BudgetCategoryDto {
 }
 
 interface MonthBudgetDto {
-  userId: string;
+  accountId: string;
   month: string;
   totalBudget: number;
   categories: BudgetCategoryDto[];
@@ -63,7 +64,7 @@ function roundCurrency(value: number): number {
 }
 
 function toBudgetDto(budget: {
-  userId: { toString(): string };
+  accountId: { toString(): string };
   month: string;
   totalBudget: number;
   categories: Array<{ id: string; name: string; percent: number }>;
@@ -75,7 +76,7 @@ function toBudgetDto(budget: {
   }));
 
   return {
-    userId: budget.userId.toString(),
+    accountId: budget.accountId.toString(),
     month: budget.month,
     totalBudget: budget.totalBudget,
     categories,
@@ -118,9 +119,9 @@ export function isBudgetReady(
   return Math.abs(total - 100) <= tolerance;
 }
 
-async function sumIncomeForMonth(userId: string, month: string): Promise<number> {
+async function sumIncomeForMonth(accountId: string, month: string): Promise<number> {
   const incomes = await TransactionModel.find({
-    userId,
+    accountId,
     month,
     type: "income",
   })
@@ -131,11 +132,11 @@ async function sumIncomeForMonth(userId: string, month: string): Promise<number>
   return roundCurrency(totalIncome);
 }
 
-async function syncBudgetTotal(userId: string, month: string): Promise<number> {
-  const totalBudget = await sumIncomeForMonth(userId, month);
+async function syncBudgetTotal(accountId: string, month: string): Promise<number> {
+  const totalBudget = await sumIncomeForMonth(accountId, month);
 
   await BudgetModel.updateOne(
-    { userId, month },
+    { accountId, month },
     {
       $set: {
         totalBudget,
@@ -146,9 +147,9 @@ async function syncBudgetTotal(userId: string, month: string): Promise<number> {
   return totalBudget;
 }
 
-function emptyBudget(userId: string, month: string, totalBudget: number): MonthBudgetDto {
+function emptyBudget(accountId: string, month: string, totalBudget: number): MonthBudgetDto {
   return {
-    userId,
+    accountId,
     month,
     totalBudget,
     categories: [],
@@ -168,12 +169,12 @@ export function getBudgetTemplates(): BudgetTemplateDto[] {
   }));
 }
 
-export async function getBudget(userId: string, month: string): Promise<MonthBudgetDto> {
-  const budget = await BudgetModel.findOne({ userId, month });
-  const totalBudget = await sumIncomeForMonth(userId, month);
+export async function getBudget(accountId: string, month: string): Promise<MonthBudgetDto> {
+  const budget = await BudgetModel.findOne({ accountId, month });
+  const totalBudget = await sumIncomeForMonth(accountId, month);
 
   if (!budget) {
-    return emptyBudget(userId, month, totalBudget);
+    return emptyBudget(accountId, month, totalBudget);
   }
 
   if (Math.abs(budget.totalBudget - totalBudget) > BUDGET_TOLERANCE) {
@@ -185,18 +186,20 @@ export async function getBudget(userId: string, month: string): Promise<MonthBud
 }
 
 export async function saveBudget(
-  userId: string,
+  accountId: string,
   month: string,
   input: { totalBudget: number; categories: BudgetCategoryDto[] },
+  actorUserId: string,
 ): Promise<MonthBudgetDto> {
   validateBudgetPercentages(input.categories);
 
-  const totalBudget = await sumIncomeForMonth(userId, month);
+  const totalBudget = await sumIncomeForMonth(accountId, month);
 
   const updated = await BudgetModel.findOneAndUpdate(
-    { userId, month },
+    { accountId, month },
     {
       $set: {
+        userId: actorUserId,
         totalBudget,
         categories: input.categories,
       },
@@ -212,13 +215,20 @@ export async function saveBudget(
 }
 
 export async function addCategory(
-  userId: string,
+  accountId: string,
   month: string,
   input: { name: string; percent: number },
+  actorUserId: string,
 ): Promise<MonthBudgetDto> {
   const budget =
-    (await BudgetModel.findOne({ userId, month })) ??
-    (await BudgetModel.create({ userId, month, totalBudget: 0, categories: [] }));
+    (await BudgetModel.findOne({ accountId, month })) ??
+    (await BudgetModel.create({
+      accountId,
+      userId: actorUserId,
+      month,
+      totalBudget: 0,
+      categories: [],
+    }));
 
   budget.categories.push({
     id: newCategoryId(),
@@ -226,48 +236,53 @@ export async function addCategory(
     percent: input.percent,
   });
 
-  budget.totalBudget = await sumIncomeForMonth(userId, month);
+  budget.userId = new Types.ObjectId(actorUserId);
+  budget.totalBudget = await sumIncomeForMonth(accountId, month);
   await budget.save();
   return toBudgetDto(budget);
 }
 
 export async function removeCategory(
-  userId: string,
+  accountId: string,
   month: string,
   categoryId: string,
+  actorUserId: string,
 ): Promise<MonthBudgetDto> {
-  const budget = await BudgetModel.findOne({ userId, month });
+  const budget = await BudgetModel.findOne({ accountId, month });
   if (!budget) {
-    const totalBudget = await sumIncomeForMonth(userId, month);
-    return emptyBudget(userId, month, totalBudget);
+    const totalBudget = await sumIncomeForMonth(accountId, month);
+    return emptyBudget(accountId, month, totalBudget);
   }
 
   budget.set(
     "categories",
     budget.categories.filter((c) => c.id !== categoryId),
   );
-  budget.totalBudget = await sumIncomeForMonth(userId, month);
+  budget.userId = new Types.ObjectId(actorUserId);
+  budget.totalBudget = await sumIncomeForMonth(accountId, month);
   await budget.save();
 
   return toBudgetDto(budget);
 }
 
 export async function copyBudgetFromMonth(
-  userId: string,
+  accountId: string,
   targetMonth: string,
   sourceMonth: string,
+  actorUserId: string,
 ): Promise<MonthBudgetDto> {
-  const source = await BudgetModel.findOne({ userId, month: sourceMonth });
+  const source = await BudgetModel.findOne({ accountId, month: sourceMonth });
   if (!source) {
     notFound("Orcamento de origem nao encontrado", "SOURCE_BUDGET_NOT_FOUND");
   }
 
-  const totalBudget = await sumIncomeForMonth(userId, targetMonth);
+  const totalBudget = await sumIncomeForMonth(accountId, targetMonth);
 
   const updated = await BudgetModel.findOneAndUpdate(
-    { userId, month: targetMonth },
+    { accountId, month: targetMonth },
     {
       $set: {
+        userId: actorUserId,
         totalBudget,
         categories: source.categories.map((c) => ({
           id: c.id,
@@ -286,6 +301,6 @@ export async function copyBudgetFromMonth(
   return toBudgetDto(updated);
 }
 
-export async function syncBudgetTotalFromTransactions(userId: string, month: string): Promise<void> {
-  await syncBudgetTotal(userId, month);
+export async function syncBudgetTotalFromTransactions(accountId: string, month: string): Promise<void> {
+  await syncBudgetTotal(accountId, month);
 }

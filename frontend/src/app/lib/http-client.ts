@@ -11,6 +11,7 @@
  */
 
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { getActiveAccountIdHeader } from "./account-store";
 import { config } from "./config";
 import { tokenStore } from "./token-store";
 import type { ApiError } from "./types";
@@ -27,6 +28,12 @@ httpClient.interceptors.request.use((req) => {
   const token = tokenStore.getAccess();
   if (token) {
     req.headers.Authorization = `Bearer ${token}`;
+  }
+  const accountId = getActiveAccountIdHeader();
+  if (accountId) {
+    req.headers["X-Account-Id"] = accountId;
+  } else if ("X-Account-Id" in req.headers) {
+    delete req.headers["X-Account-Id"];
   }
   return req;
 });

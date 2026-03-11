@@ -1,86 +1,38 @@
-/**
- * API Client — Dual-mode: mock data (dev) or real HTTP calls (production).
- *
- * Controlled by `config.useMock` (env var VITE_USE_MOCK).
- *
- * ═══════════════════════════════════════════════════════════════
- * Backend API Endpoints Reference (Node.js / Express / Fastify)
- * ═══════════════════════════════════════════════════════════════
- *
- * Auth
- *   POST   /auth/login           { email, password }        → { tokens, user }
- *   POST   /auth/register        { name, email, password }  → { tokens, user }
- *   POST   /auth/refresh         { refreshToken }           → { accessToken, refreshToken }
- *   POST   /auth/logout          { refreshToken }           → 204
- *   GET    /auth/me                                         → UserProfile
- *   POST   /auth/tutorial/complete                          → UserProfile
- *
- * Transactions
- *   GET    /transactions?month=YYYY-MM                      → MonthSummary
- *   POST   /transactions         CreateTransactionDto       → Transaction
- *   PUT    /transactions/:id     UpdateTransactionDto       → Transaction
- *   DELETE /transactions/:id                                → 204
- *
- * Budget (per-month)
- *   GET    /budgets/templates                               → BudgetTemplate[]
- *   GET    /budgets/:month                                  → MonthBudget
- *   PUT    /budgets/:month       SaveBudgetDto              → MonthBudget
- *   POST   /budgets/:month/categories  AddCategoryDto       → MonthBudget
- *   DELETE /budgets/:month/categories/:categoryId           → MonthBudget
- *   POST   /budgets/:month/copy-from/:sourceMonth           → MonthBudget
- *
- * Recurring Rules
- *   GET    /recurring-rules                                 → RecurringRule[]
- *   POST   /recurring-rules      CreateRecurringRuleDto     → RecurringRule
- *   PUT    /recurring-rules/:id  UpdateRecurringRuleDto     → RecurringRule
- *   DELETE /recurring-rules/:id                             → 204
- *
- * Stats
- *   GET    /stats/semester?endingMonth=YYYY-MM               → StatsSnapshot
- *   GET    /stats/year?year=YYYY                             → StatsSnapshot
- */
-
 import { config } from "./config";
 import { httpClient } from "./http-client";
+import { getActiveAccountIdHeader } from "./account-store";
 import type {
-  Transaction,
-  CreateTransactionDto,
-  UpdateTransactionDto,
-  RecurringRule,
-  CreateRecurringRuleDto,
-  UpdateRecurringRuleDto,
-  MonthBudget,
-  SaveBudgetDto,
   AddCategoryDto,
-  MonthSummary,
-  StatsSnapshot,
-  AuthTokens,
+  AccountMember,
+  AccountRole,
+  AccountSummary,
   AuthResponse,
-  UserProfile,
   BudgetCategory,
   BudgetTemplate,
+  CreateRecurringRuleDto,
+  CreateTransactionDto,
+  InviteCodeResponse,
+  MonthBudget,
+  MonthSummary,
+  RecurringRule,
+  SaveBudgetDto,
+  StatsSnapshot,
+  Transaction,
+  UpdateRecurringRuleDto,
+  UpdateTransactionDto,
+  UserProfile,
 } from "./types";
 import {
-  mockUser,
-  mockTransactions,
-  mockRecurringRules,
-  mockMonthBudget,
-  getStatsSnapshot,
+  PERSONAL_ACCOUNT_ID,
   getCategoryName,
+  getStatsSnapshot,
+  mockMonthBudget,
+  mockRecurringRules,
+  mockTransactions,
+  mockUser,
 } from "./mock-data";
 
-// ── Mock helpers ────────────────────────────────────────────
-
-const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
-
-// Mutable mock state (only used when config.useMock === true)
-let _mockUser: UserProfile = { ...mockUser };
-let _mockTransactions = [...mockTransactions];
-let _mockNextTxId = 100;
-const _mockBudgets: Record<string, MonthBudget> = {
-  [mockMonthBudget.month]: JSON.parse(JSON.stringify(mockMonthBudget)),
-};
-let _mockNextCatId = 100;
+const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
 const MOCK_BUDGET_TEMPLATES: BudgetTemplate[] = [
   {
@@ -115,13 +67,54 @@ const MOCK_BUDGET_TEMPLATES: BudgetTemplate[] = [
   },
 ];
 
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+let _mockUser: UserProfile = clone(mockUser);
+let _mockTransactions: Transaction[] = clone(mockTransactions);
+let _mockRecurringRules: RecurringRule[] = clone(mockRecurringRules);
+let _mockNextTxId = 100;
+let _mockNextRuleId = 100;
+let _mockNextCatId = 100;
+
+let _mockAccounts: AccountSummary[] = [
+  {
+    id: PERSONAL_ACCOUNT_ID,
+    name: "Conta Pessoal",
+    type: "personal",
+    role: "owner",
+    isPersonalDefault: true,
+  },
+];
+
+let _mockMembersByAccount: Record<string, AccountMember[]> = {
+  [PERSONAL_ACCOUNT_ID]: [
+    {
+      userId: "u1",
+      name: _mockUser.name,
+      email: _mockUser.email,
+      role: "owner",
+      status: "active",
+    },
+  ],
+};
+
+let _mockInviteCodes: Record<string, { accountId: string; expiresAt: string }> = {};
+
+let _mockBudgetsByAccount: Record<string, Record<string, MonthBudget>> = {
+  [PERSONAL_ACCOUNT_ID]: {
+    [mockMonthBudget.month]: clone(mockMonthBudget),
+  },
+};
+
+function mockAccountId(): string {
+  return getActiveAccountIdHeader() ?? _mockUser.personalAccountId;
+}
+
 function monthFromDateString(date: string): string {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
 }
 
 function isMockBudgetReady(categories: BudgetCategory[]): boolean {
@@ -130,32 +123,41 @@ function isMockBudgetReady(categories: BudgetCategory[]): boolean {
   return Math.abs(total - 100) <= 0.01;
 }
 
-function sumMockIncomeForMonth(month: string): number {
+function ensureBudgetStore(accountId: string): Record<string, MonthBudget> {
+  if (!_mockBudgetsByAccount[accountId]) {
+    _mockBudgetsByAccount[accountId] = {};
+  }
+  return _mockBudgetsByAccount[accountId];
+}
+
+function sumMockIncomeForMonth(accountId: string, month: string): number {
   const total = _mockTransactions
-    .filter((tx) => tx.month === month && tx.type === "income")
+    .filter((tx) => tx.accountId === accountId && tx.month === month && tx.type === "income")
     .reduce((sum, tx) => sum + tx.amount, 0);
   return Math.round(total * 100) / 100;
 }
 
-function normaliseMockBudget(month: string, budget?: MonthBudget): MonthBudget {
+function normaliseMockBudget(accountId: string, month: string, budget?: MonthBudget): MonthBudget {
   const categories = clone(budget?.categories ?? []);
   return {
-    userId: "u1",
+    accountId,
     month,
-    totalBudget: sumMockIncomeForMonth(month),
+    totalBudget: sumMockIncomeForMonth(accountId, month),
     categories,
     isReady: isMockBudgetReady(categories),
   };
 }
 
-function syncMockBudget(month: string): void {
-  if (_mockBudgets[month]) {
-    _mockBudgets[month] = normaliseMockBudget(month, _mockBudgets[month]);
+function syncMockBudget(accountId: string, month: string): void {
+  const store = ensureBudgetStore(accountId);
+  if (store[month]) {
+    store[month] = normaliseMockBudget(accountId, month, store[month]);
   }
 }
 
-function ensureMockManualAllowed(month: string): void {
-  const budget = _mockBudgets[month];
+function ensureMockManualAllowed(accountId: string, month: string): void {
+  const store = ensureBudgetStore(accountId);
+  const budget = store[month];
   if (!budget || !budget.isReady) {
     throw {
       code: "BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS",
@@ -164,14 +166,21 @@ function ensureMockManualAllowed(month: string): void {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// Auth API
-// ═══════════════════════════════════════════════════════════
+function requireMockOwner(accountId: string): void {
+  const account = _mockAccounts.find((item) => item.id === accountId);
+  if (!account) {
+    throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
+  }
+  if (account.role !== "owner") {
+    throw { code: "ACCOUNT_OWNER_REQUIRED", message: "Apenas owners podem gerir esta conta" };
+  }
+}
 
 export const authApi = {
   async login(email: string, password: string): Promise<AuthResponse> {
     if (config.useMock) {
       await delay();
+      void password;
       _mockUser = { ..._mockUser, email };
       return {
         tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
@@ -185,7 +194,34 @@ export const authApi = {
   async register(name: string, email: string, password: string): Promise<AuthResponse> {
     if (config.useMock) {
       await delay();
-      _mockUser = { ..._mockUser, name, email, tutorialSeenAt: null };
+      void password;
+      _mockUser = {
+        ..._mockUser,
+        name,
+        email,
+        tutorialSeenAt: null,
+        personalAccountId: PERSONAL_ACCOUNT_ID,
+      };
+      _mockAccounts = [
+        {
+          id: PERSONAL_ACCOUNT_ID,
+          name: "Conta Pessoal",
+          type: "personal",
+          role: "owner",
+          isPersonalDefault: true,
+        },
+      ];
+      _mockMembersByAccount = {
+        [PERSONAL_ACCOUNT_ID]: [
+          {
+            userId: "u1",
+            name,
+            email,
+            role: "owner",
+            status: "active",
+          },
+        ],
+      };
       return {
         tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
         user: { ..._mockUser },
@@ -205,7 +241,7 @@ export const authApi = {
 
   async getMe(): Promise<UserProfile> {
     if (config.useMock) {
-      await delay(200);
+      await delay(120);
       return { ..._mockUser };
     }
     const { data } = await httpClient.get<UserProfile>("/auth/me");
@@ -226,26 +262,173 @@ export const authApi = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-// Transactions API
-// ═══════════════════════════════════════════════════════════
+export const accountsApi = {
+  async list(): Promise<AccountSummary[]> {
+    if (config.useMock) {
+      await delay(100);
+      return clone(_mockAccounts);
+    }
+    const { data } = await httpClient.get<AccountSummary[]>("/accounts");
+    return data;
+  },
+
+  async create(name: string): Promise<AccountSummary> {
+    if (config.useMock) {
+      await delay(120);
+      const account: AccountSummary = {
+        id: `acc_shared_${Date.now()}`,
+        name: name.trim(),
+        type: "shared",
+        role: "owner",
+        isPersonalDefault: false,
+      };
+      _mockAccounts.push(account);
+      _mockMembersByAccount[account.id] = [
+        {
+          userId: "u1",
+          name: _mockUser.name,
+          email: _mockUser.email,
+          role: "owner",
+          status: "active",
+        },
+      ];
+      return clone(account);
+    }
+    const { data } = await httpClient.post<AccountSummary>("/accounts", { name });
+    return data;
+  },
+
+  async joinByCode(code: string): Promise<AccountSummary> {
+    if (config.useMock) {
+      await delay(120);
+      const invite = _mockInviteCodes[code.trim().toUpperCase()];
+      if (!invite) {
+        throw { code: "INVITE_CODE_INVALID_OR_EXPIRED", message: "Codigo de convite invalido" };
+      }
+      const account = _mockAccounts.find((item) => item.id === invite.accountId);
+      if (!account) {
+        throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
+      }
+      return clone(account);
+    }
+    const { data } = await httpClient.post<AccountSummary>("/accounts/join", { code });
+    return data;
+  },
+
+  async generateInviteCode(accountId: string): Promise<InviteCodeResponse> {
+    if (config.useMock) {
+      await delay(100);
+      requireMockOwner(accountId);
+      const code = Math.random().toString(36).slice(2, 10).toUpperCase();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      _mockInviteCodes[code] = { accountId, expiresAt };
+      return { code, expiresAt };
+    }
+    const { data } = await httpClient.post<InviteCodeResponse>(`/accounts/${accountId}/invite-codes`, {});
+    return data;
+  },
+
+  async listMembers(accountId: string): Promise<AccountMember[]> {
+    if (config.useMock) {
+      await delay(100);
+      requireMockOwner(accountId);
+      return clone(_mockMembersByAccount[accountId] ?? []);
+    }
+    const { data } = await httpClient.get<AccountMember[]>(`/accounts/${accountId}/members`);
+    return data;
+  },
+
+  async updateMemberRole(accountId: string, userId: string, role: AccountRole): Promise<AccountMember> {
+    if (config.useMock) {
+      await delay(100);
+      requireMockOwner(accountId);
+      const members = _mockMembersByAccount[accountId] ?? [];
+      const target = members.find((member) => member.userId === userId);
+      if (!target) throw { code: "ACCOUNT_MEMBER_NOT_FOUND", message: "Membro nao encontrado" };
+
+      if (target.role === "owner" && role !== "owner") {
+        const ownerCount = members.filter((member) => member.role === "owner" && member.status === "active").length;
+        if (ownerCount <= 1) {
+          throw { code: "LAST_OWNER_PROTECTION", message: "A conta precisa de pelo menos um owner" };
+        }
+      }
+
+      target.role = role;
+      const account = _mockAccounts.find((item) => item.id === accountId);
+      if (account && userId === "u1") {
+        account.role = role;
+      }
+      return clone(target);
+    }
+    const { data } = await httpClient.patch<AccountMember>(`/accounts/${accountId}/members/${userId}/role`, { role });
+    return data;
+  },
+
+  async removeMember(accountId: string, userId: string): Promise<void> {
+    if (config.useMock) {
+      await delay(100);
+      requireMockOwner(accountId);
+      const members = _mockMembersByAccount[accountId] ?? [];
+      const target = members.find((member) => member.userId === userId);
+      if (!target) throw { code: "ACCOUNT_MEMBER_NOT_FOUND", message: "Membro nao encontrado" };
+      if (target.role === "owner") {
+        const ownerCount = members.filter((member) => member.role === "owner" && member.status === "active").length;
+        if (ownerCount <= 1) {
+          throw { code: "LAST_OWNER_PROTECTION", message: "A conta precisa de pelo menos um owner" };
+        }
+      }
+      _mockMembersByAccount[accountId] = members.filter((member) => member.userId !== userId);
+      return;
+    }
+    await httpClient.delete(`/accounts/${accountId}/members/${userId}`);
+  },
+
+  async leave(accountId: string): Promise<void> {
+    if (config.useMock) {
+      await delay(100);
+      const account = _mockAccounts.find((item) => item.id === accountId);
+      if (!account) throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
+      if (account.type === "personal") {
+        throw { code: "PERSONAL_ACCOUNT_CANNOT_LEAVE", message: "Nao e possivel sair da conta pessoal" };
+      }
+      if (account.role === "owner") {
+        const members = _mockMembersByAccount[accountId] ?? [];
+        const ownerCount = members.filter((member) => member.role === "owner" && member.status === "active").length;
+        if (ownerCount <= 1) {
+          throw {
+            code: "LAST_OWNER_CANNOT_LEAVE",
+            message: "Nao pode sair da conta sendo o ultimo owner",
+          };
+        }
+      }
+      _mockAccounts = _mockAccounts.filter((item) => item.id !== accountId);
+      delete _mockMembersByAccount[accountId];
+      delete _mockBudgetsByAccount[accountId];
+      _mockTransactions = _mockTransactions.filter((tx) => tx.accountId !== accountId);
+      _mockRecurringRules = _mockRecurringRules.filter((rule) => rule.accountId !== accountId);
+      return;
+    }
+    await httpClient.post(`/accounts/${accountId}/leave`, {});
+  },
+};
 
 export const transactionsApi = {
   async getMonthSummary(month: string): Promise<MonthSummary> {
     if (config.useMock) {
       await delay();
-      const txs = _mockTransactions.filter((t) => t.month === month);
+      const accountId = mockAccountId();
+      const txs = _mockTransactions.filter((t) => t.accountId === accountId && t.month === month);
       const income = txs.filter((t) => t.type === "income");
       const expense = txs.filter((t) => t.type === "expense");
-      const totalIncome = income.reduce((s, t) => s + t.amount, 0);
-      const totalExpense = expense.reduce((s, t) => s + t.amount, 0);
+      const totalIncome = income.reduce((sum, tx) => sum + tx.amount, 0);
+      const totalExpense = expense.reduce((sum, tx) => sum + tx.amount, 0);
       return {
         month,
         totalIncome,
         totalExpense,
         balance: totalIncome - totalExpense,
-        incomeTransactions: income,
-        expenseTransactions: expense,
+        incomeTransactions: clone(income),
+        expenseTransactions: clone(expense),
       };
     }
     const { data } = await httpClient.get<MonthSummary>("/transactions", { params: { month } });
@@ -255,22 +438,24 @@ export const transactionsApi = {
   async create(dto: CreateTransactionDto): Promise<Transaction> {
     if (config.useMock) {
       await delay();
+      const accountId = mockAccountId();
       if (dto.origin === "manual") {
-        ensureMockManualAllowed(dto.month);
+        ensureMockManualAllowed(accountId, dto.month);
       }
 
-      const newTx: Transaction = {
+      const tx: Transaction = {
         ...dto,
         id: `t${_mockNextTxId++}`,
+        accountId,
         userId: "u1",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      _mockTransactions.push(newTx);
-      if (newTx.type === "income") {
-        syncMockBudget(newTx.month);
+      _mockTransactions.push(tx);
+      if (tx.type === "income") {
+        syncMockBudget(accountId, tx.month);
       }
-      return newTx;
+      return clone(tx);
     }
     const { data } = await httpClient.post<Transaction>("/transactions", dto);
     return data;
@@ -279,32 +464,35 @@ export const transactionsApi = {
   async update(id: string, dto: UpdateTransactionDto): Promise<Transaction> {
     if (config.useMock) {
       await delay();
-      const idx = _mockTransactions.findIndex((t) => t.id === id);
-      if (idx >= 0) {
-        const current = _mockTransactions[idx];
-        const nextMonth = dto.date ? monthFromDateString(dto.date) : current.month;
-        if (current.origin === "manual") {
-          ensureMockManualAllowed(nextMonth);
-        }
-
-        const next: Transaction = {
-          ...current,
-          ...dto,
-          ...(dto.date ? { month: nextMonth } : {}),
-          updatedAt: new Date().toISOString(),
-        };
-        _mockTransactions[idx] = next;
-
-        if (current.type === "income") {
-          syncMockBudget(current.month);
-        }
-        if (next.type === "income") {
-          syncMockBudget(next.month);
-        }
-
-        return { ...next };
+      const accountId = mockAccountId();
+      const idx = _mockTransactions.findIndex((tx) => tx.id === id && tx.accountId === accountId);
+      if (idx < 0) {
+        throw { code: "TRANSACTION_NOT_FOUND", message: "Transacao nao encontrada" };
       }
-      throw { code: "NOT_FOUND", message: "Transacao nao encontrada" };
+
+      const current = _mockTransactions[idx];
+      const nextMonth = dto.date ? monthFromDateString(dto.date) : current.month;
+      if (current.origin === "manual") {
+        ensureMockManualAllowed(accountId, nextMonth);
+      }
+
+      const next: Transaction = {
+        ...current,
+        ...dto,
+        ...(dto.date ? { month: nextMonth } : {}),
+        updatedAt: new Date().toISOString(),
+      };
+
+      _mockTransactions[idx] = next;
+
+      if (current.type === "income") {
+        syncMockBudget(accountId, current.month);
+      }
+      if (next.type === "income") {
+        syncMockBudget(accountId, next.month);
+      }
+
+      return clone(next);
     }
     const { data } = await httpClient.put<Transaction>(`/transactions/${id}`, dto);
     return data;
@@ -313,10 +501,11 @@ export const transactionsApi = {
   async delete(id: string): Promise<void> {
     if (config.useMock) {
       await delay();
-      const deleted = _mockTransactions.find((t) => t.id === id);
-      _mockTransactions = _mockTransactions.filter((t) => t.id !== id);
+      const accountId = mockAccountId();
+      const deleted = _mockTransactions.find((tx) => tx.id === id && tx.accountId === accountId);
+      _mockTransactions = _mockTransactions.filter((tx) => !(tx.id === id && tx.accountId === accountId));
       if (deleted?.type === "income") {
-        syncMockBudget(deleted.month);
+        syncMockBudget(accountId, deleted.month);
       }
       return;
     }
@@ -324,18 +513,12 @@ export const transactionsApi = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-// Recurring Rules API
-// ═══════════════════════════════════════════════════════════
-
-let _mockRules = [...mockRecurringRules];
-let _mockNextRuleId = 100;
-
 export const recurringApi = {
   async list(): Promise<RecurringRule[]> {
     if (config.useMock) {
       await delay();
-      return [..._mockRules];
+      const accountId = mockAccountId();
+      return clone(_mockRecurringRules.filter((rule) => rule.accountId === accountId));
     }
     const { data } = await httpClient.get<RecurringRule[]>("/recurring-rules");
     return data;
@@ -347,11 +530,12 @@ export const recurringApi = {
       const rule: RecurringRule = {
         ...dto,
         id: `rr${_mockNextRuleId++}`,
+        accountId: mockAccountId(),
         userId: "u1",
         active: true,
       };
-      _mockRules.push(rule);
-      return rule;
+      _mockRecurringRules.push(rule);
+      return clone(rule);
     }
     const { data } = await httpClient.post<RecurringRule>("/recurring-rules", dto);
     return data;
@@ -360,12 +544,13 @@ export const recurringApi = {
   async update(id: string, dto: UpdateRecurringRuleDto): Promise<RecurringRule> {
     if (config.useMock) {
       await delay();
-      const idx = _mockRules.findIndex((r) => r.id === id);
-      if (idx >= 0) {
-        _mockRules[idx] = { ..._mockRules[idx], ...dto };
-        return { ..._mockRules[idx] };
+      const accountId = mockAccountId();
+      const idx = _mockRecurringRules.findIndex((rule) => rule.id === id && rule.accountId === accountId);
+      if (idx < 0) {
+        throw { code: "RECURRING_RULE_NOT_FOUND", message: "Regra recorrente nao encontrada" };
       }
-      throw { code: "NOT_FOUND", message: "Regra recorrente nao encontrada" };
+      _mockRecurringRules[idx] = { ..._mockRecurringRules[idx], ...dto };
+      return clone(_mockRecurringRules[idx]);
     }
     const { data } = await httpClient.put<RecurringRule>(`/recurring-rules/${id}`, dto);
     return data;
@@ -374,16 +559,13 @@ export const recurringApi = {
   async delete(id: string): Promise<void> {
     if (config.useMock) {
       await delay();
-      _mockRules = _mockRules.filter((r) => r.id !== id);
+      const accountId = mockAccountId();
+      _mockRecurringRules = _mockRecurringRules.filter((rule) => !(rule.id === id && rule.accountId === accountId));
       return;
     }
     await httpClient.delete(`/recurring-rules/${id}`);
   },
 };
-
-// ═══════════════════════════════════════════════════════════
-// Budget API (per-month)
-// ═══════════════════════════════════════════════════════════
 
 export const budgetApi = {
   async getTemplates(): Promise<BudgetTemplate[]> {
@@ -398,11 +580,13 @@ export const budgetApi = {
   async get(month: string): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      if (_mockBudgets[month]) {
-        _mockBudgets[month] = normaliseMockBudget(month, _mockBudgets[month]);
-        return clone(_mockBudgets[month]);
+      const accountId = mockAccountId();
+      const store = ensureBudgetStore(accountId);
+      if (store[month]) {
+        store[month] = normaliseMockBudget(accountId, month, store[month]);
+        return clone(store[month]);
       }
-      return normaliseMockBudget(month);
+      return normaliseMockBudget(accountId, month);
     }
     const { data } = await httpClient.get<MonthBudget>(`/budgets/${month}`);
     return data;
@@ -411,14 +595,16 @@ export const budgetApi = {
   async save(month: string, dto: SaveBudgetDto): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const budget = normaliseMockBudget(month, {
-        userId: "u1",
+      const accountId = mockAccountId();
+      const store = ensureBudgetStore(accountId);
+      const budget = normaliseMockBudget(accountId, month, {
+        accountId,
         month,
         totalBudget: dto.totalBudget,
         categories: dto.categories,
         isReady: false,
       });
-      _mockBudgets[month] = clone(budget);
+      store[month] = clone(budget);
       return clone(budget);
     }
     const { data } = await httpClient.put<MonthBudget>(`/budgets/${month}`, dto);
@@ -428,11 +614,12 @@ export const budgetApi = {
   async addCategory(month: string, dto: AddCategoryDto): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const budget = _mockBudgets[month] ?? normaliseMockBudget(month);
-      const newCat: BudgetCategory = { ...dto, id: `cat${_mockNextCatId++}` };
-      budget.categories.push(newCat);
-      _mockBudgets[month] = normaliseMockBudget(month, budget);
-      return clone(_mockBudgets[month]);
+      const accountId = mockAccountId();
+      const store = ensureBudgetStore(accountId);
+      const budget = store[month] ?? normaliseMockBudget(accountId, month);
+      budget.categories.push({ ...dto, id: `cat${_mockNextCatId++}` });
+      store[month] = normaliseMockBudget(accountId, month, budget);
+      return clone(store[month]);
     }
     const { data } = await httpClient.post<MonthBudget>(`/budgets/${month}/categories`, dto);
     return data;
@@ -441,10 +628,12 @@ export const budgetApi = {
   async removeCategory(month: string, categoryId: string): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const budget = _mockBudgets[month] ?? normaliseMockBudget(month);
-      budget.categories = budget.categories.filter((c) => c.id !== categoryId);
-      _mockBudgets[month] = normaliseMockBudget(month, budget);
-      return clone(_mockBudgets[month]);
+      const accountId = mockAccountId();
+      const store = ensureBudgetStore(accountId);
+      const budget = store[month] ?? normaliseMockBudget(accountId, month);
+      budget.categories = budget.categories.filter((category) => category.id !== categoryId);
+      store[month] = normaliseMockBudget(accountId, month, budget);
+      return clone(store[month]);
     }
     const { data } = await httpClient.delete<MonthBudget>(`/budgets/${month}/categories/${categoryId}`);
     return data;
@@ -453,16 +642,20 @@ export const budgetApi = {
   async copyFrom(targetMonth: string, sourceMonth: string): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const source = _mockBudgets[sourceMonth];
-      if (!source) throw { code: "NOT_FOUND", message: "Mes de origem nao encontrado" };
-      const copy = normaliseMockBudget(targetMonth, {
-        userId: "u1",
+      const accountId = mockAccountId();
+      const store = ensureBudgetStore(accountId);
+      const source = store[sourceMonth];
+      if (!source) {
+        throw { code: "SOURCE_BUDGET_NOT_FOUND", message: "Mes de origem nao encontrado" };
+      }
+      const copy = normaliseMockBudget(accountId, targetMonth, {
+        accountId,
         month: targetMonth,
         totalBudget: 0,
         categories: clone(source.categories),
         isReady: false,
       });
-      _mockBudgets[targetMonth] = clone(copy);
+      store[targetMonth] = clone(copy);
       return clone(copy);
     }
     const { data } = await httpClient.post<MonthBudget>(`/budgets/${targetMonth}/copy-from/${sourceMonth}`);
@@ -470,14 +663,11 @@ export const budgetApi = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-// Stats API
-// ═══════════════════════════════════════════════════════════
-
 export const statsApi = {
   async getSemester(endingMonth?: string): Promise<StatsSnapshot> {
     if (config.useMock) {
-      await delay(500);
+      await delay(350);
+      void endingMonth;
       return getStatsSnapshot("semester");
     }
     const { data } = await httpClient.get<StatsSnapshot>("/stats/semester", {
@@ -488,7 +678,8 @@ export const statsApi = {
 
   async getYear(year?: number): Promise<StatsSnapshot> {
     if (config.useMock) {
-      await delay(500);
+      await delay(350);
+      void year;
       return getStatsSnapshot("year");
     }
     const { data } = await httpClient.get<StatsSnapshot>("/stats/year", {
@@ -498,23 +689,10 @@ export const statsApi = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-// Utility re-exports (for components that need category names)
-// ═══════════════════════════════════════════════════════════
-
-/**
- * Get category name from a list of categories.
- * In real mode the categories come from the budget API response.
- * In mock mode falls back to the default categories.
- */
-export function resolveCategoryName(
-  categoryId: string,
-  categories?: BudgetCategory[],
-): string {
+export function resolveCategoryName(categoryId: string, categories?: BudgetCategory[]): string {
   if (categories) {
-    const found = categories.find((c) => c.id === categoryId);
+    const found = categories.find((category) => category.id === categoryId);
     if (found) return found.name;
   }
-  // Fallback to mock helper (only useful in mock mode)
   return getCategoryName(categoryId);
 }

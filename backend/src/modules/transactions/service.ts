@@ -7,6 +7,7 @@ import { isBudgetReady, syncBudgetTotalFromTransactions } from "../budgets/servi
 
 interface TransactionDto {
   id: string;
+  accountId: string;
   userId: string;
   month: string;
   date: string;
@@ -31,6 +32,7 @@ interface MonthSummaryDto {
 
 function toTransactionDto(doc: {
   _id: Types.ObjectId;
+  accountId: Types.ObjectId;
   userId: Types.ObjectId;
   month: string;
   date: Date;
@@ -45,6 +47,7 @@ function toTransactionDto(doc: {
 }): TransactionDto {
   return {
     id: doc._id.toString(),
+    accountId: doc.accountId.toString(),
     userId: doc.userId.toString(),
     month: doc.month,
     date: doc.date.toISOString().slice(0, 10),
@@ -72,8 +75,8 @@ function parseAndValidateDate(date: string, expectedMonth?: string): Date {
   return parsed;
 }
 
-async function ensureManualTransactionsAllowed(userId: string, month: string): Promise<void> {
-  const budget = await BudgetModel.findOne({ userId, month }).lean();
+async function ensureManualTransactionsAllowed(accountId: string, month: string): Promise<void> {
+  const budget = await BudgetModel.findOne({ accountId, month }).lean();
   if (!budget || !isBudgetReady(budget.categories)) {
     unprocessable(
       "Precisa de criar um orcamento valido para este mes antes de adicionar lancamentos manuais",
@@ -82,8 +85,8 @@ async function ensureManualTransactionsAllowed(userId: string, month: string): P
   }
 }
 
-export async function getMonthSummary(userId: string, month: string): Promise<MonthSummaryDto> {
-  const transactions = await TransactionModel.find({ userId, month }).sort({ date: -1, createdAt: -1 });
+export async function getMonthSummary(accountId: string, month: string): Promise<MonthSummaryDto> {
+  const transactions = await TransactionModel.find({ accountId, month }).sort({ date: -1, createdAt: -1 });
   const txs = transactions.map((t) => toTransactionDto(t));
 
   const incomeTransactions = txs.filter((t) => t.type === "income");
@@ -103,7 +106,8 @@ export async function getMonthSummary(userId: string, month: string): Promise<Mo
 }
 
 export async function createTransaction(
-  userId: string,
+  accountId: string,
+  actorUserId: string,
   input: {
     month: string;
     date: string;
@@ -118,7 +122,7 @@ export async function createTransaction(
   const date = parseAndValidateDate(input.date, input.month);
 
   if (input.origin === "manual") {
-    await ensureManualTransactionsAllowed(userId, input.month);
+    await ensureManualTransactionsAllowed(accountId, input.month);
   }
 
   const recurringRuleId =
@@ -127,7 +131,8 @@ export async function createTransaction(
       : null;
 
   const transaction = await TransactionModel.create({
-    userId,
+    accountId,
+    userId: actorUserId,
     month: input.month,
     date,
     type: input.type,
@@ -139,14 +144,15 @@ export async function createTransaction(
   });
 
   if (transaction.type === "income") {
-    await syncBudgetTotalFromTransactions(userId, transaction.month);
+    await syncBudgetTotalFromTransactions(accountId, transaction.month);
   }
 
   return toTransactionDto(transaction);
 }
 
 export async function updateTransaction(
-  userId: string,
+  accountId: string,
+  actorUserId: string,
   transactionId: string,
   input: {
     date?: string;
@@ -156,7 +162,7 @@ export async function updateTransaction(
     categoryId?: string;
   },
 ): Promise<TransactionDto> {
-  const transaction = await TransactionModel.findOne({ _id: transactionId, userId });
+  const transaction = await TransactionModel.findOne({ _id: transactionId, accountId });
   if (!transaction) {
     notFound("Transacao nao encontrada", "TRANSACTION_NOT_FOUND");
   }
@@ -173,7 +179,7 @@ export async function updateTransaction(
   }
 
   if (transaction.origin === "manual") {
-    await ensureManualTransactionsAllowed(userId, nextMonth);
+    await ensureManualTransactionsAllowed(accountId, nextMonth);
   }
 
   if (input.type) {
@@ -192,6 +198,7 @@ export async function updateTransaction(
     transaction.categoryId = input.categoryId;
   }
 
+  transaction.userId = new Types.ObjectId(actorUserId);
   await transaction.save();
 
   const monthsToSync = new Set<string>();
@@ -202,20 +209,20 @@ export async function updateTransaction(
     monthsToSync.add(transaction.month);
   }
   for (const month of monthsToSync) {
-    await syncBudgetTotalFromTransactions(userId, month);
+    await syncBudgetTotalFromTransactions(accountId, month);
   }
 
   return toTransactionDto(transaction);
 }
 
-export async function deleteTransaction(userId: string, transactionId: string): Promise<void> {
-  const deleted = await TransactionModel.findOneAndDelete({ _id: transactionId, userId });
+export async function deleteTransaction(accountId: string, transactionId: string): Promise<void> {
+  const deleted = await TransactionModel.findOneAndDelete({ _id: transactionId, accountId });
   if (!deleted) {
     notFound("Transacao nao encontrada", "TRANSACTION_NOT_FOUND");
   }
 
   if (deleted.type === "income") {
-    await syncBudgetTotalFromTransactions(userId, deleted.month);
+    await syncBudgetTotalFromTransactions(accountId, deleted.month);
   }
 }
 

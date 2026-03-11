@@ -43,6 +43,7 @@ describeIfIntegration("auth flow integration", () => {
     expect(registerRes.status).toBe(201);
     expect(registerRes.body?.tokens?.accessToken).toBeTypeOf("string");
     expect(registerRes.body?.user?.tutorialSeenAt).toBeNull();
+    expect(registerRes.body?.user?.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
 
     const loginRes = await request(app).post("/api/v1/auth/login").send({
       email: "joao@example.com",
@@ -59,6 +60,7 @@ describeIfIntegration("auth flow integration", () => {
     expect(meRes.status).toBe(200);
     expect(meRes.body.email).toBe("joao@example.com");
     expect(meRes.body.tutorialSeenAt).toBeNull();
+    expect(meRes.body.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
 
     const tutorialRes = await request(app)
       .post("/api/v1/auth/tutorial/complete")
@@ -67,5 +69,25 @@ describeIfIntegration("auth flow integration", () => {
 
     expect(tutorialRes.status).toBe(200);
     expect(typeof tutorialRes.body.tutorialSeenAt).toBe("string");
+    expect(tutorialRes.body.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
+
+    const parallelMe = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        request(app).get("/api/v1/auth/me").set("Authorization", `Bearer ${accessToken}`),
+      ),
+    );
+    for (const res of parallelMe) {
+      expect(res.status).toBe(200);
+    }
+
+    const accountsRes = await request(app)
+      .get("/api/v1/accounts")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(accountsRes.status).toBe(200);
+    const personalAccounts = (accountsRes.body as Array<{ type: string }>).filter(
+      (account) => account.type === "personal",
+    );
+    expect(personalAccounts).toHaveLength(1);
   });
 });

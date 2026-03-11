@@ -11,6 +11,7 @@ import {
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { RefreshTokenModel } from "../../models/refresh-token.model.js";
 import { UserModel } from "../../models/user.model.js";
+import { ensurePersonalAccountForUser } from "../accounts/service.js";
 
 interface UserProfile {
   id: string;
@@ -19,6 +20,7 @@ interface UserProfile {
   currency: string;
   locale: string;
   tutorialSeenAt: string | null;
+  personalAccountId: string;
 }
 
 interface TokenPair {
@@ -36,8 +38,14 @@ function toUserProfile(user: {
   email: string;
   profile?: { name?: string; currency?: string; locale?: string } | null;
   tutorialSeenAt?: Date | null;
+  personalAccountId?: Types.ObjectId | string | null;
 }): UserProfile {
   const profile = user.profile ?? {};
+  const personalAccountId =
+    typeof user.personalAccountId === "string"
+      ? user.personalAccountId
+      : user.personalAccountId?.toString() ?? "";
+
   return {
     id: user._id.toString(),
     email: user.email,
@@ -45,6 +53,7 @@ function toUserProfile(user: {
     currency: profile.currency ?? "EUR",
     locale: profile.locale ?? "pt-PT",
     tutorialSeenAt: user.tutorialSeenAt ? user.tutorialSeenAt.toISOString() : null,
+    personalAccountId,
   };
 }
 
@@ -89,10 +98,15 @@ export async function register(input: {
     },
   });
 
+  const personalAccountId = await ensurePersonalAccountForUser(
+    user._id.toString(),
+    user.profile?.name ?? input.name,
+  );
+
   const tokens = await issueTokenPair(user._id.toString(), req);
   return {
     tokens,
-    user: toUserProfile(user),
+    user: toUserProfile({ ...user.toObject(), personalAccountId }),
   };
 }
 
@@ -111,10 +125,15 @@ export async function login(input: {
     unauthorized("Credenciais invalidas", "INVALID_CREDENTIALS");
   }
 
+  const personalAccountId = await ensurePersonalAccountForUser(
+    user._id.toString(),
+    user.profile?.name ?? "",
+  );
+
   const tokens = await issueTokenPair(user._id.toString(), req);
   return {
     tokens,
-    user: toUserProfile(user),
+    user: toUserProfile({ ...user.toObject(), personalAccountId }),
   };
 }
 
@@ -199,7 +218,12 @@ export async function me(userId: string): Promise<UserProfile> {
     notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
   }
 
-  return toUserProfile(user);
+  const personalAccountId = await ensurePersonalAccountForUser(
+    userId,
+    user.profile?.name ?? "",
+  );
+
+  return toUserProfile({ ...user.toObject(), personalAccountId });
 }
 
 export async function completeTutorial(userId: string): Promise<UserProfile> {
@@ -211,5 +235,11 @@ export async function completeTutorial(userId: string): Promise<UserProfile> {
   if (!user) {
     notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
   }
-  return toUserProfile(user);
+
+  const personalAccountId = await ensurePersonalAccountForUser(
+    userId,
+    user.profile?.name ?? "",
+  );
+
+  return toUserProfile({ ...user.toObject(), personalAccountId });
 }

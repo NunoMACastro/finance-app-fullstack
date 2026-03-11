@@ -23,6 +23,7 @@ import {
   Info,
 } from "lucide-react";
 import { statsApi } from "../lib/api";
+import { useAccount } from "../lib/account-context";
 import type { StatsSnapshot, TrendItem, BudgetVsActualItem } from "../lib/types";
 
 /* ── Helpers ───────────────────────────────────────── */
@@ -493,6 +494,7 @@ function CategoryDetailCard({
    ══════════════════════════════════════════════════════ */
 
 export function StatsPage() {
+  const { activeAccountId } = useAccount();
   const [period, setPeriod] = useState<"semester" | "year">("semester");
   const [stats, setStats] = useState<StatsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -519,7 +521,7 @@ export function StatsPage() {
       setStats(data);
       setLoading(false);
     });
-  }, [period]);
+  }, [activeAccountId, period]);
 
   // Derived stats
   const derived = useMemo(() => {

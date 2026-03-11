@@ -2,6 +2,12 @@ import { Schema, model, Types, type InferSchemaType } from "mongoose";
 
 const transactionSchema = new Schema(
   {
+    accountId: {
+      type: Schema.Types.ObjectId,
+      ref: "Account",
+      required: true,
+      index: true,
+    },
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -54,13 +60,14 @@ const transactionSchema = new Schema(
   },
 );
 
-transactionSchema.index({ userId: 1, month: 1 });
+transactionSchema.index({ accountId: 1, month: 1 });
 transactionSchema.index(
-  { userId: 1, recurringRuleId: 1, month: 1 },
+  { accountId: 1, recurringRuleId: 1, month: 1 },
   { unique: true, partialFilterExpression: { recurringRuleId: { $type: "objectId" } } },
 );
 
 export type TransactionDocument = InferSchemaType<typeof transactionSchema> & {
+  accountId: Types.ObjectId;
   userId: Types.ObjectId;
   recurringRuleId: Types.ObjectId | null;
 };

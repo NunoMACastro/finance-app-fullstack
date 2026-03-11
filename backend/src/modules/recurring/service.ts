@@ -7,6 +7,7 @@ import { syncBudgetTotalFromTransactions } from "../budgets/service.js";
 
 interface RecurringRuleDto {
   id: string;
+  accountId: string;
   userId: string;
   type: "income" | "expense";
   name: string;
@@ -20,6 +21,7 @@ interface RecurringRuleDto {
 
 function toDto(doc: {
   _id: Types.ObjectId;
+  accountId: Types.ObjectId;
   userId: Types.ObjectId;
   type: "income" | "expense";
   name: string;
@@ -32,6 +34,7 @@ function toDto(doc: {
 }): RecurringRuleDto {
   return {
     id: doc._id.toString(),
+    accountId: doc.accountId.toString(),
     userId: doc.userId.toString(),
     type: doc.type,
     name: doc.name,
@@ -54,13 +57,14 @@ function isRuleActiveForMonth(
   return true;
 }
 
-export async function listRules(userId: string): Promise<RecurringRuleDto[]> {
-  const rules = await RecurringRuleModel.find({ userId }).sort({ createdAt: -1 });
+export async function listRules(accountId: string): Promise<RecurringRuleDto[]> {
+  const rules = await RecurringRuleModel.find({ accountId }).sort({ createdAt: -1 });
   return rules.map(toDto);
 }
 
 export async function createRule(
-  userId: string,
+  accountId: string,
+  actorUserId: string,
   input: {
     type: "income" | "expense";
     name: string;
@@ -72,7 +76,8 @@ export async function createRule(
   },
 ): Promise<RecurringRuleDto> {
   const rule = await RecurringRuleModel.create({
-    userId,
+    accountId,
+    userId: actorUserId,
     type: input.type,
     name: input.name,
     amount: input.amount,
@@ -87,7 +92,8 @@ export async function createRule(
 }
 
 export async function updateRule(
-  userId: string,
+  accountId: string,
+  actorUserId: string,
   ruleId: string,
   input: {
     name?: string;
@@ -98,7 +104,7 @@ export async function updateRule(
     active?: boolean;
   },
 ): Promise<RecurringRuleDto> {
-  const rule = await RecurringRuleModel.findOne({ _id: ruleId, userId });
+  const rule = await RecurringRuleModel.findOne({ _id: ruleId, accountId });
   if (!rule) {
     notFound("Regra recorrente nao encontrada", "RECURRING_RULE_NOT_FOUND");
   }
@@ -113,20 +119,21 @@ export async function updateRule(
   if (input.categoryId !== undefined) rule.categoryId = input.categoryId;
   if (input.endMonth !== undefined) rule.endMonth = input.endMonth;
   if (input.active !== undefined) rule.active = input.active;
+  rule.userId = new Types.ObjectId(actorUserId);
 
   await rule.save();
   return toDto(rule);
 }
 
-export async function deleteRule(userId: string, ruleId: string): Promise<void> {
-  const result = await RecurringRuleModel.deleteOne({ _id: ruleId, userId });
+export async function deleteRule(accountId: string, ruleId: string): Promise<void> {
+  const result = await RecurringRuleModel.deleteOne({ _id: ruleId, accountId });
   if (result.deletedCount === 0) {
     notFound("Regra recorrente nao encontrada", "RECURRING_RULE_NOT_FOUND");
   }
 }
 
-export async function generateForUserMonth(userId: string, month: string): Promise<{ created: number }> {
-  const rules = await RecurringRuleModel.find({ userId, active: true });
+export async function generateForAccountMonth(accountId: string, month: string): Promise<{ created: number }> {
+  const rules = await RecurringRuleModel.find({ accountId, active: true });
   const activeRules = rules.filter((rule) => isRuleActiveForMonth(rule, month));
 
   if (activeRules.length === 0) {
@@ -139,13 +146,14 @@ export async function generateForUserMonth(userId: string, month: string): Promi
     const date = monthToDate(month, rule.dayOfMonth);
     const result = await TransactionModel.updateOne(
       {
-        userId,
+        accountId,
         recurringRuleId: rule._id,
         month,
       },
       {
         $setOnInsert: {
-          userId,
+          accountId,
+          userId: rule.userId,
           month,
           date,
           type: rule.type,
@@ -163,18 +171,18 @@ export async function generateForUserMonth(userId: string, month: string): Promi
   }
 
   if (created > 0) {
-    await syncBudgetTotalFromTransactions(userId, month);
+    await syncBudgetTotalFromTransactions(accountId, month);
   }
 
   return { created };
 }
 
-export async function generateForAllUsersMonth(month: string): Promise<number> {
-  const userIds = await RecurringRuleModel.distinct("userId", { active: true });
+export async function generateForAllAccountsMonth(month: string): Promise<number> {
+  const accountIds = await RecurringRuleModel.distinct("accountId", { active: true });
   let totalCreated = 0;
 
-  for (const userId of userIds) {
-    const result = await generateForUserMonth(String(userId), month);
+  for (const accountId of accountIds) {
+    const result = await generateForAccountMonth(String(accountId), month);
     totalCreated += result.created;
   }
 

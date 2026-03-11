@@ -2,8 +2,8 @@ import cron from "node-cron";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { monthFromDate } from "../lib/month.js";
+import { AccountModel } from "../models/account.model.js";
 import { recurringService, statsService } from "../services.js";
-import { UserModel } from "../models/user.model.js";
 
 export function startScheduler(): void {
   if (!env.CRON_ENABLED || env.NODE_ENV === "test") {
@@ -17,15 +17,15 @@ export function startScheduler(): void {
       const month = monthFromDate(new Date());
       logger.info({ month }, "Starting daily recurring/stats job");
 
-      const totalCreated = await recurringService.generateForAllUsersMonth(month);
+      const totalCreated = await recurringService.generateForAllAccountsMonth(month);
       logger.info({ month, totalCreated }, "Recurring generation complete");
 
-      const users = await UserModel.find({}, { _id: 1 }).lean();
-      for (const user of users) {
-        await statsService.materializeCurrentSnapshots(user._id.toString());
+      const accounts = await AccountModel.find({}, { _id: 1 }).lean();
+      for (const account of accounts) {
+        await statsService.materializeCurrentSnapshots(account._id.toString());
       }
 
-      logger.info({ users: users.length }, "Stats snapshots updated");
+      logger.info({ accounts: accounts.length }, "Stats snapshots updated");
     },
     {
       timezone: env.TIMEZONE,
