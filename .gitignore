@@ -1,0 +1,50 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node / build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+.tmp/
+tmp/
+.cache/
+
+# Tooling caches
+.vite/
+.eslintcache
+*.tsbuildinfo
+
+# Environment files (keep examples)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Re-allow env examples
+!.env.example
+!*.env.example
+!**/.env.example
+!**/*.env.example
+!**/.env*.example
+
+# Runtime / local files
+*.pid
+*.seed
+*.pid.lock
