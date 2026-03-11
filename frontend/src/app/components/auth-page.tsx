@@ -5,7 +5,7 @@ import { isApiError } from "../lib/http-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Wallet, Loader2, Mail, Lock, UserCircle, Heart, Sparkles, ShieldCheck } from "lucide-react";
+import { Wallet, Loader2, Mail, Lock, UserCircle, Heart } from "lucide-react";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
@@ -94,18 +94,6 @@ export function AuthPage() {
             </div>
 
             <h1 className="text-white">Poupérrimo</h1>
-            <p className="mt-1 text-sm text-white/85">Uma forma bonita de tratar bem do teu dinheiro.</p>
-
-            <div className="mt-4 flex items-center gap-2 text-xs text-white/90">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur-sm">
-                <Sparkles className="h-3.5 w-3.5" />
-                Simples
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur-sm">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Seguro
-              </span>
-            </div>
           </div>
 
           <div className="p-5 sm:p-6">
