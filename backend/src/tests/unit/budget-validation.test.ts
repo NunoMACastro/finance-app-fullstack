@@ -51,6 +51,13 @@ describe("validateBudgetPercentages", () => {
         { id: "cat1", name: "A", percent: 70 },
       ]),
     ).toBe(false);
+
+    expect(
+      isBudgetReady([
+        { id: "cat1", name: "A", percent: 70 },
+        { id: "cat2", name: "B", percent: 40 },
+      ]),
+    ).toBe(false);
   });
 
   test("all budget templates total 100%", () => {

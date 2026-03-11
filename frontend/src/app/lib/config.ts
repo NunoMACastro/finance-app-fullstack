@@ -11,7 +11,7 @@
  *
  * Environment variables (set in .env or .env.local):
  *   VITE_API_BASE_URL   → backend base URL (e.g. "http://localhost:3001/api/v1")
- *   VITE_USE_MOCK        → "true" | "false" (default: "true")
+ *   VITE_USE_MOCK        → "true" | "false" (default: "false")
  *   VITE_MAINTENANCE_MODE → "true" | "false" (default: "false")
  *   VITE_MAINTENANCE_TITLE → optional maintenance title
  *   VITE_MAINTENANCE_MESSAGE → optional maintenance message
@@ -19,7 +19,7 @@
 
 export const config = {
   /** When true, all API calls return mock data. Set to false to hit the real backend. */
-  useMock: (import.meta.env.VITE_USE_MOCK ?? "true") === "true",
+  useMock: (import.meta.env.VITE_USE_MOCK ?? "false") === "true",
 
   /** Base URL for the real API. Ignored when useMock is true. */
   apiBaseUrl: (import.meta.env.VITE_API_BASE_URL as string) ?? "/api/v1",

@@ -11,7 +11,7 @@ export function isMonthKey(value: string): boolean {
 }
 
 export function monthFromDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 export function parseMonthKey(month: string): { year: number; monthIndex: number } {
@@ -23,7 +23,7 @@ export function parseMonthKey(month: string): { year: number; monthIndex: number
 
 export function monthToDate(month: string, day = 1): Date {
   const { year, monthIndex } = parseMonthKey(month);
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
   const safeDay = Math.min(Math.max(day, 1), daysInMonth);
   return new Date(Date.UTC(year, monthIndex, safeDay));
 }

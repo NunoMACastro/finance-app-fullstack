@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { Button } from "./ui/button";
 import {
   TrendingUp,
   TrendingDown,
@@ -24,7 +25,8 @@ import {
 } from "lucide-react";
 import { statsApi } from "../lib/api";
 import { useAccount } from "../lib/account-context";
-import type { StatsSnapshot, TrendItem, BudgetVsActualItem } from "../lib/types";
+import { getErrorMessage } from "../lib/api-error";
+import type { StatsSnapshot, BudgetVsActualItem, CategorySeriesMonthlyItem } from "../lib/types";
 
 /* ── Helpers ───────────────────────────────────────── */
 
@@ -286,7 +288,7 @@ function MonthDetailPanel({
             <X className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div className="bg-white rounded-xl p-2.5 text-center shadow-sm">
             <p className="text-[10px] text-muted-foreground mb-0.5">Receita</p>
             <p className="text-xs text-emerald-500 tabular-nums">{formatCurrency(item.income)}</p>
@@ -336,32 +338,28 @@ function CategoryDetailCard({
   isExpanded,
   onToggle,
   isHighlighted,
-  trend,
+  monthlySeries,
 }: {
   item: BudgetVsActualItem;
   index: number;
   isExpanded: boolean;
   onToggle: () => void;
   isHighlighted: boolean;
-  trend: TrendItem[];
+  monthlySeries: CategorySeriesMonthlyItem[];
 }) {
   const pct = item.budgeted > 0 ? (item.actual / item.budgeted) * 100 : 0;
   const over = item.actual > item.budgeted;
   const color = PIE_COLORS[index % PIE_COLORS.length];
 
-  // simulated per-month category data (proportional to total expense)
-  const categoryTrend = useMemo(() => {
-    return trend.map((t, idx) => {
-      const share = item.budgeted > 0 ? item.actual / (trend.length * item.budgeted) : 0;
-      const catExpense = Math.round(t.expense * share * (0.8 + Math.random() * 0.4));
-      const catBudget = Math.round(item.budgeted / trend.length);
-      return {
-        label: formatShortMonth(t.month),
-        gasto: catExpense,
-        orc: catBudget,
-      };
-    });
-  }, [item, trend]);
+  const categoryTrend = useMemo(
+    () =>
+      monthlySeries.map((entry) => ({
+        label: formatShortMonth(entry.month),
+        gasto: entry.actual,
+        orc: entry.budgeted,
+      })),
+    [monthlySeries],
+  );
 
   const maxCatVal = Math.max(...categoryTrend.flatMap((c) => [c.gasto, c.orc]), 1);
 
@@ -431,7 +429,7 @@ function CategoryDetailCard({
               className="overflow-hidden"
             >
               <div className="mt-3 pt-3 border-t border-muted">
-                <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-1 gap-2 mb-3">
                   <div className="bg-muted/40 rounded-lg p-2 text-center">
                     <p className="text-[10px] text-muted-foreground">Utilizacao</p>
                     <p className={`text-xs tabular-nums ${over ? "text-rose-500" : "text-sky-500"}`}>
@@ -441,7 +439,7 @@ function CategoryDetailCard({
                   <div className="bg-muted/40 rounded-lg p-2 text-center">
                     <p className="text-[10px] text-muted-foreground">Media/mes</p>
                     <p className="text-xs tabular-nums">
-                      {formatCurrency(item.actual / trend.length)}
+                      {formatCurrency(item.actual / Math.max(monthlySeries.length, 1))}
                     </p>
                   </div>
                   <div className="bg-muted/40 rounded-lg p-2 text-center">
@@ -475,7 +473,7 @@ function CategoryDetailCard({
                             transition={{ duration: 0.5, delay: ci * 0.05 + 0.05 }}
                           />
                         </div>
-                        <span className="text-[8px] text-muted-foreground">{ct.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{ct.label}</span>
                       </div>
                     );
                   })}
@@ -498,6 +496,8 @@ export function StatsPage() {
   const [period, setPeriod] = useState<"semester" | "year">("semester");
   const [stats, setStats] = useState<StatsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   // Interactive state
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
@@ -509,19 +509,39 @@ export function StatsPage() {
   const detailSectionRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  useEffect(() => {
+  const loadStats = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
-    // Reset interactive state on period change
+    setLoadError(null);
+
+    // Reset interactive state on period/account change
     setActivePieIndex(null);
     setSelectedTrendIndex(null);
     setExpandedCards(new Set());
     setHighlightedCategory(null);
-    const fetch = period === "semester" ? statsApi.getSemester() : statsApi.getYear();
-    fetch.then((data) => {
+
+    try {
+      const fetchPromise = period === "semester" ? statsApi.getSemester() : statsApi.getYear();
+      const data = await fetchPromise;
+      if (requestId !== requestIdRef.current) return;
       setStats(data);
-      setLoading(false);
-    });
-  }, [activeAccountId, period]);
+    } catch (error) {
+      if (requestId !== requestIdRef.current) return;
+      setStats(null);
+      setLoadError(getErrorMessage(error, "Nao foi possivel carregar estatisticas"));
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [period, activeAccountId]);
+
+  useEffect(() => {
+    void loadStats();
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [loadStats]);
 
   // Derived stats
   const derived = useMemo(() => {
@@ -581,7 +601,7 @@ export function StatsPage() {
   }, [stats]);
 
   // Handlers
-  const handlePieClick = useCallback((_: any, index: number) => {
+  const handlePieClick = useCallback((_: unknown, index: number) => {
     if (!derived) return;
     const isDeselect = activePieIndex === index;
     setActivePieIndex(isDeselect ? null : index);
@@ -663,6 +683,28 @@ export function StatsPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <Card className="border-amber-200 bg-amber-50/80 shadow-sm">
+        <div className="p-4 flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-800">{loadError}</p>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100"
+            onClick={() => {
+              void loadStats();
+            }}
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   if (!stats || !derived) return null;
 
   const trendData: TrendDataPoint[] = stats.trend.map((t) => ({
@@ -670,6 +712,7 @@ export function StatsPage() {
     name: formatShortMonth(t.month),
     savingsRate: t.income > 0 ? Math.round(((t.income - t.expense) / t.income) * 100) : 0,
   }));
+  const categorySeries = stats.categorySeries ?? [];
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -781,7 +824,7 @@ export function StatsPage() {
 
       {/* Totals Row with MoM */}
       <motion.div
-        className="grid grid-cols-3 gap-3"
+        className="grid grid-cols-1 gap-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
@@ -829,7 +872,7 @@ export function StatsPage() {
 
       {/* Best / Worst Month */}
       <motion.div
-        className="grid grid-cols-2 gap-3"
+        className="grid grid-cols-1 gap-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
@@ -931,7 +974,7 @@ export function StatsPage() {
                 const barColor = rate >= 20 ? "#86efac" : rate >= 10 ? "#fcd34d" : "#fda4af";
                 return (
                   <div key={`sr-${index}`} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[9px] tabular-nums text-muted-foreground">{rate}%</span>
+                    <span className="text-[10px] tabular-nums text-muted-foreground">{rate}%</span>
                     <div className="w-full flex justify-center" style={{ height: 90 }}>
                       <div className="flex items-end h-full">
                         <motion.div
@@ -943,7 +986,7 @@ export function StatsPage() {
                         />
                       </div>
                     </div>
-                    <span className="text-[9px] text-muted-foreground">{entry.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{entry.name}</span>
                   </div>
                 );
               })}
@@ -981,8 +1024,8 @@ export function StatsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            <div className="flex items-center gap-2">
-              <div className="w-1/2 flex justify-center">
+            <div className="flex flex-col gap-3">
+              <div className="w-full flex justify-center">
                 <SvgDonutChart
                   data={derived.pieData}
                   activeIndex={activePieIndex}
@@ -990,7 +1033,7 @@ export function StatsPage() {
                   onSliceClick={handleDonutSliceClick}
                 />
               </div>
-              <div className="flex-1 flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 {derived.pieData.map((item, i) => (
                   <button
                     key={item.categoryId}
@@ -1028,7 +1071,7 @@ export function StatsPage() {
                       const p = derived.pieData[activePieIndex];
                       const bva = stats.budgetVsActual.find(b => b.categoryId === p.categoryId);
                       return (
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           <div className="bg-muted/40 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-muted-foreground">Total gasto</p>
                             <p className="text-xs tabular-nums">{formatCurrency(p.value)}</p>
@@ -1145,7 +1188,7 @@ export function StatsPage() {
                     </div>
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-muted-foreground w-6">Orc.</span>
+                        <span className="text-[10px] text-muted-foreground w-6">Orc.</span>
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <motion.div
                             className="h-full rounded-full bg-sky-300"
@@ -1154,10 +1197,10 @@ export function StatsPage() {
                             transition={{ duration: 0.6, ease: "easeOut", delay: 0.22 + i * 0.04 }}
                           />
                         </div>
-                        <span className="text-[9px] tabular-nums text-muted-foreground w-16 text-right">{formatCurrency(b.budgeted)}</span>
+                        <span className="text-[10px] tabular-nums text-muted-foreground w-16 text-right">{formatCurrency(b.budgeted)}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-muted-foreground w-6">Real</span>
+                        <span className="text-[10px] text-muted-foreground w-6">Real</span>
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <motion.div
                             className={`h-full rounded-full ${over ? "bg-rose-300" : "bg-amber-300"}`}
@@ -1166,7 +1209,7 @@ export function StatsPage() {
                             transition={{ duration: 0.6, ease: "easeOut", delay: 0.25 + i * 0.04 }}
                           />
                         </div>
-                        <span className="text-[9px] tabular-nums text-muted-foreground w-16 text-right">{formatCurrency(b.actual)}</span>
+                        <span className="text-[10px] tabular-nums text-muted-foreground w-16 text-right">{formatCurrency(b.actual)}</span>
                       </div>
                     </div>
                   </div>
@@ -1212,7 +1255,9 @@ export function StatsPage() {
               isExpanded={expandedCards.has(item.categoryId)}
               onToggle={() => toggleCard(item.categoryId)}
               isHighlighted={highlightedCategory === item.categoryId}
-              trend={stats.trend}
+              monthlySeries={
+                categorySeries.find((series) => series.categoryId === item.categoryId)?.monthly ?? []
+              }
             />
           </div>
         ))}
@@ -1233,7 +1278,7 @@ export function StatsPage() {
                 <p className="text-white/70 text-xs">Media movel dos ultimos 3 meses</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-1 gap-3 mb-3">
               <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 text-center">
                 <p className="text-[11px] text-white/70 mb-1">Receita</p>
                 <p className="text-white text-sm tabular-nums">{formatCurrency(stats.forecast.projectedIncome)}</p>

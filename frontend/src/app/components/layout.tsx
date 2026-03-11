@@ -1,8 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { useAuth } from "../lib/auth-context";
+import { getErrorMessage } from "../lib/api-error";
 import { useAccount } from "../lib/account-context";
+import { getAccountRoleLabel } from "../lib/account-role-label";
+import type { AccountRole } from "../lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -62,13 +66,17 @@ export function AppLayout() {
     userId: string;
     name: string;
     email: string;
-    role: "owner" | "editor" | "viewer";
+    role: AccountRole;
     status: "active" | "inactive";
   }>>([]);
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/");
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel terminar sessao"));
+    }
   };
 
   const initials = user?.name
@@ -81,13 +89,17 @@ export function AppLayout() {
     : "?";
 
   const scopeFromPath = (path: string): TourScope => (path.startsWith("/stats") ? "stats" : "month");
+  const tutorialSessionKey = useCallback(
+    (scope: TourScope) => `tutorial_seen_session:${user?.id ?? "anon"}:${scope}`,
+    [user?.id],
+  );
 
   useEffect(() => {
     if (!user || tutorialOpen) return;
+    if (user.tutorialSeenAt !== null) return;
 
     const scope = scopeFromPath(location.pathname);
-    const storageKey = `tutorial_seen:${user.id}:${scope}`;
-    const alreadySeen = window.localStorage.getItem(storageKey) === "1";
+    const alreadySeen = window.sessionStorage.getItem(tutorialSessionKey(scope)) === "1";
     if (alreadySeen) return;
 
     const timer = window.setTimeout(() => {
@@ -96,16 +108,19 @@ export function AppLayout() {
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [location.pathname, tutorialOpen, user]);
+  }, [location.pathname, tutorialOpen, tutorialSessionKey, user]);
 
-  const closeTutorial = async () => {
+  const closeTutorial = async (_reason: "done" | "skip") => {
     setTutorialOpen(false);
     if (user) {
-      const storageKey = `tutorial_seen:${user.id}:${tutorialScope}`;
-      window.localStorage.setItem(storageKey, "1");
+      window.sessionStorage.setItem(tutorialSessionKey(tutorialScope), "1");
     }
     if (user?.tutorialSeenAt === null) {
-      await completeTutorial();
+      try {
+        await completeTutorial();
+      } catch {
+        // No-op: next login will keep tutorial as unseen if this fails.
+      }
     }
   };
 
@@ -117,6 +132,8 @@ export function AppLayout() {
     try {
       const data = await listMembers(activeAccount.id);
       setMembers(data);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel carregar membros"));
     } finally {
       setMembersLoading(false);
     }
@@ -124,78 +141,91 @@ export function AppLayout() {
 
   const regenerateCode = async () => {
     if (!activeAccount || activeAccountRole !== "owner") return;
-    const code = await generateInviteCode(activeAccount.id);
-    setInviteCode(code.code);
+    try {
+      const code = await generateInviteCode(activeAccount.id);
+      setInviteCode(code.code);
+      toast.success("Codigo de convite gerado");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel gerar codigo"));
+    }
   };
 
   const leaveCurrentAccount = async () => {
     if (!activeAccount || activeAccount.type !== "shared") return;
-    await leaveAccount(activeAccount.id);
-    setMembersDialogOpen(false);
+    try {
+      await leaveAccount(activeAccount.id);
+      setMembersDialogOpen(false);
+      toast.success("Saiu da conta partilhada");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel sair da conta"));
+    }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-40 border-b bg-white/70 backdrop-blur-xl">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-300 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-200/40">
-              <Wallet className="w-4 h-4 text-white" />
+    <div className="min-h-screen bg-background flex flex-col max-w-[430px] mx-auto w-full">
+      <header className="sticky top-0 z-40 border-b bg-white/70 backdrop-blur-xl pt-[max(env(safe-area-inset-top),0px)]">
+        <div className="max-w-[430px] mx-auto px-4 py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-300 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-200/40 shrink-0">
+                <Wallet className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-foreground text-sm truncate">Poupérrimo</span>
             </div>
-            <div className="hidden sm:block">
-              <span className="text-foreground text-sm">Poupérrimo</span>
-            </div>
-          </div>
 
-          <div className="flex-1 max-w-[260px]">
-            <select
-              value={activeAccountId ?? ""}
-              onChange={(event) => setActiveAccount(event.target.value)}
-              className="w-full h-9 rounded-xl border border-input bg-white px-3 text-xs"
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name} · {account.role}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCreateDialogOpen(true)}
-              title="Criar conta partilhada"
-              className="rounded-xl"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setJoinDialogOpen(true)}
-              title="Entrar por codigo"
-              className="rounded-xl"
-            >
-              <UserPlus className="w-4 h-4" />
-            </Button>
-            {activeAccount?.type === "shared" && activeAccountRole === "owner" && (
+            <div className="flex items-center gap-1 shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  void openMembersManager();
-                }}
-                title="Membros"
-                className="rounded-xl"
+                onClick={() => setCreateDialogOpen(true)}
+                title="Criar orcamento partilhado"
+                className="rounded-xl h-9 w-9"
+                data-tour="header-create-shared"
               >
-                <Users className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
               </Button>
-            )}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-100 to-cyan-200 flex items-center justify-center text-xs text-sky-700">
-              {initials}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setJoinDialogOpen(true)}
+                title="Entrar por codigo de partilha"
+                className="rounded-xl h-9 w-9"
+                data-tour="header-join-shared"
+              >
+                <UserPlus className="w-4 h-4" />
+              </Button>
+              <div
+                className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-cyan-200 flex items-center justify-center text-xs text-sky-700"
+                data-tour="header-profile-badge"
+              >
+                {initials}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                title="Sair"
+                className="text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
+                data-tour="header-logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={activeAccountId ?? ""}
+              onChange={(event) => setActiveAccount(event.target.value)}
+              className="flex-1 h-10 rounded-xl border border-input bg-white px-3 text-sm min-w-0"
+              data-tour="header-account-select"
+            >
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} · {getAccountRoleLabel(account.role)}
+                </option>
+              ))}
+            </select>
             <Button
               variant="ghost"
               size="icon"
@@ -204,24 +234,28 @@ export function AppLayout() {
                 setTutorialOpen(true);
               }}
               title="Tutorial"
-              className="text-muted-foreground hover:text-sky-600 rounded-xl"
+              className="text-muted-foreground hover:text-sky-600 rounded-xl h-9 w-9 shrink-0"
             >
               <CircleHelp className="w-4 h-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              title="Sair"
-              className="text-muted-foreground hover:text-destructive rounded-xl"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
+            {activeAccount?.type === "shared" && activeAccountRole === "owner" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  void openMembersManager();
+                }}
+                title="Gerir membros"
+                className="rounded-xl h-9 w-9 shrink-0"
+              >
+                <Users className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="flex-1 px-4 pt-5 pb-24 max-w-3xl w-full mx-auto">
+      <main className="flex-1 px-4 pt-5 pb-[calc(6rem+env(safe-area-inset-bottom))] max-w-[430px] w-full mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -232,7 +266,7 @@ export function AppLayout() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-xl border-t">
-        <div className="max-w-3xl mx-auto flex items-center justify-around py-1.5 px-2">
+        <div className="max-w-[430px] mx-auto flex items-center justify-around pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-2">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -265,7 +299,7 @@ export function AppLayout() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Criar conta partilhada</DialogTitle>
+            <DialogTitle>Criar orcamento partilhado</DialogTitle>
           </DialogHeader>
           <Input
             value={newAccountName}
@@ -279,9 +313,14 @@ export function AppLayout() {
             </Button>
             <Button
               onClick={async () => {
-                await createSharedAccount(newAccountName);
-                setNewAccountName("");
-                setCreateDialogOpen(false);
+                try {
+                  await createSharedAccount(newAccountName);
+                  setNewAccountName("");
+                  setCreateDialogOpen(false);
+                  toast.success("Orcamento partilhado criado");
+                } catch (error) {
+                  toast.error(getErrorMessage(error, "Nao foi possivel criar conta partilhada"));
+                }
               }}
               disabled={!newAccountName.trim()}
             >
@@ -294,7 +333,7 @@ export function AppLayout() {
       <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Entrar por codigo</DialogTitle>
+            <DialogTitle>Entrar em orcamento partilhado</DialogTitle>
           </DialogHeader>
           <Input
             value={joinCode}
@@ -308,9 +347,14 @@ export function AppLayout() {
             </Button>
             <Button
               onClick={async () => {
-                await joinByCode(joinCode);
-                setJoinCode("");
-                setJoinDialogOpen(false);
+                try {
+                  await joinByCode(joinCode);
+                  setJoinCode("");
+                  setJoinDialogOpen(false);
+                  toast.success("Entrou no orcamento partilhado");
+                } catch (error) {
+                  toast.error(getErrorMessage(error, "Nao foi possivel entrar com esse codigo"));
+                }
               }}
               disabled={!joinCode.trim()}
             >
@@ -323,10 +367,10 @@ export function AppLayout() {
       <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
         <DialogContent className="rounded-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Membros da conta</DialogTitle>
+            <DialogTitle>Membros do orcamento partilhado</DialogTitle>
           </DialogHeader>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2">
             <Button variant="outline" onClick={() => void regenerateCode()}>
               Regenerar codigo
             </Button>
@@ -340,37 +384,49 @@ export function AppLayout() {
           ) : (
             <div className="flex flex-col gap-2">
               {members.map((member) => (
-                <div key={member.userId} className="rounded-xl border p-3 flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
+                <div key={member.userId} className="rounded-xl border p-3 flex flex-col gap-2">
+                  <div className="min-w-0">
                     <p className="text-sm truncate">{member.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                   </div>
-                  <select
-                    className="h-8 rounded-lg border border-input bg-white px-2 text-xs"
-                    value={member.role}
-                    onChange={async (event) => {
-                      const role = event.target.value as "owner" | "editor" | "viewer";
-                      const updated = await updateMemberRole(activeAccount!.id, member.userId, role);
-                      setMembers((prev) =>
-                        prev.map((item) => (item.userId === updated.userId ? updated : item)),
-                      );
-                    }}
-                  >
-                    <option value="owner">owner</option>
-                    <option value="editor">editor</option>
-                    <option value="viewer">viewer</option>
-                  </select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={async () => {
-                      await removeMember(activeAccount!.id, member.userId);
-                      setMembers((prev) => prev.filter((item) => item.userId !== member.userId));
-                    }}
-                  >
-                    Remover
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="h-10 rounded-lg border border-input bg-white px-2 text-xs flex-1"
+                      value={member.role}
+                      onChange={async (event) => {
+                        try {
+                          const role = event.target.value as AccountRole;
+                          const updated = await updateMemberRole(activeAccount!.id, member.userId, role);
+                          setMembers((prev) =>
+                            prev.map((item) => (item.userId === updated.userId ? updated : item)),
+                          );
+                          toast.success("Role atualizada");
+                        } catch (error) {
+                          toast.error(getErrorMessage(error, "Nao foi possivel atualizar a role"));
+                        }
+                      }}
+                    >
+                      <option value="owner">{getAccountRoleLabel("owner")}</option>
+                      <option value="editor">{getAccountRoleLabel("editor")}</option>
+                      <option value="viewer">{getAccountRoleLabel("viewer")}</option>
+                    </select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive h-10 px-3"
+                      onClick={async () => {
+                        try {
+                          await removeMember(activeAccount!.id, member.userId);
+                          setMembers((prev) => prev.filter((item) => item.userId !== member.userId));
+                          toast.success("Membro removido");
+                        } catch (error) {
+                          toast.error(getErrorMessage(error, "Nao foi possivel remover membro"));
+                        }
+                      }}
+                    >
+                      Remover
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -378,7 +434,7 @@ export function AppLayout() {
 
           {activeAccount?.type === "shared" && (
             <Button variant="outline" className="w-full" onClick={() => void leaveCurrentAccount()}>
-              Sair desta conta
+              Sair deste orcamento partilhado
             </Button>
           )}
         </DialogContent>
@@ -387,8 +443,8 @@ export function AppLayout() {
       <TutorialTour
         open={tutorialOpen}
         scope={tutorialScope}
-        onClose={() => {
-          void closeTutorial();
+        onClose={(reason) => {
+          void closeTutorial(reason);
         }}
       />
     </div>

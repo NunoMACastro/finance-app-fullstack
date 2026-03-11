@@ -1,14 +1,59 @@
+import React, { useEffect, useState } from "react";
 import { RouterProvider } from "react-router";
+import { Toaster } from "sonner";
 import { router } from "./routes";
 import { AuthProvider, useAuth } from "./lib/auth-context";
 import { AccountProvider } from "./lib/account-context";
 import { config } from "./lib/config";
 import { AuthPage } from "./components/auth-page";
 import { MaintenancePage } from "./components/maintenance-page";
-import { Loader2 } from "lucide-react";
+import { Loader2, Smartphone, X } from "lucide-react";
+
+const DESKTOP_NOTICE_STORAGE_KEY = "finance_v2.desktop_notice_dismissed";
+
+function useWideViewport(minWidth = 768): boolean {
+  const [isWide, setIsWide] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= minWidth;
+  });
+
+  useEffect(() => {
+    const handleResize = () => setIsWide(window.innerWidth >= minWidth);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, [minWidth]);
+
+  return isWide;
+}
 
 function AppContent() {
   const { isAuthenticated, isInitialising } = useAuth();
+  const isWideViewport = useWideViewport();
+  const [noticeDismissed, setNoticeDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.sessionStorage.getItem(DESKTOP_NOTICE_STORAGE_KEY) === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed = window.sessionStorage.getItem(DESKTOP_NOTICE_STORAGE_KEY) === "1";
+    if (dismissed) {
+      setNoticeDismissed(true);
+    }
+  }, []);
+
+  const showDesktopNotice = isWideViewport && !noticeDismissed;
+  const dismissDesktopNotice = () => {
+    setNoticeDismissed(true);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(DESKTOP_NOTICE_STORAGE_KEY, "1");
+    }
+  };
 
   // Show splash while checking for stored tokens
   if (isInitialising) {
@@ -21,10 +66,54 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <AuthPage />;
+    return (
+      <>
+        {showDesktopNotice && (
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] w-[min(92vw,520px)] rounded-xl border border-sky-200 bg-sky-50/95 shadow-lg backdrop-blur-sm">
+            <div className="px-3 py-2.5 flex items-start gap-2">
+              <Smartphone className="w-4 h-4 text-sky-700 mt-0.5 shrink-0" />
+              <p className="text-xs text-sky-900 flex-1">
+                Esta app está otimizada para telemóvel. Podes continuar no desktop, mas a melhor experiência é no mobile.
+              </p>
+              <button
+                type="button"
+                className="p-1 rounded-md text-sky-700 hover:bg-sky-100"
+                onClick={dismissDesktopNotice}
+                aria-label="Fechar aviso"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+        <AuthPage />
+      </>
+    );
   }
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      {showDesktopNotice && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] w-[min(92vw,520px)] rounded-xl border border-sky-200 bg-sky-50/95 shadow-lg backdrop-blur-sm">
+          <div className="px-3 py-2.5 flex items-start gap-2">
+            <Smartphone className="w-4 h-4 text-sky-700 mt-0.5 shrink-0" />
+            <p className="text-xs text-sky-900 flex-1">
+              Esta app está otimizada para telemóvel. Podes continuar no desktop, mas a melhor experiência é no mobile.
+            </p>
+            <button
+              type="button"
+              className="p-1 rounded-md text-sky-700 hover:bg-sky-100"
+              onClick={dismissDesktopNotice}
+              aria-label="Fechar aviso"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+      <RouterProvider router={router} />
+    </>
+  );
 }
 
 export default function App() {
@@ -36,6 +125,7 @@ export default function App() {
     <AuthProvider>
       <AccountProvider>
         <AppContent />
+        <Toaster position="top-center" richColors />
       </AccountProvider>
     </AuthProvider>
   );

@@ -1,65 +1,29 @@
 # Finance v2 Backend
 
-Backend API em Node.js + Express + MongoDB para o projeto Finance v2.
+Este README e um atalho rapido. A documentacao detalhada do backend esta em:
 
-## Requisitos
-- Node.js 20+
-- MongoDB (local ou Atlas)
+- `../docs/backend/README.md`
+- `../docs/backend/setup-config.md`
+- `../docs/backend/api-reference.md`
+- `../docs/backend/business-rules.md`
+- `../docs/backend/data-model.md`
+- `../docs/backend/operations.md`
+- `../docs/backend/testing.md`
 
-## Setup
-1. Copiar env:
-   - `cp .env.example .env`
-2. Instalar dependencias:
-   - `npm install`
-3. Arrancar em dev:
-   - `npm run dev`
+## Quick start
 
-Servidor por defeito: `http://localhost:3001`
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm run dev
+```
 
-## Endpoints principais
-- Health: `GET /health`
-- Ready: `GET /ready`
-- Metrics: `GET /metrics`
-- API base: `/api/v1`
+API local: `http://localhost:3001/api/v1`
 
-### Auth
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/logout`
-- `GET /api/v1/auth/me`
-- `POST /api/v1/auth/tutorial/complete`
+## Health
 
-### Transactions
-- `GET /api/v1/transactions?month=YYYY-MM`
-- `POST /api/v1/transactions`
-- `PUT /api/v1/transactions/:id`
-- `DELETE /api/v1/transactions/:id`
+- `GET /health`
+- `GET /ready`
+- `GET /metrics`
 
-### Budgets
-- `GET /api/v1/budgets/:month`
-- `GET /api/v1/budgets/templates`
-- `PUT /api/v1/budgets/:month`
-- `POST /api/v1/budgets/:month/categories`
-- `DELETE /api/v1/budgets/:month/categories/:categoryId`
-- `POST /api/v1/budgets/:month/copy-from/:sourceMonth`
-
-Nota: `PUT /budgets/:month` continua a aceitar `totalBudget` por compatibilidade, mas o backend ignora esse valor e calcula sempre `totalBudget` pela soma das receitas do mes.
-
-### Stats
-- `GET /api/v1/stats/semester?endingMonth=YYYY-MM`
-- `GET /api/v1/stats/year?year=YYYY`
-- `GET /api/v1/stats/compare-budget?from=YYYY-MM&to=YYYY-MM`
-
-### Recurring Rules
-- `GET /api/v1/recurring-rules`
-- `POST /api/v1/recurring-rules`
-- `PUT /api/v1/recurring-rules/:id`
-- `DELETE /api/v1/recurring-rules/:id`
-- `POST /api/v1/recurring-rules/generate?month=YYYY-MM`
-
-## Scripts
-- `npm run dev`
-- `npm run build`
-- `npm run start`
-- `npm run test`

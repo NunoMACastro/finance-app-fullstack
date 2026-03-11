@@ -11,8 +11,42 @@ interface TourStep {
   description: string;
 }
 
+const HEADER_TOUR_STEPS: TourStep[] = [
+  {
+    id: "header-account-select",
+    selector: '[data-tour="header-account-select"]',
+    title: "Conta ativa",
+    description: "Este dropdown troca entre o teu espaco pessoal e os orcamentos partilhados.",
+  },
+  {
+    id: "header-create-shared",
+    selector: '[data-tour="header-create-shared"]',
+    title: "Novo orcamento partilhado",
+    description: "No botao + crias um novo espaco partilhado para gerir despesas em conjunto.",
+  },
+  {
+    id: "header-join-shared",
+    selector: '[data-tour="header-join-shared"]',
+    title: "Entrar por codigo",
+    description: "Usa este botao para entrar num orcamento partilhado com codigo de convite.",
+  },
+  {
+    id: "header-profile-badge",
+    selector: '[data-tour="header-profile-badge"]',
+    title: "Perfil",
+    description: "Este badge mostra o teu utilizador atual.",
+  },
+  {
+    id: "header-logout",
+    selector: '[data-tour="header-logout"]',
+    title: "Sair",
+    description: "Termina a sessao e volta ao ecran de autenticacao.",
+  },
+];
+
 const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
   month: [
+    ...HEADER_TOUR_STEPS,
     {
       id: "month-nav",
       selector: '[data-tour="month-nav"]',
@@ -45,6 +79,7 @@ const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
     },
   ],
   stats: [
+    ...HEADER_TOUR_STEPS,
     {
       id: "stats-period",
       selector: '[data-tour="stats-period-tabs"]',
@@ -93,19 +128,48 @@ export function TutorialTour({
 
   useEffect(() => {
     if (!open) return;
+    setTargetRect(null);
+  }, [open, step.id]);
+
+  useEffect(() => {
+    if (!open) return;
 
     let rafId = 0;
-    let timerId = 0;
+    let scrollTimerId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    let observedElement: HTMLElement | null = null;
+
+    const findTarget = () => {
+      const target = document.querySelector(step.selector);
+      return target instanceof HTMLElement ? target : null;
+    };
+
+    const ensureObservedTarget = (nextTarget: HTMLElement | null) => {
+      if (!resizeObserver) return;
+      if (observedElement === nextTarget) return;
+      if (observedElement) {
+        resizeObserver.unobserve(observedElement);
+      }
+      if (nextTarget) {
+        resizeObserver.observe(nextTarget);
+      }
+      observedElement = nextTarget;
+    };
 
     const refreshRect = () => {
-      const target = document.querySelector(step.selector);
-      if (!target || !(target instanceof HTMLElement)) {
+      const targetElement = findTarget();
+      ensureObservedTarget(targetElement);
+      if (!targetElement) {
         setTargetRect(null);
         return;
       }
 
-      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-      setTargetRect(target.getBoundingClientRect());
+      const rect = targetElement.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        setTargetRect(null);
+        return;
+      }
+      setTargetRect(rect);
     };
 
     const scheduleRefresh = () => {
@@ -113,18 +177,47 @@ export function TutorialTour({
       rafId = requestAnimationFrame(refreshRect);
     };
 
+    const ensureTargetVisible = () => {
+      const targetElement = findTarget();
+      if (!targetElement) return;
+      const rect = targetElement.getBoundingClientRect();
+      const topLimit = 76;
+      const bottomLimit = window.innerHeight - 24;
+      const isVisible = rect.top >= topLimit && rect.bottom <= bottomLimit;
+      if (!isVisible) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      }
+    };
+
     scheduleRefresh();
-    timerId = window.setInterval(scheduleRefresh, 180);
+    ensureTargetVisible();
+
     window.addEventListener("resize", scheduleRefresh);
+    window.addEventListener("orientationchange", scheduleRefresh);
     window.addEventListener("scroll", scheduleRefresh, true);
+    document.addEventListener("transitionend", scheduleRefresh, true);
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        if (scrollTimerId) window.clearTimeout(scrollTimerId);
+        scrollTimerId = window.setTimeout(scheduleRefresh, 40);
+      });
+      ensureObservedTarget(findTarget());
+    }
 
     return () => {
-      if (timerId) window.clearInterval(timerId);
+      if (scrollTimerId) window.clearTimeout(scrollTimerId);
       if (rafId) cancelAnimationFrame(rafId);
+      if (resizeObserver && observedElement) {
+        resizeObserver.unobserve(observedElement);
+      }
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", scheduleRefresh);
+      window.removeEventListener("orientationchange", scheduleRefresh);
       window.removeEventListener("scroll", scheduleRefresh, true);
+      document.removeEventListener("transitionend", scheduleRefresh, true);
     };
-  }, [open, step]);
+  }, [open, step.selector]);
 
   const cardPosition = useMemo(() => {
     if (!targetRect) return null;

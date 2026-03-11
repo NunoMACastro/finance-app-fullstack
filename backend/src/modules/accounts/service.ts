@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import mongoose, { type ClientSession } from "mongoose";
 import { notFound, forbidden, unprocessable } from "../../lib/api-error.js";
 import { sha256 } from "../../lib/hash.js";
 import { AccountInviteCodeModel } from "../../models/account-invite-code.model.js";
@@ -43,31 +44,57 @@ function isDuplicateKeyError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000;
 }
 
-async function getActiveMembership(userId: string, accountId: string) {
-  return AccountMembershipModel.findOne({
+function roleWeight(role: AccountRole): number {
+  if (role === "owner") return 3;
+  if (role === "editor") return 2;
+  return 1;
+}
+
+async function runInTransaction<T>(fn: (session: ClientSession) => Promise<T>): Promise<T> {
+  const session = await mongoose.startSession();
+  try {
+    let result!: T;
+    await session.withTransaction(async () => {
+      result = await fn(session);
+    });
+    return result;
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function getActiveMembership(userId: string, accountId: string, session?: ClientSession) {
+  const query = AccountMembershipModel.findOne({
     accountId,
     userId,
     status: "active",
   });
+  if (session) query.session(session);
+  return query;
 }
 
-async function getAccountOrThrow(accountId: string) {
-  const account = await AccountModel.findById(accountId);
+async function getAccountOrThrow(accountId: string, session?: ClientSession) {
+  const query = AccountModel.findById(accountId);
+  if (session) query.session(session);
+  const account = await query;
   if (!account) {
     notFound("Conta nao encontrada", "ACCOUNT_NOT_FOUND");
   }
   return account;
 }
 
-export async function ensurePersonalAccountForUser(userId: string, nameHint?: string): Promise<string> {
-  const user = await UserModel.findById(userId);
+async function ensurePersonalAccountForUserInSession(
+  userId: string,
+  nameHint: string | undefined,
+  session: ClientSession,
+): Promise<string> {
+  const user = await UserModel.findById(userId).session(session);
   if (!user) {
     notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
   }
 
   const accountName = nameHint ? `${nameHint} (Pessoal)` : "Conta Pessoal";
 
-  // Atomic upsert guarded by unique partial index: one personal account per user.
   const personalAccount = await (async () => {
     try {
       return await AccountModel.findOneAndUpdate(
@@ -86,6 +113,7 @@ export async function ensurePersonalAccountForUser(userId: string, nameHint?: st
           upsert: true,
           new: true,
           setDefaultsOnInsert: true,
+          session,
         },
       );
     } catch (error) {
@@ -95,7 +123,7 @@ export async function ensurePersonalAccountForUser(userId: string, nameHint?: st
       return AccountModel.findOne({
         createdByUserId: userId,
         type: "personal",
-      });
+      }).session(session);
     }
   })();
 
@@ -103,28 +131,53 @@ export async function ensurePersonalAccountForUser(userId: string, nameHint?: st
     notFound("Conta pessoal nao encontrada", "PERSONAL_ACCOUNT_NOT_FOUND");
   }
 
-  await UserModel.updateOne(
-    { _id: userId, personalAccountId: { $ne: personalAccount._id } },
-    { $set: { personalAccountId: personalAccount._id } },
-  );
+  if (!user.personalAccountId || user.personalAccountId.toString() !== personalAccount._id.toString()) {
+    user.personalAccountId = personalAccount._id;
+    await user.save({ session });
+  }
 
-  await AccountMembershipModel.findOneAndUpdate(
-    { accountId: personalAccount._id, userId },
-    {
-      $set: {
-        role: "owner",
-        status: "active",
-        leftAt: null,
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    },
-  );
+  const membership = await AccountMembershipModel.findOne({
+    accountId: personalAccount._id,
+    userId,
+  }).session(session);
+
+  if (!membership) {
+    await AccountMembershipModel.create(
+      [
+        {
+          accountId: personalAccount._id,
+          userId,
+          role: "owner",
+          status: "active",
+          leftAt: null,
+        },
+      ],
+      { session },
+    );
+  } else {
+    let changed = false;
+    if (membership.role !== "owner") {
+      membership.role = "owner";
+      changed = true;
+    }
+    if (membership.status !== "active") {
+      membership.status = "active";
+      changed = true;
+    }
+    if (membership.leftAt !== null) {
+      membership.leftAt = null;
+      changed = true;
+    }
+    if (changed) {
+      await membership.save({ session });
+    }
+  }
 
   return personalAccount._id.toString();
+}
+
+export async function ensurePersonalAccountForUser(userId: string, nameHint?: string): Promise<string> {
+  return runInTransaction((session) => ensurePersonalAccountForUserInSession(userId, nameHint, session));
 }
 
 export async function listUserAccounts(userId: string): Promise<AccountSummaryDto[]> {
@@ -139,13 +192,22 @@ export async function listUserAccounts(userId: string): Promise<AccountSummaryDt
     return [];
   }
 
-  const accountIds = memberships.map((membership) => membership.accountId);
+  const bestMembershipByAccount = new Map<string, (typeof memberships)[number]>();
+  for (const membership of memberships) {
+    const accountId = membership.accountId.toString();
+    const existing = bestMembershipByAccount.get(accountId);
+    if (!existing || roleWeight(membership.role) > roleWeight(existing.role)) {
+      bestMembershipByAccount.set(accountId, membership);
+    }
+  }
+
+  const accountIds = Array.from(bestMembershipByAccount.keys());
   const accounts = await AccountModel.find({ _id: { $in: accountIds } }).lean();
   const accountsById = new Map(accounts.map((account) => [account._id.toString(), account]));
 
   const result: AccountSummaryDto[] = [];
-  for (const membership of memberships) {
-    const account = accountsById.get(membership.accountId.toString());
+  for (const [accountId, membership] of bestMembershipByAccount.entries()) {
+    const account = accountsById.get(accountId);
     if (!account) {
       continue;
     }
@@ -174,35 +236,52 @@ export async function createSharedAccount(userId: string, name: string): Promise
     unprocessable("Nome da conta e obrigatorio", "ACCOUNT_NAME_REQUIRED");
   }
 
-  await ensurePersonalAccountForUser(userId);
+  return runInTransaction(async (session) => {
+    await ensurePersonalAccountForUserInSession(userId, undefined, session);
 
-  const account = await AccountModel.create({
-    name: cleanName,
-    type: "shared",
-    createdByUserId: userId,
+    const createdAccounts = await AccountModel.create(
+      [
+        {
+          name: cleanName,
+          type: "shared",
+          createdByUserId: userId,
+        },
+      ],
+      { session },
+    );
+    const account = createdAccounts[0];
+    if (!account) {
+      notFound("Conta nao encontrada", "ACCOUNT_NOT_FOUND");
+    }
+
+    await AccountMembershipModel.create(
+      [
+        {
+          accountId: account._id,
+          userId,
+          role: "owner",
+          status: "active",
+        },
+      ],
+      { session },
+    );
+
+    return {
+      id: account._id.toString(),
+      name: account.name,
+      type: account.type,
+      role: "owner",
+      isPersonalDefault: false,
+    };
   });
-
-  await AccountMembershipModel.create({
-    accountId: account._id,
-    userId,
-    role: "owner",
-    status: "active",
-  });
-
-  return {
-    id: account._id.toString(),
-    name: account.name,
-    type: account.type,
-    role: "owner",
-    isPersonalDefault: false,
-  };
 }
 
-export async function assertAccountAccess(
+async function assertAccountAccessInternal(
   userId: string,
   accountId: string,
+  session?: ClientSession,
 ): Promise<{ accountId: string; role: AccountRole }> {
-  const membership = await getActiveMembership(userId, accountId);
+  const membership = await getActiveMembership(userId, accountId, session);
   if (!membership) {
     forbidden("Sem acesso a esta conta", "ACCOUNT_ACCESS_DENIED");
   }
@@ -213,11 +292,22 @@ export async function assertAccountAccess(
   };
 }
 
-export async function assertOwnerAccess(userId: string, accountId: string): Promise<void> {
-  const access = await assertAccountAccess(userId, accountId);
+export async function assertAccountAccess(
+  userId: string,
+  accountId: string,
+): Promise<{ accountId: string; role: AccountRole }> {
+  return assertAccountAccessInternal(userId, accountId);
+}
+
+async function assertOwnerAccessInternal(userId: string, accountId: string, session?: ClientSession): Promise<void> {
+  const access = await assertAccountAccessInternal(userId, accountId, session);
   if (access.role !== "owner") {
     forbidden("Apenas owners podem gerir esta conta", "ACCOUNT_OWNER_REQUIRED");
   }
+}
+
+export async function assertOwnerAccess(userId: string, accountId: string): Promise<void> {
+  await assertOwnerAccessInternal(userId, accountId);
 }
 
 export async function generateInviteCode(userId: string, accountId: string): Promise<InviteCodeDto> {
@@ -280,34 +370,36 @@ export async function joinByInviteCode(userId: string, code: string): Promise<Ac
     unprocessable("Codigo nao corresponde a conta partilhada", "INVITE_ONLY_SHARED_ACCOUNT");
   }
 
-  const membership = await AccountMembershipModel.findOne({
-    accountId: account._id,
-    userId,
-  });
-
-  let role: AccountRole = "viewer";
-
-  if (!membership) {
-    await AccountMembershipModel.create({
+  const membership = await AccountMembershipModel.findOneAndUpdate(
+    {
       accountId: account._id,
       userId,
-      role,
-      status: "active",
-    });
-  } else {
-    if (membership.status === "inactive") {
-      membership.status = "active";
-      membership.leftAt = null;
-      await membership.save();
-    }
-    role = membership.role;
+    },
+    {
+      $setOnInsert: {
+        role: "viewer",
+      },
+      $set: {
+        status: "active",
+        leftAt: null,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    },
+  );
+
+  if (!membership) {
+    notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
   }
 
   return {
     id: account._id.toString(),
     name: account.name,
     type: account.type,
-    role,
+    role: membership.role,
     isPersonalDefault: account._id.toString() === personalAccountId,
   };
 }
@@ -355,49 +447,51 @@ export async function updateMemberRole(
   memberUserId: string,
   role: AccountRole,
 ): Promise<MemberDto> {
-  await assertOwnerAccess(ownerUserId, accountId);
+  return runInTransaction(async (session) => {
+    await assertOwnerAccessInternal(ownerUserId, accountId, session);
 
-  const account = await getAccountOrThrow(accountId);
-  if (account.type !== "shared") {
-    unprocessable("A conta pessoal nao permite gerir roles", "PERSONAL_ACCOUNT_ROLE_FORBIDDEN");
-  }
-
-  const membership = await AccountMembershipModel.findOne({
-    accountId,
-    userId: memberUserId,
-    status: "active",
-  });
-
-  if (!membership) {
-    notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
-  }
-
-  if (membership.role === "owner" && role !== "owner") {
-    const ownerCount = await AccountMembershipModel.countDocuments({
-      accountId,
-      status: "active",
-      role: "owner",
-    });
-    if (ownerCount <= 1) {
-      unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
+    const account = await getAccountOrThrow(accountId, session);
+    if (account.type !== "shared") {
+      unprocessable("A conta pessoal nao permite gerir roles", "PERSONAL_ACCOUNT_ROLE_FORBIDDEN");
     }
-  }
 
-  membership.role = role;
-  await membership.save();
+    const membership = await AccountMembershipModel.findOne({
+      accountId,
+      userId: memberUserId,
+      status: "active",
+    }).session(session);
 
-  const user = await UserModel.findById(memberUserId).lean();
-  if (!user) {
-    notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
-  }
+    if (!membership) {
+      notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+    }
 
-  return {
-    userId: String(user._id),
-    name: user.profile?.name ?? user.email,
-    email: user.email,
-    role,
-    status: "active",
-  };
+    if (membership.role === "owner" && role !== "owner") {
+      const ownerCount = await AccountMembershipModel.countDocuments({
+        accountId,
+        status: "active",
+        role: "owner",
+      }).session(session);
+      if (ownerCount <= 1) {
+        unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
+      }
+    }
+
+    membership.role = role;
+    await membership.save({ session });
+
+    const user = await UserModel.findById(memberUserId).session(session).lean();
+    if (!user) {
+      notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
+    }
+
+    return {
+      userId: String(user._id),
+      name: user.profile?.name ?? user.email,
+      email: user.email,
+      role,
+      status: "active",
+    };
+  });
 }
 
 export async function removeMember(
@@ -405,72 +499,76 @@ export async function removeMember(
   accountId: string,
   memberUserId: string,
 ): Promise<void> {
-  await assertOwnerAccess(ownerUserId, accountId);
+  await runInTransaction(async (session) => {
+    await assertOwnerAccessInternal(ownerUserId, accountId, session);
 
-  const account = await getAccountOrThrow(accountId);
-  if (account.type !== "shared") {
-    unprocessable("A conta pessoal nao permite remover membros", "PERSONAL_ACCOUNT_MEMBER_FORBIDDEN");
-  }
-
-  const membership = await AccountMembershipModel.findOne({
-    accountId,
-    userId: memberUserId,
-    status: "active",
-  });
-
-  if (!membership) {
-    notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
-  }
-
-  if (membership.role === "owner") {
-    const ownerCount = await AccountMembershipModel.countDocuments({
-      accountId,
-      status: "active",
-      role: "owner",
-    });
-    if (ownerCount <= 1) {
-      unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
+    const account = await getAccountOrThrow(accountId, session);
+    if (account.type !== "shared") {
+      unprocessable("A conta pessoal nao permite remover membros", "PERSONAL_ACCOUNT_MEMBER_FORBIDDEN");
     }
-  }
 
-  membership.status = "inactive";
-  membership.leftAt = new Date();
-  await membership.save();
+    const membership = await AccountMembershipModel.findOne({
+      accountId,
+      userId: memberUserId,
+      status: "active",
+    }).session(session);
+
+    if (!membership) {
+      notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+    }
+
+    if (membership.role === "owner") {
+      const ownerCount = await AccountMembershipModel.countDocuments({
+        accountId,
+        status: "active",
+        role: "owner",
+      }).session(session);
+      if (ownerCount <= 1) {
+        unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
+      }
+    }
+
+    membership.status = "inactive";
+    membership.leftAt = new Date();
+    await membership.save({ session });
+  });
 }
 
 export async function leaveAccount(userId: string, accountId: string): Promise<void> {
-  const account = await getAccountOrThrow(accountId);
+  await runInTransaction(async (session) => {
+    const account = await getAccountOrThrow(accountId, session);
 
-  if (account.type === "personal") {
-    unprocessable("Nao e possivel sair da conta pessoal", "PERSONAL_ACCOUNT_CANNOT_LEAVE");
-  }
-
-  const membership = await AccountMembershipModel.findOne({
-    accountId,
-    userId,
-    status: "active",
-  });
-
-  if (!membership) {
-    notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
-  }
-
-  if (membership.role === "owner") {
-    const ownerCount = await AccountMembershipModel.countDocuments({
-      accountId,
-      status: "active",
-      role: "owner",
-    });
-
-    if (ownerCount <= 1) {
-      unprocessable(
-        "Nao pode sair da conta sendo o ultimo owner. Promova outro owner primeiro.",
-        "LAST_OWNER_CANNOT_LEAVE",
-      );
+    if (account.type === "personal") {
+      unprocessable("Nao e possivel sair da conta pessoal", "PERSONAL_ACCOUNT_CANNOT_LEAVE");
     }
-  }
 
-  membership.status = "inactive";
-  membership.leftAt = new Date();
-  await membership.save();
+    const membership = await AccountMembershipModel.findOne({
+      accountId,
+      userId,
+      status: "active",
+    }).session(session);
+
+    if (!membership) {
+      notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+    }
+
+    if (membership.role === "owner") {
+      const ownerCount = await AccountMembershipModel.countDocuments({
+        accountId,
+        status: "active",
+        role: "owner",
+      }).session(session);
+
+      if (ownerCount <= 1) {
+        unprocessable(
+          "Nao pode sair da conta sendo o ultimo owner. Promova outro owner primeiro.",
+          "LAST_OWNER_CANNOT_LEAVE",
+        );
+      }
+    }
+
+    membership.status = "inactive";
+    membership.leftAt = new Date();
+    await membership.save({ session });
+  });
 }

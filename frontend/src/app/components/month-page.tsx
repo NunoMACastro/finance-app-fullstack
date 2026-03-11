@@ -35,8 +35,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { transactionsApi, budgetApi, resolveCategoryName } from "../lib/api";
+import { getErrorMessage } from "../lib/api-error";
+import { getAccountRoleLabel } from "../lib/account-role-label";
 import { useAccount } from "../lib/account-context";
 import type { MonthSummary, MonthBudget, Transaction, BudgetCategory, BudgetTemplate } from "../lib/types";
+import { toast } from "sonner";
 
 function formatCurrency(val: number) {
   return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
@@ -98,6 +101,7 @@ export function MonthPage() {
   const [summary, setSummary] = useState<MonthSummary | null>(null);
   const [budget, setBudget] = useState<MonthBudget | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
@@ -111,6 +115,7 @@ export function MonthPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [summaryData, budgetData] = await Promise.all([
         transactionsApi.getMonthSummary(currentMonth),
@@ -118,6 +123,10 @@ export function MonthPage() {
       ]);
       setSummary(summaryData);
       setBudget(budgetData);
+    } catch (error) {
+      setLoadError(getErrorMessage(error, "Nao foi possivel carregar os dados do mes"));
+      setSummary(null);
+      setBudget(null);
     } finally {
       setLoading(false);
     }
@@ -146,8 +155,13 @@ export function MonthPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    await transactionsApi.delete(id);
-    loadData();
+    try {
+      await transactionsApi.delete(id);
+      toast.success("Lancamento removido");
+      await loadData();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel remover o lancamento"));
+    }
   };
 
   // Compute spending per category
@@ -215,12 +229,13 @@ export function MonthPage() {
       </div>
 
       {!canWriteFinancial && (
-        <Card className="border-sky-100 bg-sky-50/60 shadow-sm">
-          <div className="p-3 text-xs text-sky-700">
-            Modo leitura ({activeAccountRole}): nao tens permissao para criar ou editar lancamentos/orcamento.
-          </div>
-        </Card>
-      )}
+          <Card className="border-sky-100 bg-sky-50/60 shadow-sm">
+            <div className="p-3 text-xs text-sky-700">
+              Modo leitura ({getAccountRoleLabel(activeAccountRole)}): nao tens permissao para criar ou editar
+              lancamentos/orcamento.
+            </div>
+          </Card>
+        )}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -229,6 +244,24 @@ export function MonthPage() {
             <span className="text-sm text-muted-foreground">A carregar...</span>
           </div>
         </div>
+      ) : loadError ? (
+        <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+          <div className="p-4 flex flex-col gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-800">{loadError}</p>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100"
+              onClick={() => {
+                void loadData();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        </Card>
       ) : summary && budget ? (
         <motion.div className="flex flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
           {!isBudgetReady && canWriteFinancial && (
@@ -381,6 +414,23 @@ export function MonthPage() {
                   transition={{ duration: 0.2 }}
                   className="flex flex-col gap-2"
                 >
+                  {budget.categories.length === 0 ? (
+                    <div className="flex flex-col items-center py-12 text-muted-foreground">
+                      <ShoppingCart className="w-10 h-10 mb-3 text-muted-foreground/20" />
+                      <p className="text-sm text-center">Sem categorias de despesas neste mes</p>
+                      <p className="text-xs text-muted-foreground/70 text-center mt-1">
+                        Cria um orcamento para começares a registar despesas.
+                      </p>
+                    </div>
+                  ) : summary.expenseTransactions.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-center">
+                      <p className="text-sm text-foreground">Sem despesas neste periodo</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ainda nao tens movimentos de despesa neste mes.
+                      </p>
+                    </div>
+                  ) : null}
+
                   {/* Distribution bar */}
                   {budget.categories.length > 0 && (
                     <div className="mb-1">
@@ -484,7 +534,7 @@ export function MonthPage() {
                                       {catTransactions.map((tx) => (
                                         <div
                                           key={tx.id}
-                                          className="flex items-center gap-2 py-1.5 px-2 rounded-lg group/tx hover:bg-muted/40 transition-colors"
+                                          className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20"
                                         >
                                           {tx.origin === "recurring" ? (
                                             <RefreshCw className="w-3 h-3 text-muted-foreground/40 shrink-0" />
@@ -496,10 +546,11 @@ export function MonthPage() {
                                           <span className="text-xs text-red-600 tabular-nums shrink-0">-{formatCurrency(tx.amount)}</span>
                                           {tx.origin === "manual" && canWriteFinancial && (
                                             <button
-                                              className="opacity-0 group-hover/tx:opacity-100 text-muted-foreground/40 hover:text-destructive transition-all shrink-0 p-0.5"
+                                              className="text-muted-foreground/70 active:scale-95 transition-transform shrink-0 p-1.5 rounded-lg"
                                               onClick={(e) => { e.stopPropagation(); handleDelete(tx.id); }}
+                                              aria-label="Remover lancamento"
                                             >
-                                              <Trash2 className="w-3 h-3" />
+                                              <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                           )}
                                         </div>
@@ -535,7 +586,7 @@ export function MonthPage() {
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map((tx, i) => (
                         <motion.div key={tx.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-                          <Card className="p-3 flex-row items-center gap-3 border-0 shadow-sm hover:shadow-md transition-all group">
+                          <Card className="p-3 flex-row items-center gap-3 border-0 shadow-sm">
                             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center shrink-0">
                               {tx.origin === "recurring" ? (
                                 <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
@@ -552,7 +603,7 @@ export function MonthPage() {
                                   {resolveCategoryName(tx.categoryId, budget.categories)}
                                 </span>
                                 {tx.origin === "recurring" && (
-                                  <span className="text-[9px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded-full">
+                                  <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded-full">
                                     Recorrente
                                   </span>
                                 )}
@@ -562,13 +613,13 @@ export function MonthPage() {
                               +{formatCurrency(tx.amount)}
                             </p>
                             {tx.origin === "manual" && canWriteFinancial && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:text-destructive rounded-xl transition-all h-8 w-8"
-                                onClick={() => handleDelete(tx.id)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl transition-all h-9 w-9"
+                                  onClick={() => handleDelete(tx.id)}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             )}
                           </Card>
@@ -585,7 +636,7 @@ export function MonthPage() {
                 {budget.categories.map((cat, ci) => (
                   <div key={cat.id} className="flex items-center gap-1">
                     <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${getCatColor(ci).gradient}`} />
-                    <span className="text-[9px] text-muted-foreground/60">{cat.name}</span>
+                    <span className="text-[10px] text-muted-foreground/60">{cat.name}</span>
                   </div>
                 ))}
               </motion.div>
@@ -653,7 +704,9 @@ function AddTransactionDialog({
     if (!description || !amount || !categoryId) return;
     setSaving(true);
     try {
-      const dayNum = Math.min(Math.max(parseInt(day) || 1, 1), 28);
+      const [yearPart, monthPart] = month.split("-");
+      const daysInMonth = new Date(Number(yearPart), Number(monthPart), 0).getDate();
+      const dayNum = Math.min(Math.max(parseInt(day, 10) || 1, 1), daysInMonth);
       await transactionsApi.create({
         month,
         date: `${month}-${String(dayNum).padStart(2, "0")}`,
@@ -663,10 +716,13 @@ function AddTransactionDialog({
         amount: parseFloat(amount),
         categoryId,
       });
+      toast.success("Lancamento criado");
       onAdded();
       onClose();
       setDescription("");
       setAmount("");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel guardar o lancamento"));
     } finally {
       setSaving(false);
     }
@@ -711,7 +767,7 @@ function AddTransactionDialog({
             <Input placeholder="Ex: Supermercado" className="h-11 rounded-xl" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-muted-foreground">Valor (EUR)</label>
               <div className="relative">
@@ -795,7 +851,10 @@ function BudgetEditorDialog({
         totalBudget: editBudget.totalBudget,
         categories: editBudget.categories,
       });
+      toast.success("Orcamento guardado");
       onSaved(saved);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel guardar o orcamento"));
     } finally {
       setSaving(false);
     }
@@ -854,7 +913,7 @@ function BudgetEditorDialog({
           {templates.length > 0 && (
             <div className="flex flex-col gap-2">
               <label className="text-sm text-muted-foreground">Templates</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {templates.map((template) => (
                   <button
                     key={template.id}
@@ -939,76 +998,86 @@ function BudgetEditorDialog({
           <div className="flex flex-col gap-2.5">
             <label className="text-sm text-muted-foreground">Categorias</label>
             {editBudget.categories.map((cat, ci) => (
-              <div key={cat.id} className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${getCatColor(ci).gradient} shrink-0`} />
+              <div key={cat.id} className="rounded-xl border border-border/60 bg-muted/20 p-2.5 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${getCatColor(ci).gradient} shrink-0`} />
+                  <Input
+                    className="flex-1 h-9 rounded-xl text-sm"
+                    value={cat.name}
+                    onChange={(e) => updateCategory(cat.id, "name", e.target.value)}
+                    placeholder="Nome da categoria"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
+                    onClick={() => removeCategory(cat.id)}
+                    aria-label={`Remover categoria ${cat.name}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                      className="w-full h-9 rounded-xl text-sm text-right pr-7"
+                      value={cat.percent}
+                      onChange={(e) => updateCategory(cat.id, "percent", e.target.value)}
+                    />
+                    <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                  </div>
+                  <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
+                    {formatCurrency(catEur(cat, editBudget.totalBudget))}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Add new category */}
+            <div className="rounded-xl border border-dashed border-border/80 p-2.5 flex flex-col gap-2 mt-1 pt-3">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-muted shrink-0" />
                 <Input
                   className="flex-1 h-9 rounded-xl text-sm"
-                  value={cat.name}
-                  onChange={(e) => updateCategory(cat.id, "name", e.target.value)}
-                  placeholder="Nome da categoria"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="Nova categoria..."
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
                 />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-sky-500 hover:bg-sky-50 rounded-xl h-9 w-9"
+                  onClick={addCategory}
+                  disabled={!newCatName.trim()}
+                  aria-label="Adicionar categoria"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-[1fr_auto] items-center gap-2">
                 <div className="relative">
                   <Input
                     type="number"
                     step="0.5"
                     min="0"
                     max="100"
-                    className="w-20 h-9 rounded-xl text-sm text-right pr-7"
-                    value={cat.percent}
-                    onChange={(e) => updateCategory(cat.id, "percent", e.target.value)}
+                    className="w-full h-9 rounded-xl text-sm text-right pr-7"
+                    value={newCatPercent}
+                    onChange={(e) => setNewCatPercent(e.target.value)}
+                    placeholder="0"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
                   />
                   <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                 </div>
-                <span className="text-[11px] text-muted-foreground w-16 shrink-0 text-right tabular-nums">
-                  {formatCurrency(catEur(cat, editBudget.totalBudget))}
+                <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
+                  {formatCurrency(((parseFloat(newCatPercent) || 0) / 100) * editBudget.totalBudget)}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
-                  onClick={() => removeCategory(cat.id)}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
               </div>
-            ))}
-
-            {/* Add new category */}
-            <div className="flex items-center gap-2 mt-1 pt-2 border-t">
-              <div className="w-3 h-3 rounded-full bg-muted shrink-0" />
-              <Input
-                className="flex-1 h-9 rounded-xl text-sm"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                placeholder="Nova categoria..."
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
-              />
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="100"
-                  className="w-20 h-9 rounded-xl text-sm text-right pr-7"
-                  value={newCatPercent}
-                  onChange={(e) => setNewCatPercent(e.target.value)}
-                  placeholder="0"
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
-                />
-                <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-              </div>
-              <span className="text-[11px] text-muted-foreground w-16 shrink-0 text-right tabular-nums">
-                {formatCurrency(((parseFloat(newCatPercent) || 0) / 100) * editBudget.totalBudget)}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-sky-500 hover:bg-sky-50 rounded-xl h-9 w-9"
-                onClick={addCategory}
-                disabled={!newCatName.trim()}
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </Button>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { env } from "../../config/env.js";
 import { conflict, notFound, unauthorized } from "../../lib/api-error.js";
 import { newId, sha256 } from "../../lib/hash.js";
@@ -9,6 +9,8 @@ import {
   verifyRefreshToken,
 } from "../../lib/jwt.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
+import { AccountMembershipModel } from "../../models/account-membership.model.js";
+import { AccountModel } from "../../models/account.model.js";
 import { RefreshTokenModel } from "../../models/refresh-token.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { ensurePersonalAccountForUser } from "../accounts/service.js";
@@ -82,31 +84,80 @@ export async function register(input: {
   password: string;
 }, req?: Request): Promise<AuthResponse> {
   const email = input.email.toLowerCase().trim();
-  const existing = await UserModel.findOne({ email }).lean();
-  if (existing) {
-    conflict("Email ja registado", "EMAIL_ALREADY_USED");
+  const trimmedName = input.name.trim();
+  const passwordHash = await hashPassword(input.password);
+
+  const userId = new Types.ObjectId();
+  const personalAccountId = new Types.ObjectId();
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const existing = await UserModel.findOne({ email }).session(session).lean();
+      if (existing) {
+        conflict("Email ja registado", "EMAIL_ALREADY_USED");
+      }
+
+      await AccountModel.create(
+        [
+          {
+            _id: personalAccountId,
+            name: `${trimmedName} (Pessoal)`,
+            type: "personal",
+            createdByUserId: userId,
+          },
+        ],
+        { session },
+      );
+
+      await AccountMembershipModel.create(
+        [
+          {
+            accountId: personalAccountId,
+            userId,
+            role: "owner",
+            status: "active",
+            leftAt: null,
+          },
+        ],
+        { session },
+      );
+
+      await UserModel.create(
+        [
+          {
+            _id: userId,
+            email,
+            passwordHash,
+            profile: {
+              name: trimmedName,
+              currency: "EUR",
+              locale: "pt-PT",
+            },
+            personalAccountId,
+          },
+        ],
+        { session },
+      );
+    });
+  } finally {
+    await session.endSession();
   }
 
-  const passwordHash = await hashPassword(input.password);
-  const user = await UserModel.create({
-    email,
-    passwordHash,
-    profile: {
-      name: input.name.trim(),
-      currency: "EUR",
-      locale: "pt-PT",
-    },
-  });
-
-  const personalAccountId = await ensurePersonalAccountForUser(
-    user._id.toString(),
-    user.profile?.name ?? input.name,
-  );
-
-  const tokens = await issueTokenPair(user._id.toString(), req);
+  const tokens = await issueTokenPair(userId.toString(), req);
   return {
     tokens,
-    user: toUserProfile({ ...user.toObject(), personalAccountId }),
+    user: toUserProfile({
+      _id: userId,
+      email,
+      profile: {
+        name: trimmedName,
+        currency: "EUR",
+        locale: "pt-PT",
+      },
+      tutorialSeenAt: null,
+      personalAccountId,
+    }),
   };
 }
 

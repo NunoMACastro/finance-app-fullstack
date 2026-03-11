@@ -177,12 +177,25 @@ export interface BudgetVsActualItem {
   difference: number;
 }
 
+export interface CategorySeriesMonthlyItem {
+  month: MonthKey;
+  budgeted: number;
+  actual: number;
+}
+
+export interface CategorySeriesItem {
+  categoryId: string;
+  categoryName: string;
+  monthly: CategorySeriesMonthlyItem[];
+}
+
 export interface StatsSnapshot {
   periodType: "semester" | "year";
   periodKey: string;
   totals: StatsTotals;
   trend: TrendItem[];
   budgetVsActual: BudgetVsActualItem[];
+  categorySeries: CategorySeriesItem[];
   forecast: {
     projectedIncome: number;
     projectedExpense: number;

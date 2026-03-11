@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { forbidden } from "../lib/api-error.js";
 import { AccountMembershipModel } from "../models/account-membership.model.js";
+import { UserModel } from "../models/user.model.js";
 import { ensurePersonalAccountForUser } from "../modules/accounts/service.js";
 
 const FINANCIAL_WRITE_ROLES = ["owner", "editor"] as const;
@@ -15,7 +16,14 @@ export function requireAccountContext(req: Request, _res: Response, next: NextFu
       forbidden("Contexto de utilizador em falta", "AUTH_CONTEXT_MISSING");
     }
 
-    const personalAccountId = await ensurePersonalAccountForUser(userId);
+    const user = await UserModel.findById(userId).select({ _id: 1, personalAccountId: 1 }).lean();
+    if (!user) {
+      forbidden("Contexto de utilizador em falta", "AUTH_CONTEXT_MISSING");
+    }
+
+    const personalAccountId = user.personalAccountId
+      ? user.personalAccountId.toString()
+      : await ensurePersonalAccountForUser(userId);
     const requestedAccountId = req.header("x-account-id")?.trim() || personalAccountId;
 
     const membership = await AccountMembershipModel.findOne({

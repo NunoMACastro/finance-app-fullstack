@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 
-const describeIfIntegration =
-  process.env.RUN_INTEGRATION === "true" ? describe : describe.skip;
-
-describeIfIntegration("auth flow integration", () => {
-  let mongo: MongoMemoryServer;
+describe("auth flow integration", () => {
+  let mongo: MongoMemoryReplSet;
   let app: import("express").Express;
   let disconnectDb: (() => Promise<void>) | undefined;
 
   beforeAll(async () => {
-    mongo = await MongoMemoryServer.create();
+    mongo = await MongoMemoryReplSet.create({
+      replSet: { count: 1 },
+      instanceOpts: [{ ip: "127.0.0.1" }],
+    });
     process.env.NODE_ENV = "test";
     process.env.CRON_ENABLED = "false";
     process.env.MONGODB_URI = mongo.getUri();

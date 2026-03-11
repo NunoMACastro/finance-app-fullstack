@@ -1,15 +1,27 @@
 import { createBrowserRouter } from "react-router";
-import { AppLayout } from "./components/layout";
-import { MonthPage } from "./components/month-page";
-import { StatsPage } from "./components/stats-page";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    Component: AppLayout,
+    lazy: async () => {
+      const mod = await import("./components/layout");
+      return { Component: mod.AppLayout };
+    },
     children: [
-      { index: true, Component: MonthPage },
-      { path: "stats", Component: StatsPage },
+      {
+        index: true,
+        lazy: async () => {
+          const mod = await import("./components/month-page");
+          return { Component: mod.MonthPage };
+        },
+      },
+      {
+        path: "stats",
+        lazy: async () => {
+          const mod = await import("./components/stats-page");
+          return { Component: mod.StatsPage };
+        },
+      },
     ],
   },
 ]);

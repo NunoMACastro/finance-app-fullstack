@@ -100,9 +100,10 @@ let _mockMembersByAccount: Record<string, AccountMember[]> = {
   ],
 };
 
-let _mockInviteCodes: Record<string, { accountId: string; expiresAt: string }> = {};
+const _mockInviteCodes: Record<string, { accountId: string; expiresAt: string }> = {};
+let _mockInviteCodeCounter = 1;
 
-let _mockBudgetsByAccount: Record<string, Record<string, MonthBudget>> = {
+const _mockBudgetsByAccount: Record<string, Record<string, MonthBudget>> = {
   [PERSONAL_ACCOUNT_ID]: {
     [mockMonthBudget.month]: clone(mockMonthBudget),
   },
@@ -319,7 +320,7 @@ export const accountsApi = {
     if (config.useMock) {
       await delay(100);
       requireMockOwner(accountId);
-      const code = Math.random().toString(36).slice(2, 10).toUpperCase();
+      const code = `CODE${String(_mockInviteCodeCounter++).padStart(4, "0")}`;
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       _mockInviteCodes[code] = { accountId, expiresAt };
       return { code, expiresAt };

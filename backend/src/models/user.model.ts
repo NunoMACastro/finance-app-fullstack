@@ -26,7 +26,7 @@ const userSchema = new Schema(
     personalAccountId: {
       type: Schema.Types.ObjectId,
       ref: "Account",
-      default: null,
+      required: true,
       index: true,
     },
   },

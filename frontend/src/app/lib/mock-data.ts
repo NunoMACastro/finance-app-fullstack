@@ -304,17 +304,17 @@ export function getCategoryName(categoryId: string, categories?: BudgetCategory[
   return cats.find((c) => c.id === categoryId)?.name ?? categoryId;
 }
 
-// Stats helpers
-function generateMonthData(monthKey: string, baseIncome: number) {
-  const variance = () => 0.85 + Math.random() * 0.3;
-  const income = Math.round(baseIncome * variance());
-  const expense = Math.round(income * (0.6 + Math.random() * 0.25));
+// Stats helpers (deterministic - no random values)
+const INCOME_FACTORS = [0.91, 0.96, 1.03, 0.98, 1.07, 1.01, 1.05, 0.94, 1.08, 1.02, 0.99, 1.06];
+const EXPENSE_FACTORS = [0.67, 0.71, 0.69, 0.73, 0.75, 0.72, 0.7, 0.74, 0.76, 0.71, 0.69, 0.73];
+
+function generateMonthData(monthKey: string, index: number, baseIncome: number) {
+  const income = Math.round(baseIncome * INCOME_FACTORS[index % INCOME_FACTORS.length]);
+  const expense = Math.round(income * EXPENSE_FACTORS[index % EXPENSE_FACTORS.length]);
   return { month: monthKey, income, expense, balance: income - expense };
 }
 
-export function getStatsSnapshot(
-  type: "semester" | "year"
-): StatsSnapshot {
+export function getStatsSnapshot(type: "semester" | "year"): StatsSnapshot {
   const months = type === "semester" ? 6 : 12;
   const trend: TrendItem[] = [];
   let totalIncome = 0;
@@ -323,23 +323,70 @@ export function getStatsSnapshot(
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const data = generateMonthData(mk, 2500);
+    const data = generateMonthData(mk, months - i - 1, 2500);
     trend.push(data);
     totalIncome += data.income;
     totalExpense += data.expense;
   }
 
+  const monthIncomeMap = new Map(trend.map((item) => [item.month, item.income]));
+  const monthWeights = trend.map((item, idx) => item.expense + (idx + 1) * 50);
+  const totalWeight = monthWeights.reduce((sum, value) => sum + value, 0);
+
   const budgetVsActual: BudgetVsActualItem[] = defaultCategories.map((c) => {
-    const monthlyBudgeted = (c.percent / 100) * 2200; // use default totalBudget
-    const budgeted = monthlyBudgeted * months;
-    const actual = Math.round(budgeted * (0.7 + Math.random() * 0.5));
+    const budgeted = trend.reduce(
+      (sum, item) => sum + (c.percent / 100) * (monthIncomeMap.get(item.month) ?? 0),
+      0,
+    );
+    const actual = trend.reduce((sum, item, monthIdx) => {
+      const distribution = totalWeight > 0 ? monthWeights[monthIdx] / totalWeight : 0;
+      const bias = 0.86 + ((monthIdx % 4) * 0.04) + ((c.percent % 7) * 0.003);
+      return sum + budgeted * distribution * bias;
+    }, 0);
     return {
       categoryId: c.id,
       categoryName: c.name,
-      budgeted,
-      actual,
-      difference: budgeted - actual,
+      budgeted: Math.round(budgeted),
+      actual: Math.round(actual),
+      difference: Math.round(budgeted - actual),
     };
+  });
+
+  const categorySeries = budgetVsActual.map((category) => ({
+    categoryId: category.categoryId,
+    categoryName: category.categoryName,
+    monthly: trend.map((item, monthIdx) => {
+      const monthBudgeted = (defaultCategories.find((c) => c.id === category.categoryId)?.percent ?? 0)
+        / 100
+        * (monthIncomeMap.get(item.month) ?? 0);
+      const distribution = totalWeight > 0 ? monthWeights[monthIdx] / totalWeight : 0;
+      const bias = 0.86 + ((monthIdx % 4) * 0.04) + ((category.categoryId.length % 7) * 0.003);
+      const monthActual = category.budgeted > 0 ? category.actual * distribution * bias : 0;
+      return {
+        month: item.month,
+        budgeted: Math.round(monthBudgeted),
+        actual: Math.round(monthActual),
+      };
+    }),
+  }));
+
+  const normalisedCategorySeries = categorySeries.map((series) => {
+    const totalBudgetedSeries = series.monthly.reduce((sum, point) => sum + point.budgeted, 0);
+    const totalActualSeries = series.monthly.reduce((sum, point) => sum + point.actual, 0);
+    const target = budgetVsActual.find((item) => item.categoryId === series.categoryId);
+    if (!target) return series;
+
+    const budgetDelta = target.budgeted - totalBudgetedSeries;
+    const actualDelta = target.actual - totalActualSeries;
+    const lastIdx = series.monthly.length - 1;
+    if (lastIdx >= 0) {
+      series.monthly[lastIdx] = {
+        ...series.monthly[lastIdx],
+        budgeted: series.monthly[lastIdx].budgeted + budgetDelta,
+        actual: series.monthly[lastIdx].actual + actualDelta,
+      };
+    }
+    return series;
   });
 
   const last3 = trend.slice(-3);
@@ -358,6 +405,14 @@ export function getStatsSnapshot(
     },
     trend,
     budgetVsActual,
+    categorySeries: normalisedCategorySeries.map((series) => ({
+      ...series,
+      monthly: series.monthly.map((point) => ({
+        month: point.month,
+        budgeted: Math.max(0, point.budgeted),
+        actual: Math.max(0, point.actual),
+      })),
+    })),
     forecast: {
       projectedIncome: avgIncome,
       projectedExpense: avgExpense,

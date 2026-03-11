@@ -18,6 +18,18 @@ interface BudgetVsActualItem {
   difference: number;
 }
 
+interface CategorySeriesMonthItem {
+  month: string;
+  budgeted: number;
+  actual: number;
+}
+
+interface CategorySeriesItem {
+  categoryId: string;
+  categoryName: string;
+  monthly: CategorySeriesMonthItem[];
+}
+
 interface StatsSnapshotDto {
   periodType: "semester" | "year";
   periodKey: string;
@@ -28,6 +40,7 @@ interface StatsSnapshotDto {
   };
   trend: TrendItem[];
   budgetVsActual: BudgetVsActualItem[];
+  categorySeries: CategorySeriesItem[];
   forecast: {
     projectedIncome: number;
     projectedExpense: number;
@@ -55,6 +68,14 @@ function semesterKey(month: string): string {
 
 function monthsForYear(year: number): string[] {
   return Array.from({ length: 12 }, (_, index) => `${year}-${String(index + 1).padStart(2, "0")}`);
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function categoryMonthKey(categoryId: string, month: string): string {
+  return `${categoryId}::${month}`;
 }
 
 export function buildForecast(trend: TrendItem[]) {
@@ -95,9 +116,10 @@ async function buildStats(
 
   const incomeByMonth = new Map<string, number>();
   const expenseByMonth = new Map<string, number>();
-  const actualByCategory = new Map<string, number>();
-  const budgetByCategory = new Map<string, number>();
+  const actualByCategoryMonth = new Map<string, number>();
+  const budgetByCategoryMonth = new Map<string, number>();
   const categoryNames = new Map<string, string>();
+  const categoryIds = new Set<string>();
 
   for (const tx of transactions) {
     if (tx.type === "income") {
@@ -106,58 +128,83 @@ async function buildStats(
     }
 
     expenseByMonth.set(tx.month, (expenseByMonth.get(tx.month) ?? 0) + tx.amount);
-    actualByCategory.set(tx.categoryId, (actualByCategory.get(tx.categoryId) ?? 0) + tx.amount);
+    const key = categoryMonthKey(tx.categoryId, tx.month);
+    actualByCategoryMonth.set(key, (actualByCategoryMonth.get(key) ?? 0) + tx.amount);
+    categoryIds.add(tx.categoryId);
   }
 
   for (const budget of budgets) {
     const monthIncome = incomeByMonth.get(budget.month) ?? 0;
     for (const category of budget.categories) {
-      categoryNames.set(category.id, category.name);
       const budgetedAmount = (category.percent / 100) * monthIncome;
-      budgetByCategory.set(category.id, (budgetByCategory.get(category.id) ?? 0) + budgetedAmount);
+      const key = categoryMonthKey(category.id, budget.month);
+
+      categoryNames.set(category.id, category.name);
+      budgetByCategoryMonth.set(key, (budgetByCategoryMonth.get(key) ?? 0) + budgetedAmount);
+      categoryIds.add(category.id);
     }
   }
 
   const trend: TrendItem[] = months.map((month) => {
-    const income = Math.round((incomeByMonth.get(month) ?? 0) * 100) / 100;
-    const expense = Math.round((expenseByMonth.get(month) ?? 0) * 100) / 100;
+    const income = round(incomeByMonth.get(month) ?? 0);
+    const expense = round(expenseByMonth.get(month) ?? 0);
     return {
       month,
       income,
       expense,
-      balance: income - expense,
+      balance: round(income - expense),
     };
   });
 
   const totalIncome = trend.reduce((sum, item) => sum + item.income, 0);
   const totalExpense = trend.reduce((sum, item) => sum + item.expense, 0);
 
-  const categoryIds = new Set<string>([...actualByCategory.keys(), ...budgetByCategory.keys()]);
-
   const budgetVsActual: BudgetVsActualItem[] = Array.from(categoryIds).map((categoryId) => {
-    const budgeted = Math.round((budgetByCategory.get(categoryId) ?? 0) * 100) / 100;
-    const actual = Math.round((actualByCategory.get(categoryId) ?? 0) * 100) / 100;
+    const budgeted = round(
+      months.reduce(
+        (sum, month) => sum + (budgetByCategoryMonth.get(categoryMonthKey(categoryId, month)) ?? 0),
+        0,
+      ),
+    );
+    const actual = round(
+      months.reduce(
+        (sum, month) => sum + (actualByCategoryMonth.get(categoryMonthKey(categoryId, month)) ?? 0),
+        0,
+      ),
+    );
+
     return {
       categoryId,
       categoryName: categoryNames.get(categoryId) ?? categoryId,
       budgeted,
       actual,
-      difference: Math.round((budgeted - actual) * 100) / 100,
+      difference: round(budgeted - actual),
     };
   });
 
   budgetVsActual.sort((a, b) => b.actual - a.actual);
 
+  const categorySeries: CategorySeriesItem[] = budgetVsActual.map((item) => ({
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+    monthly: months.map((month) => ({
+      month,
+      budgeted: round(budgetByCategoryMonth.get(categoryMonthKey(item.categoryId, month)) ?? 0),
+      actual: round(actualByCategoryMonth.get(categoryMonthKey(item.categoryId, month)) ?? 0),
+    })),
+  }));
+
   return {
     periodType,
     periodKey,
     totals: {
-      totalIncome: Math.round(totalIncome * 100) / 100,
-      totalExpense: Math.round(totalExpense * 100) / 100,
-      balance: Math.round((totalIncome - totalExpense) * 100) / 100,
+      totalIncome: round(totalIncome),
+      totalExpense: round(totalExpense),
+      balance: round(totalIncome - totalExpense),
     },
     trend,
     budgetVsActual,
+    categorySeries,
     forecast: buildForecast(trend),
   };
 }
@@ -205,9 +252,9 @@ export async function compareBudget(accountId: string, from: string, to: string)
     from,
     to,
     totals: {
-      budgeted: Math.round(budgeted * 100) / 100,
-      actual: Math.round(actual * 100) / 100,
-      difference: Math.round((budgeted - actual) * 100) / 100,
+      budgeted: round(budgeted),
+      actual: round(actual),
+      difference: round(budgeted - actual),
     },
     items: stats.budgetVsActual,
   };
