@@ -68,67 +68,49 @@ export function AuthPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(103,232,249,0.4),transparent_58%)]" />
 
       <motion.div
-        className="pointer-events-none absolute -top-14 -left-8 h-56 w-56 rounded-full bg-sky-200/60 blur-3xl"
-        animate={{ x: [0, 12, 0], y: [0, 8, 0] }}
+        className="pointer-events-none absolute -top-16 -left-10 h-60 w-60 rounded-full bg-sky-200/60 blur-3xl"
+        animate={{ x: [0, 14, 0], y: [0, 8, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="pointer-events-none absolute -bottom-20 right-0 h-72 w-72 rounded-full bg-cyan-200/60 blur-3xl"
-        animate={{ x: [0, -10, 0], y: [0, -12, 0] }}
+        className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-cyan-200/60 blur-3xl"
+        animate={{ x: [0, -12, 0], y: [0, -10, 0] }}
         transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-6 sm:px-6 sm:py-8">
-        <motion.div
-          className="grid gap-4 md:grid-cols-2 md:gap-5"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-4 py-7 sm:px-6">
+        <motion.section
+          className="mx-auto w-full max-w-md overflow-hidden rounded-[30px] border border-sky-100/80 bg-white/95 shadow-[0_22px_65px_-28px_rgba(14,165,233,0.45)]"
+          initial={{ opacity: 0, y: 16, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
         >
-          <motion.section
-            className="order-2 rounded-3xl border border-sky-100 bg-white/80 p-5 shadow-xl shadow-sky-100/60 backdrop-blur-sm sm:p-6 md:order-1 lg:p-7"
-            initial={{ opacity: 0, x: -18 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.08, duration: 0.45 }}
-          >
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-300 to-cyan-300 shadow-md shadow-cyan-200/60 sm:h-16 sm:w-16">
-              <Wallet className="h-7 w-7 text-white sm:h-8 sm:w-8" />
+          <div className="relative overflow-hidden bg-gradient-to-br from-sky-400 via-cyan-400 to-teal-300 px-6 pb-7 pt-6 text-white">
+            <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
+            <div className="pointer-events-none absolute -left-9 bottom-1 h-24 w-24 rounded-full bg-white/15 blur-2xl" />
+
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/25 backdrop-blur-sm shadow-md shadow-cyan-500/20">
+              <Wallet className="h-7 w-7 text-white" />
             </div>
 
-            <h1 className="mb-2 tracking-tight text-slate-900">Poupérrimo</h1>
-            <p className="text-sm leading-relaxed text-slate-600">
-              Uma casa para o teu dinheiro. Simples, bonita e feita para te dar clareza todos os meses.
-            </p>
+            <h1 className="text-white">Poupérrimo</h1>
+            <p className="mt-1 text-sm text-white/85">Uma forma bonita de tratar bem do teu dinheiro.</p>
 
-            <div className="mt-5 grid gap-2.5 sm:mt-6 sm:gap-3">
-              <div className="flex items-start gap-2.5 rounded-2xl bg-sky-50 px-3.5 py-3">
-                <Sparkles className="mt-0.5 h-4 w-4 text-sky-500" />
-                <p className="text-sm text-slate-700">Planeia melhor sem folhas de calculo e sem atrito.</p>
-              </div>
-              <div className="flex items-start gap-2.5 rounded-2xl bg-cyan-50 px-3.5 py-3">
-                <ShieldCheck className="mt-0.5 h-4 w-4 text-cyan-600" />
-                <p className="text-sm text-slate-700">Tudo num unico sitio, com ritmo e consistencia.</p>
-              </div>
+            <div className="mt-4 flex items-center gap-2 text-xs text-white/90">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur-sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                Simples
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur-sm">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Seguro
+              </span>
             </div>
-          </motion.section>
+          </div>
 
-          <motion.section
-            className="order-1 rounded-3xl border border-white bg-white/95 p-5 shadow-2xl shadow-sky-100/70 backdrop-blur-sm sm:p-6 md:order-2 lg:p-7"
-            initial={{ opacity: 0, x: 18 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.12, duration: 0.45 }}
-          >
-            <div className="mb-5 sm:mb-6">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sky-100/80 px-3 py-1 text-[11px] text-sky-700 sm:hidden">
-                <Wallet className="h-3.5 w-3.5" />
-                Poupérrimo
-              </div>
-              <h2 className="text-slate-900">Bem-vindo</h2>
-              <p className="mt-1 text-sm text-slate-500">Entra na tua conta ou cria uma nova em poucos segundos.</p>
-            </div>
-
+          <div className="p-5 sm:p-6">
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="mb-5 h-10 w-full rounded-xl bg-sky-100/70 p-1 sm:mb-6 sm:h-11">
+              <TabsList className="mb-5 h-10 w-full rounded-xl bg-sky-100/70 p-1 sm:h-11">
                 <TabsTrigger value="login" className="h-full flex-1 rounded-lg">Entrar</TabsTrigger>
                 <TabsTrigger value="register" className="h-full flex-1 rounded-lg">Registar</TabsTrigger>
               </TabsList>
@@ -179,7 +161,7 @@ export function AuthPage() {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="h-10 rounded-xl border-0 bg-gradient-to-r from-sky-400 to-cyan-400 text-white shadow-md shadow-sky-200/60 hover:from-sky-500 hover:to-cyan-500 sm:h-11"
+                    className="h-10 rounded-xl border-0 bg-gradient-to-r from-sky-400 to-cyan-400 text-white shadow-md shadow-sky-200/70 hover:from-sky-500 hover:to-cyan-500 sm:h-11"
                   >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
                   </Button>
@@ -260,17 +242,17 @@ export function AuthPage() {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="h-10 rounded-xl border-0 bg-gradient-to-r from-sky-400 to-cyan-400 text-white shadow-md shadow-sky-200/60 hover:from-sky-500 hover:to-cyan-500 sm:h-11"
+                    className="h-10 rounded-xl border-0 bg-gradient-to-r from-sky-400 to-cyan-400 text-white shadow-md shadow-sky-200/70 hover:from-sky-500 hover:to-cyan-500 sm:h-11"
                   >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
                   </Button>
                 </form>
               </TabsContent>
             </Tabs>
-          </motion.section>
-        </motion.div>
+          </div>
+        </motion.section>
 
-        <div className="mt-5 flex items-center justify-center pb-1 sm:mt-6">
+        <div className="mt-6 flex items-center justify-center">
           <div className="group relative inline-flex items-center gap-1.5 text-xs text-slate-500">
             <span>made with</span>
             <button
