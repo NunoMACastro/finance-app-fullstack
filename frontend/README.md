@@ -1,7 +1,7 @@
 
-  # Implementar frontend da prompt
+  # Poupérrimo
 
-  This is a code bundle for Implementar frontend da prompt. The original project is available at https://www.figma.com/design/64WV33rJkivcFuAQRTpMcl/Implementar-frontend-da-prompt.
+  This is a code bundle for Poupérrimo. The original project is available at https://www.figma.com/design/64WV33rJkivcFuAQRTpMcl/Implementar-frontend-da-prompt.
 
   ## Running the code
 

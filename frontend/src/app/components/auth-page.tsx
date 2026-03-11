@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth-context";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Wallet, Loader2, Mail, Lock, UserCircle, Sparkles } from "lucide-react";
+import { Wallet, Loader2, Mail, Lock, UserCircle } from "lucide-react";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
@@ -67,11 +67,7 @@ export function AuthPage() {
           <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center mb-4 shadow-2xl border border-white/30">
             <Wallet className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-white drop-shadow-lg">FinControl</h1>
-          <div className="flex items-center gap-1.5 mt-2">
-            <Sparkles className="w-4 h-4 text-teal-300" />
-            <p className="text-white/80">Controlo de Despesas & Orcamentos</p>
-          </div>
+          <h1 className="text-white drop-shadow-lg">Poupérrimo</h1>
         </motion.div>
 
         {/* Glass Card */}
@@ -198,14 +194,6 @@ export function AuthPage() {
           </div>
         </motion.div>
 
-        <motion.p
-          className="text-center text-white/60 text-xs mt-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          Demo: use qualquer email/password para entrar
-        </motion.p>
       </motion.div>
     </div>
   );

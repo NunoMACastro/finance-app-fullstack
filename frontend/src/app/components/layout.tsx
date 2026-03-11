@@ -38,7 +38,7 @@ export function AppLayout() {
               <Wallet className="w-4 h-4 text-white" />
             </div>
             <div className="hidden sm:block">
-              <span className="text-foreground text-sm">FinControl</span>
+              <span className="text-foreground text-sm">Poupérrimo</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
