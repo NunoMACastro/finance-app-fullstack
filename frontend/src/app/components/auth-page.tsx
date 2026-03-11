@@ -5,10 +5,11 @@ import { isApiError } from "../lib/http-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Wallet, Loader2, Mail, Lock, UserCircle } from "lucide-react";
+import { Wallet, Loader2, Mail, Lock, UserCircle, Heart } from "lucide-react";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
+  const currentYear = new Date().getFullYear();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [regName, setRegName] = useState("");
@@ -208,6 +209,22 @@ export function AuthPage() {
             </Tabs>
           </div>
         </motion.div>
+
+        <div className="mt-6 flex items-center justify-center">
+          <div className="group relative inline-flex items-center gap-1.5 text-xs text-white/60">
+            <span>made with</span>
+            <button
+              type="button"
+              aria-label={`Nuno Castro ${currentYear}`}
+              className="inline-flex items-center text-rose-300 hover:text-rose-200 transition-colors"
+            >
+              <Heart className="w-3.5 h-3.5 fill-current" />
+            </button>
+            <span className="absolute left-1/2 -top-9 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/20 bg-slate-900/85 px-2 py-1 text-[11px] text-white opacity-0 translate-y-1 transition-all duration-200 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
+              Nuno Castro · {currentYear}
+            </span>
+          </div>
+        </div>
 
       </motion.div>
     </div>
