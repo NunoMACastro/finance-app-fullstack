@@ -680,7 +680,7 @@ export function StatsPage() {
           </p>
         </div>
         <Tabs value={period} onValueChange={(v) => setPeriod(v as "semester" | "year")}>
-          <TabsList className="h-10 bg-muted/60 p-1">
+          <TabsList className="h-10 bg-muted/60 p-1" data-tour="stats-period-tabs">
             <TabsTrigger value="semester" className="rounded-xl px-3">6M</TabsTrigger>
             <TabsTrigger value="year" className="rounded-xl px-3">12M</TabsTrigger>
           </TabsList>
@@ -857,7 +857,12 @@ export function StatsPage() {
       </motion.div>
 
       {/* Trend Chart - Interactive (Pure SVG) */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        data-tour="stats-trend-chart"
+      >
         <Card className="border-0 shadow-md overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm">
@@ -1106,7 +1111,12 @@ export function StatsPage() {
       </motion.div>
 
       {/* Budget vs Actual Chart */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        data-tour="stats-budget-actual"
+      >
         <Card className="border-0 shadow-md overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">

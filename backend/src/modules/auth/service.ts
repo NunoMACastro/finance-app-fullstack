@@ -18,6 +18,7 @@ interface UserProfile {
   name: string;
   currency: string;
   locale: string;
+  tutorialSeenAt: string | null;
 }
 
 interface TokenPair {
@@ -34,6 +35,7 @@ function toUserProfile(user: {
   _id: Types.ObjectId;
   email: string;
   profile?: { name?: string; currency?: string; locale?: string } | null;
+  tutorialSeenAt?: Date | null;
 }): UserProfile {
   const profile = user.profile ?? {};
   return {
@@ -42,6 +44,7 @@ function toUserProfile(user: {
     name: profile.name ?? "",
     currency: profile.currency ?? "EUR",
     locale: profile.locale ?? "pt-PT",
+    tutorialSeenAt: user.tutorialSeenAt ? user.tutorialSeenAt.toISOString() : null,
   };
 }
 
@@ -196,5 +199,17 @@ export async function me(userId: string): Promise<UserProfile> {
     notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
   }
 
+  return toUserProfile(user);
+}
+
+export async function completeTutorial(userId: string): Promise<UserProfile> {
+  const user = await UserModel.findByIdAndUpdate(
+    userId,
+    { $set: { tutorialSeenAt: new Date() } },
+    { new: true },
+  );
+  if (!user) {
+    notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
+  }
   return toUserProfile(user);
 }

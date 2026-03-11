@@ -28,6 +28,7 @@ Servidor por defeito: `http://localhost:3001`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me`
+- `POST /api/v1/auth/tutorial/complete`
 
 ### Transactions
 - `GET /api/v1/transactions?month=YYYY-MM`
@@ -37,10 +38,13 @@ Servidor por defeito: `http://localhost:3001`
 
 ### Budgets
 - `GET /api/v1/budgets/:month`
+- `GET /api/v1/budgets/templates`
 - `PUT /api/v1/budgets/:month`
 - `POST /api/v1/budgets/:month/categories`
 - `DELETE /api/v1/budgets/:month/categories/:categoryId`
 - `POST /api/v1/budgets/:month/copy-from/:sourceMonth`
+
+Nota: `PUT /budgets/:month` continua a aceitar `totalBudget` por compatibilidade, mas o backend ignora esse valor e calcula sempre `totalBudget` pela soma das receitas do mes.
 
 ### Stats
 - `GET /api/v1/stats/semester?endingMonth=YYYY-MM`

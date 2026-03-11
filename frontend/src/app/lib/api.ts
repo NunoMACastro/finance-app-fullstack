@@ -13,6 +13,7 @@
  *   POST   /auth/refresh         { refreshToken }           → { accessToken, refreshToken }
  *   POST   /auth/logout          { refreshToken }           → 204
  *   GET    /auth/me                                         → UserProfile
+ *   POST   /auth/tutorial/complete                          → UserProfile
  *
  * Transactions
  *   GET    /transactions?month=YYYY-MM                      → MonthSummary
@@ -21,6 +22,7 @@
  *   DELETE /transactions/:id                                → 204
  *
  * Budget (per-month)
+ *   GET    /budgets/templates                               → BudgetTemplate[]
  *   GET    /budgets/:month                                  → MonthBudget
  *   PUT    /budgets/:month       SaveBudgetDto              → MonthBudget
  *   POST   /budgets/:month/categories  AddCategoryDto       → MonthBudget
@@ -56,6 +58,7 @@ import type {
   AuthResponse,
   UserProfile,
   BudgetCategory,
+  BudgetTemplate,
 } from "./types";
 import {
   mockUser,
@@ -71,12 +74,95 @@ import {
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
 // Mutable mock state (only used when config.useMock === true)
+let _mockUser: UserProfile = { ...mockUser };
 let _mockTransactions = [...mockTransactions];
 let _mockNextTxId = 100;
 const _mockBudgets: Record<string, MonthBudget> = {
   [mockMonthBudget.month]: JSON.parse(JSON.stringify(mockMonthBudget)),
 };
 let _mockNextCatId = 100;
+
+const MOCK_BUDGET_TEMPLATES: BudgetTemplate[] = [
+  {
+    id: "conservador",
+    name: "Conservador",
+    categories: [
+      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50 },
+      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10 },
+      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20 },
+      { id: "tpl_conservador_poupanca", name: "Poupanca", percent: 20 },
+    ],
+  },
+  {
+    id: "equilibrado",
+    name: "Equilibrado",
+    categories: [
+      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60 },
+      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5 },
+      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15 },
+      { id: "tpl_equilibrado_poupanca", name: "Poupanca", percent: 20 },
+    ],
+  },
+  {
+    id: "agressivo",
+    name: "Agressivo",
+    categories: [
+      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70 },
+      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10 },
+      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15 },
+      { id: "tpl_agressivo_poupanca", name: "Poupanca", percent: 5 },
+    ],
+  },
+];
+
+function monthFromDateString(date: string): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function isMockBudgetReady(categories: BudgetCategory[]): boolean {
+  if (categories.length === 0) return false;
+  const total = categories.reduce((sum, category) => sum + category.percent, 0);
+  return Math.abs(total - 100) <= 0.01;
+}
+
+function sumMockIncomeForMonth(month: string): number {
+  const total = _mockTransactions
+    .filter((tx) => tx.month === month && tx.type === "income")
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  return Math.round(total * 100) / 100;
+}
+
+function normaliseMockBudget(month: string, budget?: MonthBudget): MonthBudget {
+  const categories = clone(budget?.categories ?? []);
+  return {
+    userId: "u1",
+    month,
+    totalBudget: sumMockIncomeForMonth(month),
+    categories,
+    isReady: isMockBudgetReady(categories),
+  };
+}
+
+function syncMockBudget(month: string): void {
+  if (_mockBudgets[month]) {
+    _mockBudgets[month] = normaliseMockBudget(month, _mockBudgets[month]);
+  }
+}
+
+function ensureMockManualAllowed(month: string): void {
+  const budget = _mockBudgets[month];
+  if (!budget || !budget.isReady) {
+    throw {
+      code: "BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS",
+      message: "Precisa de criar um orcamento valido para este mes antes de adicionar lancamentos manuais",
+    };
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 // Auth API
@@ -86,9 +172,10 @@ export const authApi = {
   async login(email: string, password: string): Promise<AuthResponse> {
     if (config.useMock) {
       await delay();
+      _mockUser = { ..._mockUser, email };
       return {
         tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
-        user: { ...mockUser, email },
+        user: { ..._mockUser },
       };
     }
     const { data } = await httpClient.post<AuthResponse>("/auth/login", { email, password });
@@ -98,9 +185,10 @@ export const authApi = {
   async register(name: string, email: string, password: string): Promise<AuthResponse> {
     if (config.useMock) {
       await delay();
+      _mockUser = { ..._mockUser, name, email, tutorialSeenAt: null };
       return {
         tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
-        user: { ...mockUser, name, email },
+        user: { ..._mockUser },
       };
     }
     const { data } = await httpClient.post<AuthResponse>("/auth/register", { name, email, password });
@@ -118,9 +206,22 @@ export const authApi = {
   async getMe(): Promise<UserProfile> {
     if (config.useMock) {
       await delay(200);
-      return { ...mockUser };
+      return { ..._mockUser };
     }
     const { data } = await httpClient.get<UserProfile>("/auth/me");
+    return data;
+  },
+
+  async completeTutorial(): Promise<UserProfile> {
+    if (config.useMock) {
+      await delay(120);
+      _mockUser = {
+        ..._mockUser,
+        tutorialSeenAt: new Date().toISOString(),
+      };
+      return { ..._mockUser };
+    }
+    const { data } = await httpClient.post<UserProfile>("/auth/tutorial/complete", {});
     return data;
   },
 };
@@ -154,6 +255,10 @@ export const transactionsApi = {
   async create(dto: CreateTransactionDto): Promise<Transaction> {
     if (config.useMock) {
       await delay();
+      if (dto.origin === "manual") {
+        ensureMockManualAllowed(dto.month);
+      }
+
       const newTx: Transaction = {
         ...dto,
         id: `t${_mockNextTxId++}`,
@@ -162,6 +267,9 @@ export const transactionsApi = {
         updatedAt: new Date().toISOString(),
       };
       _mockTransactions.push(newTx);
+      if (newTx.type === "income") {
+        syncMockBudget(newTx.month);
+      }
       return newTx;
     }
     const { data } = await httpClient.post<Transaction>("/transactions", dto);
@@ -173,12 +281,28 @@ export const transactionsApi = {
       await delay();
       const idx = _mockTransactions.findIndex((t) => t.id === id);
       if (idx >= 0) {
-        _mockTransactions[idx] = {
-          ..._mockTransactions[idx],
+        const current = _mockTransactions[idx];
+        const nextMonth = dto.date ? monthFromDateString(dto.date) : current.month;
+        if (current.origin === "manual") {
+          ensureMockManualAllowed(nextMonth);
+        }
+
+        const next: Transaction = {
+          ...current,
           ...dto,
+          ...(dto.date ? { month: nextMonth } : {}),
           updatedAt: new Date().toISOString(),
         };
-        return { ..._mockTransactions[idx] };
+        _mockTransactions[idx] = next;
+
+        if (current.type === "income") {
+          syncMockBudget(current.month);
+        }
+        if (next.type === "income") {
+          syncMockBudget(next.month);
+        }
+
+        return { ...next };
       }
       throw { code: "NOT_FOUND", message: "Transacao nao encontrada" };
     }
@@ -189,7 +313,11 @@ export const transactionsApi = {
   async delete(id: string): Promise<void> {
     if (config.useMock) {
       await delay();
+      const deleted = _mockTransactions.find((t) => t.id === id);
       _mockTransactions = _mockTransactions.filter((t) => t.id !== id);
+      if (deleted?.type === "income") {
+        syncMockBudget(deleted.month);
+      }
       return;
     }
     await httpClient.delete(`/transactions/${id}`);
@@ -258,19 +386,23 @@ export const recurringApi = {
 // ═══════════════════════════════════════════════════════════
 
 export const budgetApi = {
+  async getTemplates(): Promise<BudgetTemplate[]> {
+    if (config.useMock) {
+      await delay(120);
+      return clone(MOCK_BUDGET_TEMPLATES);
+    }
+    const { data } = await httpClient.get<BudgetTemplate[]>("/budgets/templates");
+    return data;
+  },
+
   async get(month: string): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
       if (_mockBudgets[month]) {
-        return JSON.parse(JSON.stringify(_mockBudgets[month]));
+        _mockBudgets[month] = normaliseMockBudget(month, _mockBudgets[month]);
+        return clone(_mockBudgets[month]);
       }
-      // Clone default budget for new months
-      const newBudget: MonthBudget = {
-        ...JSON.parse(JSON.stringify(mockMonthBudget)),
-        month,
-      };
-      _mockBudgets[month] = newBudget;
-      return JSON.parse(JSON.stringify(newBudget));
+      return normaliseMockBudget(month);
     }
     const { data } = await httpClient.get<MonthBudget>(`/budgets/${month}`);
     return data;
@@ -279,14 +411,15 @@ export const budgetApi = {
   async save(month: string, dto: SaveBudgetDto): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const budget: MonthBudget = {
+      const budget = normaliseMockBudget(month, {
         userId: "u1",
         month,
         totalBudget: dto.totalBudget,
         categories: dto.categories,
-      };
-      _mockBudgets[month] = JSON.parse(JSON.stringify(budget));
-      return JSON.parse(JSON.stringify(budget));
+        isReady: false,
+      });
+      _mockBudgets[month] = clone(budget);
+      return clone(budget);
     }
     const { data } = await httpClient.put<MonthBudget>(`/budgets/${month}`, dto);
     return data;
@@ -295,14 +428,11 @@ export const budgetApi = {
   async addCategory(month: string, dto: AddCategoryDto): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const budget = _mockBudgets[month] ?? {
-        ...JSON.parse(JSON.stringify(mockMonthBudget)),
-        month,
-      };
+      const budget = _mockBudgets[month] ?? normaliseMockBudget(month);
       const newCat: BudgetCategory = { ...dto, id: `cat${_mockNextCatId++}` };
       budget.categories.push(newCat);
-      _mockBudgets[month] = budget;
-      return JSON.parse(JSON.stringify(budget));
+      _mockBudgets[month] = normaliseMockBudget(month, budget);
+      return clone(_mockBudgets[month]);
     }
     const { data } = await httpClient.post<MonthBudget>(`/budgets/${month}/categories`, dto);
     return data;
@@ -311,11 +441,10 @@ export const budgetApi = {
   async removeCategory(month: string, categoryId: string): Promise<MonthBudget> {
     if (config.useMock) {
       await delay();
-      const budget = _mockBudgets[month];
-      if (budget) {
-        budget.categories = budget.categories.filter((c) => c.id !== categoryId);
-      }
-      return JSON.parse(JSON.stringify(budget));
+      const budget = _mockBudgets[month] ?? normaliseMockBudget(month);
+      budget.categories = budget.categories.filter((c) => c.id !== categoryId);
+      _mockBudgets[month] = normaliseMockBudget(month, budget);
+      return clone(_mockBudgets[month]);
     }
     const { data } = await httpClient.delete<MonthBudget>(`/budgets/${month}/categories/${categoryId}`);
     return data;
@@ -326,9 +455,15 @@ export const budgetApi = {
       await delay();
       const source = _mockBudgets[sourceMonth];
       if (!source) throw { code: "NOT_FOUND", message: "Mes de origem nao encontrado" };
-      const copy: MonthBudget = { ...JSON.parse(JSON.stringify(source)), month: targetMonth };
-      _mockBudgets[targetMonth] = copy;
-      return JSON.parse(JSON.stringify(copy));
+      const copy = normaliseMockBudget(targetMonth, {
+        userId: "u1",
+        month: targetMonth,
+        totalBudget: 0,
+        categories: clone(source.categories),
+        isReady: false,
+      });
+      _mockBudgets[targetMonth] = clone(copy);
+      return clone(copy);
     }
     const { data } = await httpClient.post<MonthBudget>(`/budgets/${targetMonth}/copy-from/${sourceMonth}`);
     return data;

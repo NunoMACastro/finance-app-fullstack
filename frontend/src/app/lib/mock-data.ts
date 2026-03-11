@@ -20,6 +20,7 @@ export const mockUser: UserProfile = {
   name: "Joao Silva",
   currency: "EUR",
   locale: "pt-PT",
+  tutorialSeenAt: null,
 };
 
 // Default budget categories
@@ -40,6 +41,7 @@ export const mockMonthBudget: MonthBudget = {
   month: currentMonth,
   totalBudget: 2200,
   categories: defaultCategories,
+  isReady: true,
 };
 
 export const mockRecurringRules: RecurringRule[] = [

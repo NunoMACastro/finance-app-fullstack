@@ -42,6 +42,7 @@ describeIfIntegration("auth flow integration", () => {
 
     expect(registerRes.status).toBe(201);
     expect(registerRes.body?.tokens?.accessToken).toBeTypeOf("string");
+    expect(registerRes.body?.user?.tutorialSeenAt).toBeNull();
 
     const loginRes = await request(app).post("/api/v1/auth/login").send({
       email: "joao@example.com",
@@ -57,5 +58,14 @@ describeIfIntegration("auth flow integration", () => {
 
     expect(meRes.status).toBe(200);
     expect(meRes.body.email).toBe("joao@example.com");
+    expect(meRes.body.tutorialSeenAt).toBeNull();
+
+    const tutorialRes = await request(app)
+      .post("/api/v1/auth/tutorial/complete")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({});
+
+    expect(tutorialRes.status).toBe(200);
+    expect(typeof tutorialRes.body.tutorialSeenAt).toBe("string");
   });
 });

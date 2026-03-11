@@ -19,6 +19,10 @@ const userSchema = new Schema(
       currency: { type: String, default: "EUR" },
       locale: { type: String, default: "pt-PT" },
     },
+    tutorialSeenAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

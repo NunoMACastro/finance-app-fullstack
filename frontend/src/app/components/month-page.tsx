@@ -32,9 +32,10 @@ import {
   Settings2,
   Tag,
   Percent,
+  Sparkles,
 } from "lucide-react";
 import { transactionsApi, budgetApi, resolveCategoryName } from "../lib/api";
-import type { MonthSummary, MonthBudget, Transaction, BudgetCategory } from "../lib/types";
+import type { MonthSummary, MonthBudget, Transaction, BudgetCategory, BudgetTemplate } from "../lib/types";
 
 function formatCurrency(val: number) {
   return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
@@ -99,6 +100,7 @@ export function MonthPage() {
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [viewTab, setViewTab] = useState<"expenses" | "income">("expenses");
+  const [budgetTemplates, setBudgetTemplates] = useState<BudgetTemplate[]>([]);
 
   const currentMonth = (() => {
     const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
@@ -121,6 +123,26 @@ export function MonthPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const templates = await budgetApi.getTemplates();
+        if (!cancelled) {
+          setBudgetTemplates(templates);
+        }
+      } catch {
+        if (!cancelled) {
+          setBudgetTemplates([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleDelete = async (id: string) => {
     await transactionsApi.delete(id);
     loadData();
@@ -135,6 +157,7 @@ export function MonthPage() {
   }
 
   const totalBudget = budget?.totalBudget ?? 0;
+  const isBudgetReady = budget?.isReady ?? false;
   const totalSpent = summary?.totalExpense ?? 0;
   const remaining = totalBudget - totalSpent;
   const daysLeft = getDaysRemainingInMonth(currentMonth);
@@ -145,7 +168,7 @@ export function MonthPage() {
   return (
     <div className="flex flex-col gap-4 pb-4">
       {/* Top bar: Month nav + actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="month-nav">
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-sky-50" onClick={() => setMonthOffset((p) => p - 1)}>
           <ChevronLeft className="w-5 h-5" />
         </Button>
@@ -162,19 +185,28 @@ export function MonthPage() {
       {/* Action buttons row */}
       <div className="flex items-center gap-2">
         <Button
+          data-tour="month-add-transaction"
           className="flex-1 rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30 h-10"
-          onClick={() => setShowAddDialog(true)}
+          onClick={() => {
+            if (isBudgetReady) {
+              setShowAddDialog(true);
+              return;
+            }
+            setShowBudgetEditor(true);
+          }}
+          disabled={!isBudgetReady}
         >
           <Plus className="w-4 h-4" />
           Novo lancamento
         </Button>
         <Button
+          data-tour="month-budget-button"
           variant="outline"
           className="rounded-xl border-sky-200 text-sky-600 hover:bg-sky-50 h-10 px-4"
           onClick={() => setShowBudgetEditor(true)}
         >
           <Settings2 className="w-4 h-4" />
-          Orcamento
+          {isBudgetReady ? "Orcamento" : "Criar orcamento"}
         </Button>
       </div>
 
@@ -187,6 +219,31 @@ export function MonthPage() {
         </div>
       ) : summary && budget ? (
         <motion.div className="flex flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          {!isBudgetReady && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+                <div className="p-4 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm text-amber-800">Cria primeiro um orcamento mensal</p>
+                      <p className="text-xs text-amber-700/80 mt-0.5">
+                        Os lancamentos manuais ficam desbloqueados quando tiveres categorias a 100%.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="rounded-xl bg-amber-500 text-white hover:bg-amber-600"
+                    onClick={() => setShowBudgetEditor(true)}
+                  >
+                    Criar
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Budget Hero Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <Card className="relative overflow-hidden border-0 shadow-xl shadow-sky-200/20">
@@ -277,7 +334,7 @@ export function MonthPage() {
             {/* Section header with view toggle */}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-foreground text-sm">Movimentos</h3>
-              <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-0.5">
+              <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-0.5" data-tour="month-view-tabs">
                 <button
                   className={`px-3 py-1.5 rounded-lg text-xs transition-all ${
                     viewTab === "expenses"
@@ -304,6 +361,7 @@ export function MonthPage() {
             <AnimatePresence mode="wait">
               {viewTab === "expenses" ? (
                 <motion.div
+                  data-tour="month-categories"
                   key="expenses-view"
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -537,6 +595,7 @@ export function MonthPage() {
           open={showBudgetEditor}
           onClose={() => setShowBudgetEditor(false)}
           budget={budget}
+          templates={budgetTemplates}
           onSaved={(b) => { setBudget(b); setShowBudgetEditor(false); }}
         />
       )}
@@ -688,11 +747,13 @@ function BudgetEditorDialog({
   open,
   onClose,
   budget,
+  templates,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   budget: MonthBudget;
+  templates: BudgetTemplate[];
   onSaved: (b: MonthBudget) => void;
 }) {
   const [editBudget, setEditBudget] = useState<MonthBudget>(JSON.parse(JSON.stringify(budget)));
@@ -755,6 +816,17 @@ function BudgetEditorDialog({
     setNewCatPercent("");
   };
 
+  const applyTemplate = (template: BudgetTemplate) => {
+    setEditBudget((prev) => ({
+      ...prev,
+      categories: template.categories.map((category) => ({
+        id: `${template.id}_${category.id}`,
+        name: category.name,
+        percent: category.percent,
+      })),
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
@@ -762,19 +834,53 @@ function BudgetEditorDialog({
           <DialogTitle>Editar Orcamento</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-5">
+          {/* Budget templates */}
+          {templates.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-muted-foreground">Templates</label>
+              <div className="grid grid-cols-2 gap-2">
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className="rounded-xl border border-sky-100 bg-sky-50/50 px-3 py-2 text-left hover:bg-sky-50 transition-colors"
+                    onClick={() => applyTemplate(template)}
+                  >
+                    <p className="text-sm text-sky-700">{template.name}</p>
+                    <p className="text-[10px] text-sky-600/80 mt-0.5">
+                      {template.categories.map((c) => `${c.name} ${c.percent}%`).join(" • ")}
+                    </p>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="rounded-xl border border-dashed border-muted-foreground/30 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                  onClick={() => setEditBudget((prev) => ({ ...prev, categories: [] }))}
+                >
+                  <p className="text-sm text-foreground">Personalizado</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Comecar com categorias vazias</p>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Total Budget */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-muted-foreground">Orcamento Total (EUR)</label>
-            <div className="relative">
+            <div className="relative opacity-80">
               <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="number"
                 step="0.01"
                 className="pl-10 h-11 rounded-xl"
                 value={editBudget.totalBudget}
-                onChange={(e) => setEditBudget((prev) => ({ ...prev, totalBudget: parseFloat(e.target.value) || 0 }))}
+                readOnly
+                disabled
               />
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Valor calculado automaticamente pela soma das receitas do mes.
+            </p>
           </div>
 
           {/* Percentage validation */}
@@ -898,7 +1004,7 @@ function BudgetEditorDialog({
           <Button
             className="rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || editBudget.categories.length === 0 || Math.abs(pctDiff) > 0.01}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             Guardar

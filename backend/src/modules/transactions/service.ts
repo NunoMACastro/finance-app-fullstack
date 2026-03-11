@@ -1,7 +1,9 @@
 import { Types } from "mongoose";
 import { notFound, unprocessable } from "../../lib/api-error.js";
 import { monthFromDate } from "../../lib/month.js";
+import { BudgetModel } from "../../models/budget.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
+import { isBudgetReady, syncBudgetTotalFromTransactions } from "../budgets/service.js";
 
 interface TransactionDto {
   id: string;
@@ -70,6 +72,16 @@ function parseAndValidateDate(date: string, expectedMonth?: string): Date {
   return parsed;
 }
 
+async function ensureManualTransactionsAllowed(userId: string, month: string): Promise<void> {
+  const budget = await BudgetModel.findOne({ userId, month }).lean();
+  if (!budget || !isBudgetReady(budget.categories)) {
+    unprocessable(
+      "Precisa de criar um orcamento valido para este mes antes de adicionar lancamentos manuais",
+      "BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS",
+    );
+  }
+}
+
 export async function getMonthSummary(userId: string, month: string): Promise<MonthSummaryDto> {
   const transactions = await TransactionModel.find({ userId, month }).sort({ date: -1, createdAt: -1 });
   const txs = transactions.map((t) => toTransactionDto(t));
@@ -105,6 +117,10 @@ export async function createTransaction(
 ): Promise<TransactionDto> {
   const date = parseAndValidateDate(input.date, input.month);
 
+  if (input.origin === "manual") {
+    await ensureManualTransactionsAllowed(userId, input.month);
+  }
+
   const recurringRuleId =
     input.origin === "recurring" && input.recurringRuleId
       ? new Types.ObjectId(input.recurringRuleId)
@@ -121,6 +137,10 @@ export async function createTransaction(
     amount: input.amount,
     categoryId: input.categoryId,
   });
+
+  if (transaction.type === "income") {
+    await syncBudgetTotalFromTransactions(userId, transaction.month);
+  }
 
   return toTransactionDto(transaction);
 }
@@ -141,10 +161,19 @@ export async function updateTransaction(
     notFound("Transacao nao encontrada", "TRANSACTION_NOT_FOUND");
   }
 
+  const originalType = transaction.type;
+  const originalMonth = transaction.month;
+  let nextMonth = originalMonth;
+
   if (input.date) {
     const parsedDate = parseAndValidateDate(input.date);
     transaction.date = parsedDate;
-    transaction.month = monthFromDate(parsedDate);
+    nextMonth = monthFromDate(parsedDate);
+    transaction.month = nextMonth;
+  }
+
+  if (transaction.origin === "manual") {
+    await ensureManualTransactionsAllowed(userId, nextMonth);
   }
 
   if (input.type) {
@@ -164,13 +193,29 @@ export async function updateTransaction(
   }
 
   await transaction.save();
+
+  const monthsToSync = new Set<string>();
+  if (originalType === "income") {
+    monthsToSync.add(originalMonth);
+  }
+  if (transaction.type === "income") {
+    monthsToSync.add(transaction.month);
+  }
+  for (const month of monthsToSync) {
+    await syncBudgetTotalFromTransactions(userId, month);
+  }
+
   return toTransactionDto(transaction);
 }
 
 export async function deleteTransaction(userId: string, transactionId: string): Promise<void> {
-  const result = await TransactionModel.deleteOne({ _id: transactionId, userId });
-  if (result.deletedCount === 0) {
+  const deleted = await TransactionModel.findOneAndDelete({ _id: transactionId, userId });
+  if (!deleted) {
     notFound("Transacao nao encontrada", "TRANSACTION_NOT_FOUND");
+  }
+
+  if (deleted.type === "income") {
+    await syncBudgetTotalFromTransactions(userId, deleted.month);
   }
 }
 

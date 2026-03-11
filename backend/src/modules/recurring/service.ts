@@ -3,6 +3,7 @@ import { notFound, unprocessable } from "../../lib/api-error.js";
 import { monthToDate } from "../../lib/month.js";
 import { RecurringRuleModel } from "../../models/recurring-rule.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
+import { syncBudgetTotalFromTransactions } from "../budgets/service.js";
 
 interface RecurringRuleDto {
   id: string;
@@ -159,6 +160,10 @@ export async function generateForUserMonth(userId: string, month: string): Promi
     );
 
     created += result.upsertedCount ?? 0;
+  }
+
+  if (created > 0) {
+    await syncBudgetTotalFromTransactions(userId, month);
   }
 
   return { created };

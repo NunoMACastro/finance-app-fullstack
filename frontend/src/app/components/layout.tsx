@@ -1,13 +1,15 @@
-import React from "react";
-import { Outlet, NavLink, useNavigate } from "react-router";
+import React, { useEffect, useState } from "react";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { useAuth } from "../lib/auth-context";
 import { Button } from "./ui/button";
+import { TutorialTour, type TourScope } from "./tutorial-tour";
 import {
   LayoutDashboard,
   BarChart3,
   LogOut,
   Wallet,
+  CircleHelp,
 } from "lucide-react";
 
 const navItems = [
@@ -16,8 +18,11 @@ const navItems = [
 ];
 
 export function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, completeTutorial } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialScope, setTutorialScope] = useState<TourScope>("month");
 
   const handleLogout = async () => {
     await logout();
@@ -27,6 +32,38 @@ export function AppLayout() {
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
+
+  const scopeFromPath = (path: string): TourScope => (path.startsWith("/stats") ? "stats" : "month");
+
+  useEffect(() => {
+    if (!user) return;
+    if (tutorialOpen) return;
+
+    const scope = scopeFromPath(location.pathname);
+    const storageKey = `tutorial_seen:${user.id}:${scope}`;
+    const alreadySeen = window.localStorage.getItem(storageKey) === "1";
+    if (alreadySeen) return;
+
+    const timer = window.setTimeout(() => {
+      setTutorialScope(scope);
+      setTutorialOpen(true);
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [user, location.pathname, tutorialOpen]);
+
+  const closeTutorial = async () => {
+    setTutorialOpen(false);
+    if (user) {
+      const storageKey = `tutorial_seen:${user.id}:${tutorialScope}`;
+      window.localStorage.setItem(storageKey, "1");
+    }
+    if (user?.tutorialSeenAt === null) {
+      await completeTutorial();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -48,6 +85,18 @@ export function AppLayout() {
               </div>
               <span className="hidden sm:inline text-sm text-muted-foreground">{user?.name}</span>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setTutorialScope(scopeFromPath(location.pathname));
+                setTutorialOpen(true);
+              }}
+              title="Tutorial"
+              className="text-muted-foreground hover:text-sky-600 rounded-xl"
+            >
+              <CircleHelp className="w-4 h-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -106,6 +155,14 @@ export function AppLayout() {
           ))}
         </div>
       </nav>
+
+      <TutorialTour
+        open={tutorialOpen}
+        scope={tutorialScope}
+        onClose={() => {
+          void closeTutorial();
+        }}
+      />
     </div>
   );
 }

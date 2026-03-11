@@ -110,9 +110,10 @@ async function buildStats(
   }
 
   for (const budget of budgets) {
+    const monthIncome = incomeByMonth.get(budget.month) ?? 0;
     for (const category of budget.categories) {
       categoryNames.set(category.id, category.name);
-      const budgetedAmount = (category.percent / 100) * budget.totalBudget;
+      const budgetedAmount = (category.percent / 100) * monthIncome;
       budgetByCategory.set(category.id, (budgetByCategory.get(category.id) ?? 0) + budgetedAmount);
     }
   }

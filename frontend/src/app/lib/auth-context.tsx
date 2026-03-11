@@ -31,6 +31,8 @@ interface AuthState {
   logout: () => Promise<void>;
   /** Re-fetch user profile from the backend */
   refreshUser: () => Promise<void>;
+  /** Mark tutorial as completed and refresh profile */
+  completeTutorial: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -137,6 +139,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const completeTutorial = useCallback(async () => {
+    try {
+      const profile = await authApi.completeTutorial();
+      setUser(profile);
+    } catch {
+      // no-op: tutorial completion should not force logout
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -148,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         refreshUser,
+        completeTutorial,
       }}
     >
       {children}

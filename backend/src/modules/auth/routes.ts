@@ -50,3 +50,12 @@ authRouter.get(
     res.status(200).json(profile);
   }),
 );
+
+authRouter.post(
+  "/tutorial/complete",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const profile = await authService.completeTutorial(req.auth!.userId);
+    res.status(200).json(profile);
+  }),
+);

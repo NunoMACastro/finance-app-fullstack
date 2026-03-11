@@ -15,6 +15,14 @@ export const budgetsRouter = Router();
 budgetsRouter.use(requireAuth);
 
 budgetsRouter.get(
+  "/templates",
+  asyncHandler(async (_req, res) => {
+    const templates = budgetsService.getBudgetTemplates();
+    res.status(200).json(templates);
+  }),
+);
+
+budgetsRouter.get(
   "/:month",
   asyncHandler(async (req, res) => {
     const params = monthParamSchema.parse(req.params);

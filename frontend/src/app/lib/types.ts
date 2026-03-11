@@ -35,6 +35,7 @@ export interface UserProfile {
   name: string;
   currency: string;
   locale: string;
+  tutorialSeenAt: string | null;
 }
 
 // ── Budget ────────────────────────────────────────────────
@@ -51,6 +52,13 @@ export interface MonthBudget {
   userId: string;
   month: MonthKey;
   totalBudget: number; // total available money
+  categories: BudgetCategory[];
+  isReady: boolean;
+}
+
+export interface BudgetTemplate {
+  id: string;
+  name: string;
   categories: BudgetCategory[];
 }
 
