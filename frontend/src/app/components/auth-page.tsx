@@ -5,7 +5,7 @@ import { isApiError } from "../lib/http-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Wallet, Loader2, Mail, Lock, UserCircle, Heart } from "lucide-react";
+import { Wallet, Loader2, Mail, Lock, UserCircle, Heart, Sparkles, ShieldCheck } from "lucide-react";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
@@ -27,7 +27,11 @@ export function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!loginEmail || !loginPassword) { setError("Preencha todos os campos"); return; }
+    if (!loginEmail || !loginPassword) {
+      setError("Preencha todos os campos");
+      return;
+    }
+
     try {
       await login(loginEmail, loginPassword);
     } catch (err) {
@@ -38,9 +42,19 @@ export function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!regName || !regEmail || !regPassword) { setError("Preencha todos os campos"); return; }
-    if (regPassword !== regConfirm) { setError("As passwords nao coincidem"); return; }
-    if (regPassword.length < 6) { setError("Password deve ter pelo menos 6 caracteres"); return; }
+    if (!regName || !regEmail || !regPassword) {
+      setError("Preencha todos os campos");
+      return;
+    }
+    if (regPassword !== regConfirm) {
+      setError("As passwords nao coincidem");
+      return;
+    }
+    if (regPassword.length < 6) {
+      setError("Password deve ter pelo menos 6 caracteres");
+      return;
+    }
+
     try {
       await register(regName, regEmail, regPassword);
     } catch (err) {
@@ -49,184 +63,229 @@ export function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(13,148,136,0.2),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(20,184,166,0.1),transparent_50%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-sky-50 via-white to-cyan-50">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(125,211,252,0.45),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(103,232,249,0.4),transparent_58%)]" />
 
-      {/* Floating orbs */}
       <motion.div
-        className="absolute top-20 left-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl"
-        animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"
-        animate={{ x: [0, -20, 0], y: [0, 30, 0] }}
+        className="pointer-events-none absolute -top-14 -left-8 h-56 w-56 rounded-full bg-sky-200/60 blur-3xl"
+        animate={{ x: [0, 12, 0], y: [0, 8, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
-
       <motion.div
-        className="w-full max-w-md relative z-10"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-      >
-        {/* Logo */}
-        <motion.div
-          className="flex flex-col items-center mb-8"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center mb-4 shadow-2xl border border-white/30">
-            <Wallet className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-white drop-shadow-lg">Poupérrimo</h1>
-        </motion.div>
+        className="pointer-events-none absolute -bottom-20 right-0 h-72 w-72 rounded-full bg-cyan-200/60 blur-3xl"
+        animate={{ x: [0, -10, 0], y: [0, -12, 0] }}
+        transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+      />
 
-        {/* Glass Card */}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-6 sm:px-6 sm:py-8">
         <motion.div
-          className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden"
-          initial={{ opacity: 0, y: 20 }}
+          className="grid gap-4 md:grid-cols-2 md:gap-5"
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
         >
-          <div className="p-6 sm:p-8">
-            <div className="mb-6">
-              <h2 className="text-foreground">Bem-vindo</h2>
-              <p className="text-muted-foreground text-sm mt-1">Inicie sessao ou crie uma conta para comecar</p>
+          <motion.section
+            className="order-2 rounded-3xl border border-sky-100 bg-white/80 p-5 shadow-xl shadow-sky-100/60 backdrop-blur-sm sm:p-6 md:order-1 lg:p-7"
+            initial={{ opacity: 0, x: -18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.08, duration: 0.45 }}
+          >
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-300 to-cyan-300 shadow-md shadow-cyan-200/60 sm:h-16 sm:w-16">
+              <Wallet className="h-7 w-7 text-white sm:h-8 sm:w-8" />
+            </div>
+
+            <h1 className="mb-2 tracking-tight text-slate-900">Poupérrimo</h1>
+            <p className="text-sm leading-relaxed text-slate-600">
+              Uma casa para o teu dinheiro. Simples, bonita e feita para te dar clareza todos os meses.
+            </p>
+
+            <div className="mt-5 grid gap-2.5 sm:mt-6 sm:gap-3">
+              <div className="flex items-start gap-2.5 rounded-2xl bg-sky-50 px-3.5 py-3">
+                <Sparkles className="mt-0.5 h-4 w-4 text-sky-500" />
+                <p className="text-sm text-slate-700">Planeia melhor sem folhas de calculo e sem atrito.</p>
+              </div>
+              <div className="flex items-start gap-2.5 rounded-2xl bg-cyan-50 px-3.5 py-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 text-cyan-600" />
+                <p className="text-sm text-slate-700">Tudo num unico sitio, com ritmo e consistencia.</p>
+              </div>
+            </div>
+          </motion.section>
+
+          <motion.section
+            className="order-1 rounded-3xl border border-white bg-white/95 p-5 shadow-2xl shadow-sky-100/70 backdrop-blur-sm sm:p-6 md:order-2 lg:p-7"
+            initial={{ opacity: 0, x: 18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.12, duration: 0.45 }}
+          >
+            <div className="mb-5 sm:mb-6">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sky-100/80 px-3 py-1 text-[11px] text-sky-700 sm:hidden">
+                <Wallet className="h-3.5 w-3.5" />
+                Poupérrimo
+              </div>
+              <h2 className="text-slate-900">Bem-vindo</h2>
+              <p className="mt-1 text-sm text-slate-500">Entra na tua conta ou cria uma nova em poucos segundos.</p>
             </div>
 
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="w-full mb-6 h-11 bg-muted/80 p-1">
-                <TabsTrigger value="login" className="flex-1 h-full">Entrar</TabsTrigger>
-                <TabsTrigger value="register" className="flex-1 h-full">Registar</TabsTrigger>
+              <TabsList className="mb-5 h-10 w-full rounded-xl bg-sky-100/70 p-1 sm:mb-6 sm:h-11">
+                <TabsTrigger value="login" className="h-full flex-1 rounded-lg">Entrar</TabsTrigger>
+                <TabsTrigger value="register" className="h-full flex-1 rounded-lg">Registar</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="login">
+              <TabsContent value="login" className="mt-0">
                 <form onSubmit={handleLogin} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-sm">Email</label>
+                    <label className="text-sm text-slate-500">Email</label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         type="email"
                         placeholder="nome@exemplo.pt"
-                        className="pl-10 h-11 rounded-xl"
+                        className="h-10 rounded-xl border-sky-100 bg-white pl-10 sm:h-11"
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                       />
                     </div>
                   </div>
+
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-sm">Password</label>
+                    <label className="text-sm text-slate-500">Password</label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         type="password"
-                        placeholder="A sua password"
-                        className="pl-10 h-11 rounded-xl"
+                        placeholder="A tua password"
+                        className="h-10 rounded-xl border-sky-100 bg-white pl-10 sm:h-11"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                       />
                     </div>
                   </div>
+
                   <AnimatePresence>
                     {error && (
                       <motion.p
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="text-destructive text-sm bg-red-50 px-3 py-2 rounded-xl"
+                        className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600"
                       >
                         {error}
                       </motion.p>
                     )}
                   </AnimatePresence>
+
                   <Button
                     type="submit"
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-slate-950 text-white shadow-lg shadow-slate-500/20 transition-all"
                     disabled={isLoading}
+                    className="h-10 rounded-xl border-0 bg-gradient-to-r from-sky-400 to-cyan-400 text-white shadow-md shadow-sky-200/60 hover:from-sky-500 hover:to-cyan-500 sm:h-11"
                   >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Entrar"}
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
                   </Button>
                 </form>
               </TabsContent>
 
-              <TabsContent value="register">
+              <TabsContent value="register" className="mt-0">
                 <form onSubmit={handleRegister} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-sm">Nome</label>
+                    <label className="text-sm text-slate-500">Nome</label>
                     <div className="relative">
-                      <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input placeholder="O seu nome" className="pl-10 h-11 rounded-xl" value={regName} onChange={(e) => setRegName(e.target.value)} />
+                      <UserCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        placeholder="O teu nome"
+                        className="h-10 rounded-xl border-sky-100 bg-white pl-10 sm:h-11"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                      />
                     </div>
                   </div>
+
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-sm">Email</label>
+                    <label className="text-sm text-slate-500">Email</label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input type="email" placeholder="nome@exemplo.pt" className="pl-10 h-11 rounded-xl" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} />
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        type="email"
+                        placeholder="nome@exemplo.pt"
+                        className="h-10 rounded-xl border-sky-100 bg-white pl-10 sm:h-11"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                      />
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-sm">Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input type="password" placeholder="Min. 6 caracteres" className="pl-10 h-11 rounded-xl" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} />
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-slate-500">Password</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          type="password"
+                          placeholder="Min. 6 caracteres"
+                          className="h-10 rounded-xl border-sky-100 bg-white pl-10 sm:h-11"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-slate-500">Confirmar</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          type="password"
+                          placeholder="Repete a password"
+                          className="h-10 rounded-xl border-sky-100 bg-white pl-10 sm:h-11"
+                          value={regConfirm}
+                          onChange={(e) => setRegConfirm(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-sm">Confirmar Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input type="password" placeholder="Repita a password" className="pl-10 h-11 rounded-xl" value={regConfirm} onChange={(e) => setRegConfirm(e.target.value)} />
-                    </div>
-                  </div>
+
                   <AnimatePresence>
                     {error && (
                       <motion.p
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="text-destructive text-sm bg-red-50 px-3 py-2 rounded-xl"
+                        className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600"
                       >
                         {error}
                       </motion.p>
                     )}
                   </AnimatePresence>
+
                   <Button
                     type="submit"
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-slate-950 text-white shadow-lg shadow-slate-500/20 transition-all"
                     disabled={isLoading}
+                    className="h-10 rounded-xl border-0 bg-gradient-to-r from-sky-400 to-cyan-400 text-white shadow-md shadow-sky-200/60 hover:from-sky-500 hover:to-cyan-500 sm:h-11"
                   >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Criar Conta"}
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
                   </Button>
                 </form>
               </TabsContent>
             </Tabs>
-          </div>
+          </motion.section>
         </motion.div>
 
-        <div className="mt-6 flex items-center justify-center">
-          <div className="group relative inline-flex items-center gap-1.5 text-xs text-white/60">
+        <div className="mt-5 flex items-center justify-center pb-1 sm:mt-6">
+          <div className="group relative inline-flex items-center gap-1.5 text-xs text-slate-500">
             <span>made with</span>
             <button
               type="button"
               aria-label={`Nuno Castro ${currentYear}`}
-              className="inline-flex items-center text-rose-300 hover:text-rose-200 transition-colors"
+              className="inline-flex items-center text-rose-400 transition-colors hover:text-rose-500"
             >
-              <Heart className="w-3.5 h-3.5 fill-current" />
+              <Heart className="h-3.5 w-3.5 fill-current" />
             </button>
-            <span className="absolute left-1/2 -top-9 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/20 bg-slate-900/85 px-2 py-1 text-[11px] text-white opacity-0 translate-y-1 transition-all duration-200 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
+            <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2 py-1 text-[11px] text-slate-600 opacity-0 shadow-sm transition-all duration-200 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100">
               Nuno Castro · {currentYear}
             </span>
           </div>
         </div>
-
-      </motion.div>
+      </div>
     </div>
   );
 }
