@@ -12,7 +12,7 @@ export const createRecurringSchema = z
     name: z.string().trim().min(1).max(180),
     amount: z.number().nonnegative(),
     dayOfMonth: z.number().int().min(1).max(31),
-    categoryId: z.string().trim().min(1).max(120),
+    categoryId: z.string().trim().max(120).optional(),
     startMonth: monthKey,
     endMonth: monthKey.optional(),
   })

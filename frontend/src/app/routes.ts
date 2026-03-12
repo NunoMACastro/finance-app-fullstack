@@ -22,6 +22,13 @@ export const router = createBrowserRouter([
           return { Component: mod.StatsPage };
         },
       },
+      {
+        path: "budget/:month/edit",
+        lazy: async () => {
+          const mod = await import("./components/budget-editor-page");
+          return { Component: mod.BudgetEditorPage };
+        },
+      },
     ],
   },
 ]);

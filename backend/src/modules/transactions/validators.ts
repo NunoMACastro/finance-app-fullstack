@@ -14,7 +14,7 @@ export const createTransactionSchema = z.object({
   recurringRuleId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional(),
   description: z.string().trim().min(1).max(240),
   amount: z.number().nonnegative(),
-  categoryId: z.string().trim().min(1).max(120),
+  categoryId: z.string().trim().max(120).optional(),
 });
 
 export const updateTransactionSchema = z

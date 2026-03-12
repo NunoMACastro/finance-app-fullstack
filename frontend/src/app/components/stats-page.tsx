@@ -713,6 +713,9 @@ export function StatsPage() {
     savingsRate: t.income > 0 ? Math.round(((t.income - t.expense) / t.income) * 100) : 0,
   }));
   const categorySeries = stats.categorySeries ?? [];
+  const incomeByCategory = stats.incomeByCategory ?? [];
+  const incomeCategorySeries = stats.incomeCategorySeries ?? [];
+  const maxIncomeByCategory = Math.max(...incomeByCategory.map((item) => item.amount), 1);
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -898,6 +901,93 @@ export function StatsPage() {
           <p className={`text-xs tabular-nums mt-0.5 ${derived.worstMonth.balance >= 0 ? "text-emerald-500" : "text-rose-400"}`}>
             {derived.worstMonth.balance >= 0 ? "+" : ""}{formatCurrency(derived.worstMonth.balance)}
           </p>
+        </Card>
+      </motion.div>
+
+      {/* Income Category Analytics */}
+      <motion.div
+        className="grid grid-cols-1 gap-3"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.09 }}
+      >
+        <Card className="border-0 shadow-md overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+              </div>
+              Receitas por Categoria
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {incomeByCategory.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem receitas categorizadas no periodo.</p>
+            ) : (
+              incomeByCategory.slice(0, 6).map((item, index) => (
+                <div key={item.categoryId} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground truncate">{item.categoryName}</span>
+                    <span className="text-xs tabular-nums">{formatCurrency(item.amount)} ({item.percent.toFixed(1)}%)</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.amount / maxIncomeByCategory) * 100}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 + index * 0.05 }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <div className="w-7 h-7 rounded-lg bg-cyan-100 flex items-center justify-center">
+                <BarChart3 className="w-3.5 h-3.5 text-cyan-600" />
+              </div>
+              Evolucao Mensal das Receitas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {incomeCategorySeries.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem series de receita para mostrar.</p>
+            ) : (
+              incomeCategorySeries.slice(0, 4).map((series, seriesIndex) => {
+                const maxSeriesValue = Math.max(...series.monthly.map((point) => point.amount), 1);
+                return (
+                  <div key={series.categoryId} className="rounded-xl border border-border/60 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-foreground truncate">{series.categoryName}</p>
+                      <p className="text-[10px] text-muted-foreground tabular-nums">
+                        {formatCurrency(series.monthly.reduce((sum, point) => sum + point.amount, 0))}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {series.monthly.map((point, monthIndex) => (
+                        <div key={`${series.categoryId}-${point.month}`} className="flex flex-col items-center gap-1">
+                          <div className="w-full h-12 bg-muted rounded-md overflow-hidden flex items-end">
+                            <motion.div
+                              className="w-full rounded-md"
+                              style={{ backgroundColor: PIE_COLORS[(seriesIndex + monthIndex) % PIE_COLORS.length] }}
+                              initial={{ height: 0 }}
+                              animate={{ height: `${(point.amount / maxSeriesValue) * 100}%` }}
+                              transition={{ duration: 0.55, ease: "easeOut", delay: 0.12 + monthIndex * 0.03 }}
+                            />
+                          </div>
+                          <span className="text-[9px] text-muted-foreground">{formatShortMonth(point.month)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
         </Card>
       </motion.div>
 

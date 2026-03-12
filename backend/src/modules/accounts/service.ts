@@ -6,6 +6,7 @@ import { AccountInviteCodeModel } from "../../models/account-invite-code.model.j
 import { AccountMembershipModel } from "../../models/account-membership.model.js";
 import { AccountModel } from "../../models/account.model.js";
 import { UserModel } from "../../models/user.model.js";
+import { ensureDefaultIncomeCategoryForAccount } from "../income-categories/service.js";
 
 export type AccountRole = "owner" | "editor" | "viewer";
 
@@ -136,6 +137,8 @@ async function ensurePersonalAccountForUserInSession(
     await user.save({ session });
   }
 
+  await ensureDefaultIncomeCategoryForAccount(personalAccount._id.toString(), session);
+
   const membership = await AccountMembershipModel.findOne({
     accountId: personalAccount._id,
     userId,
@@ -265,6 +268,8 @@ export async function createSharedAccount(userId: string, name: string): Promise
       ],
       { session },
     );
+
+    await ensureDefaultIncomeCategoryForAccount(account._id.toString(), session);
 
     return {
       id: account._id.toString(),

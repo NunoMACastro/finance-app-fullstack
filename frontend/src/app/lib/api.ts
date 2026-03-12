@@ -12,6 +12,7 @@ import type {
   CreateRecurringRuleDto,
   CreateTransactionDto,
   InviteCodeResponse,
+  IncomeCategory,
   MonthBudget,
   MonthSummary,
   RecurringRule,
@@ -24,7 +25,9 @@ import type {
 } from "./types";
 import {
   PERSONAL_ACCOUNT_ID,
+  buildDefaultIncomeCategories,
   getCategoryName,
+  getIncomeCategoryName,
   getStatsSnapshot,
   mockMonthBudget,
   mockRecurringRules,
@@ -109,6 +112,10 @@ const _mockBudgetsByAccount: Record<string, Record<string, MonthBudget>> = {
   },
 };
 
+const _mockIncomeCategoriesByAccount: Record<string, IncomeCategory[]> = {
+  [PERSONAL_ACCOUNT_ID]: buildDefaultIncomeCategories(PERSONAL_ACCOUNT_ID),
+};
+
 function mockAccountId(): string {
   return getActiveAccountIdHeader() ?? _mockUser.personalAccountId;
 }
@@ -129,6 +136,40 @@ function ensureBudgetStore(accountId: string): Record<string, MonthBudget> {
     _mockBudgetsByAccount[accountId] = {};
   }
   return _mockBudgetsByAccount[accountId];
+}
+
+function ensureIncomeCategoryStore(accountId: string): IncomeCategory[] {
+  if (!_mockIncomeCategoriesByAccount[accountId]) {
+    _mockIncomeCategoriesByAccount[accountId] = buildDefaultIncomeCategories(accountId);
+  }
+  return _mockIncomeCategoriesByAccount[accountId];
+}
+
+function ensureMockIncomeCategoryAllowed(accountId: string, categoryId?: string): string {
+  const cleanId = categoryId?.trim();
+  if (!cleanId) {
+    throw {
+      code: "INCOME_CATEGORY_REQUIRED",
+      message: "Categoria de receita obrigatoria",
+    };
+  }
+
+  const category = ensureIncomeCategoryStore(accountId).find((item) => item.id === cleanId);
+  if (!category) {
+    throw {
+      code: "INCOME_CATEGORY_NOT_FOUND",
+      message: "Categoria de receita nao encontrada",
+    };
+  }
+
+  if (!category.active) {
+    throw {
+      code: "INCOME_CATEGORY_INACTIVE",
+      message: "Categoria de receita inativa",
+    };
+  }
+
+  return cleanId;
 }
 
 function sumMockIncomeForMonth(accountId: string, month: string): number {
@@ -223,6 +264,12 @@ export const authApi = {
           },
         ],
       };
+      _mockTransactions = clone(mockTransactions);
+      _mockRecurringRules = clone(mockRecurringRules);
+      for (const accountId of Object.keys(_mockIncomeCategoriesByAccount)) {
+        delete _mockIncomeCategoriesByAccount[accountId];
+      }
+      _mockIncomeCategoriesByAccount[PERSONAL_ACCOUNT_ID] = buildDefaultIncomeCategories(PERSONAL_ACCOUNT_ID);
       return {
         tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
         user: { ..._mockUser },
@@ -293,6 +340,7 @@ export const accountsApi = {
           status: "active",
         },
       ];
+      _mockIncomeCategoriesByAccount[account.id] = buildDefaultIncomeCategories(account.id);
       return clone(account);
     }
     const { data } = await httpClient.post<AccountSummary>("/accounts", { name });
@@ -310,6 +358,7 @@ export const accountsApi = {
       if (!account) {
         throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
       }
+      ensureIncomeCategoryStore(account.id);
       return clone(account);
     }
     const { data } = await httpClient.post<AccountSummary>("/accounts/join", { code });
@@ -405,11 +454,94 @@ export const accountsApi = {
       _mockAccounts = _mockAccounts.filter((item) => item.id !== accountId);
       delete _mockMembersByAccount[accountId];
       delete _mockBudgetsByAccount[accountId];
+      delete _mockIncomeCategoriesByAccount[accountId];
       _mockTransactions = _mockTransactions.filter((tx) => tx.accountId !== accountId);
       _mockRecurringRules = _mockRecurringRules.filter((rule) => rule.accountId !== accountId);
       return;
     }
     await httpClient.post(`/accounts/${accountId}/leave`, {});
+  },
+};
+
+export const incomeCategoriesApi = {
+  async list(): Promise<IncomeCategory[]> {
+    if (config.useMock) {
+      await delay(100);
+      return clone(ensureIncomeCategoryStore(mockAccountId()));
+    }
+    const { data } = await httpClient.get<IncomeCategory[]>("/income-categories");
+    return data;
+  },
+
+  async create(name: string): Promise<IncomeCategory> {
+    if (config.useMock) {
+      await delay(120);
+      const accountId = mockAccountId();
+      const nowIso = new Date().toISOString();
+      const category: IncomeCategory = {
+        id: `inc_${Date.now()}`,
+        accountId,
+        name: name.trim(),
+        active: true,
+        isDefault: false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      ensureIncomeCategoryStore(accountId).push(category);
+      return clone(category);
+    }
+    const { data } = await httpClient.post<IncomeCategory>("/income-categories", { name });
+    return data;
+  },
+
+  async update(id: string, payload: { name?: string; active?: boolean }): Promise<IncomeCategory> {
+    if (config.useMock) {
+      await delay(120);
+      const accountId = mockAccountId();
+      const categories = ensureIncomeCategoryStore(accountId);
+      const target = categories.find((item) => item.id === id);
+      if (!target) {
+        throw { code: "INCOME_CATEGORY_NOT_FOUND", message: "Categoria de receita nao encontrada" };
+      }
+      if (target.isDefault && payload.active === false) {
+        throw {
+          code: "INCOME_CATEGORY_DEFAULT_PROTECTED",
+          message: "A categoria default nao pode ser desativada",
+        };
+      }
+      if (payload.name !== undefined) {
+        target.name = payload.name.trim();
+      }
+      if (payload.active !== undefined) {
+        target.active = payload.active;
+      }
+      target.updatedAt = new Date().toISOString();
+      return clone(target);
+    }
+    const { data } = await httpClient.patch<IncomeCategory>(`/income-categories/${id}`, payload);
+    return data;
+  },
+
+  async remove(id: string): Promise<void> {
+    if (config.useMock) {
+      await delay(120);
+      const accountId = mockAccountId();
+      const categories = ensureIncomeCategoryStore(accountId);
+      const target = categories.find((item) => item.id === id);
+      if (!target) {
+        throw { code: "INCOME_CATEGORY_NOT_FOUND", message: "Categoria de receita nao encontrada" };
+      }
+      if (target.isDefault) {
+        throw {
+          code: "INCOME_CATEGORY_DEFAULT_PROTECTED",
+          message: "A categoria default nao pode ser removida",
+        };
+      }
+      target.active = false;
+      target.updatedAt = new Date().toISOString();
+      return;
+    }
+    await httpClient.delete(`/income-categories/${id}`);
   },
 };
 
@@ -443,6 +575,9 @@ export const transactionsApi = {
       if (dto.origin === "manual") {
         ensureMockManualAllowed(accountId, dto.month);
       }
+      if (dto.type === "income") {
+        ensureMockIncomeCategoryAllowed(accountId, dto.categoryId);
+      }
 
       const tx: Transaction = {
         ...dto,
@@ -475,6 +610,11 @@ export const transactionsApi = {
       const nextMonth = dto.date ? monthFromDateString(dto.date) : current.month;
       if (current.origin === "manual") {
         ensureMockManualAllowed(accountId, nextMonth);
+      }
+      const nextType = dto.type ?? current.type;
+      const nextCategoryId = dto.categoryId ?? current.categoryId;
+      if (nextType === "income") {
+        ensureMockIncomeCategoryAllowed(accountId, nextCategoryId);
       }
 
       const next: Transaction = {
@@ -528,6 +668,9 @@ export const recurringApi = {
   async create(dto: CreateRecurringRuleDto): Promise<RecurringRule> {
     if (config.useMock) {
       await delay();
+      if (dto.type === "income") {
+        ensureMockIncomeCategoryAllowed(mockAccountId(), dto.categoryId);
+      }
       const rule: RecurringRule = {
         ...dto,
         id: `rr${_mockNextRuleId++}`,
@@ -549,6 +692,10 @@ export const recurringApi = {
       const idx = _mockRecurringRules.findIndex((rule) => rule.id === id && rule.accountId === accountId);
       if (idx < 0) {
         throw { code: "RECURRING_RULE_NOT_FOUND", message: "Regra recorrente nao encontrada" };
+      }
+      const current = _mockRecurringRules[idx];
+      if (current.type === "income") {
+        ensureMockIncomeCategoryAllowed(accountId, dto.categoryId ?? current.categoryId);
       }
       _mockRecurringRules[idx] = { ..._mockRecurringRules[idx], ...dto };
       return clone(_mockRecurringRules[idx]);
@@ -696,4 +843,12 @@ export function resolveCategoryName(categoryId: string, categories?: BudgetCateg
     if (found) return found.name;
   }
   return getCategoryName(categoryId);
+}
+
+export function resolveIncomeCategoryName(categoryId: string, categories?: IncomeCategory[]): string {
+  if (categories) {
+    const found = categories.find((category) => category.id === categoryId);
+    if (found) return found.name;
+  }
+  return getIncomeCategoryName(categoryId, categories);
 }

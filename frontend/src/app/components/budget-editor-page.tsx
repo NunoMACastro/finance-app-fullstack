@@ -1,0 +1,440 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import { motion } from "motion/react";
+import { ArrowLeft, Check, Loader2, Percent, Plus, Trash2, Wallet, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { budgetApi } from "../lib/api";
+import { getErrorMessage } from "../lib/api-error";
+import { useAccount } from "../lib/account-context";
+import type { BudgetCategory, BudgetTemplate, MonthBudget } from "../lib/types";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Input } from "./ui/input";
+import { ConfirmActionDialog } from "./confirm-action-dialog";
+
+const CATEGORY_COLORS = [
+  { gradient: "from-violet-400 to-purple-400" },
+  { gradient: "from-pink-300 to-rose-300" },
+  { gradient: "from-emerald-300 to-teal-300" },
+  { gradient: "from-amber-300 to-yellow-300" },
+  { gradient: "from-sky-300 to-blue-300" },
+  { gradient: "from-orange-300 to-amber-300" },
+  { gradient: "from-cyan-300 to-sky-300" },
+  { gradient: "from-rose-300 to-pink-300" },
+  { gradient: "from-indigo-300 to-violet-300" },
+];
+
+function getCatColor(index: number) {
+  return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+}
+
+function formatCurrency(val: number) {
+  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
+}
+
+function getMonthLabel(monthKey: string) {
+  const [y, m] = monthKey.split("-");
+  const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+  return d.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
+}
+
+function catEur(cat: BudgetCategory, totalBudget: number): number {
+  return (cat.percent / 100) * totalBudget;
+}
+
+function isMonthKey(value?: string): value is string {
+  return Boolean(value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value));
+}
+
+export function BudgetEditorPage() {
+  const navigate = useNavigate();
+  const { month: routeMonth } = useParams();
+  const { canWriteFinancial } = useAccount();
+  const month = isMonthKey(routeMonth) ? routeMonth : new Date().toISOString().slice(0, 7);
+
+  const [budget, setBudget] = useState<MonthBudget | null>(null);
+  const [templates, setTemplates] = useState<BudgetTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatPercent, setNewCatPercent] = useState("");
+  const [pendingRemoveCategoryId, setPendingRemoveCategoryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const [loadedBudget, loadedTemplates] = await Promise.all([
+          budgetApi.get(month),
+          budgetApi.getTemplates(),
+        ]);
+        if (cancelled) return;
+        setBudget(loadedBudget);
+        setTemplates(loadedTemplates);
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(getErrorMessage(error, "Nao foi possivel carregar o editor de orcamento"));
+        setBudget(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [month]);
+
+  const totalPct = useMemo(
+    () => budget?.categories.reduce((sum, category) => sum + category.percent, 0) ?? 0,
+    [budget],
+  );
+  const pctDiff = totalPct - 100;
+
+  const handleBack = () => {
+    navigate(`/?month=${month}`);
+  };
+
+  const updateCategory = (id: string, field: "name" | "percent", value: string | number) => {
+    setBudget((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        categories: prev.categories.map((category) =>
+          category.id === id
+            ? {
+                ...category,
+                [field]: field === "percent" ? (parseFloat(String(value)) || 0) : value,
+              }
+            : category,
+        ),
+      };
+    });
+  };
+
+  const addCategory = () => {
+    const cleanName = newCatName.trim();
+    if (!cleanName) return;
+    setBudget((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        categories: [
+          ...prev.categories,
+          {
+            id: `cat_new_${Date.now()}`,
+            name: cleanName,
+            percent: parseFloat(newCatPercent) || 0,
+          },
+        ],
+      };
+    });
+    setNewCatName("");
+    setNewCatPercent("");
+  };
+
+  const applyTemplate = (template: BudgetTemplate) => {
+    setBudget((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        categories: template.categories.map((category) => ({
+          id: `${template.id}_${category.id}`,
+          name: category.name,
+          percent: category.percent,
+        })),
+      };
+    });
+  };
+
+  const handleSave = async () => {
+    if (!budget || !canWriteFinancial) return;
+    setSaving(true);
+    try {
+      const saved = await budgetApi.save(budget.month, {
+        totalBudget: budget.totalBudget,
+        categories: budget.categories,
+      });
+      setBudget(saved);
+      toast.success("Orcamento guardado");
+      navigate(`/?month=${saved.month}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel guardar o orcamento"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4 pb-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-sky-50" onClick={handleBack}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div>
+          <h2 className="text-base text-foreground">Editar Orcamento</h2>
+          <p className="text-xs text-muted-foreground capitalize">{getMonthLabel(month)}</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <Card className="p-8 border-0 shadow-md flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-sky-400" />
+        </Card>
+      ) : loadError ? (
+        <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+          <div className="p-4 flex flex-col gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-800">{loadError}</p>
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100"
+              onClick={() => navigate(0)}
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        </Card>
+      ) : budget ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
+          {!canWriteFinancial && (
+            <Card className="border-sky-100 bg-sky-50/60 shadow-sm">
+              <div className="p-3 text-xs text-sky-700">
+                Modo leitura: sem permissao para editar o orcamento.
+              </div>
+            </Card>
+          )}
+
+          {templates.length > 0 && (
+            <Card className="border-0 shadow-md p-4 flex flex-col gap-2">
+              <label className="text-sm text-muted-foreground">Templates</label>
+              <div className="grid grid-cols-1 gap-2">
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className="rounded-xl border border-sky-100 bg-sky-50/50 px-3 py-2 text-left hover:bg-sky-50 transition-colors"
+                    onClick={() => applyTemplate(template)}
+                    disabled={!canWriteFinancial}
+                  >
+                    <p className="text-sm text-sky-700">{template.name}</p>
+                    <p className="text-[10px] text-sky-600/80 mt-0.5">
+                      {template.categories.map((category) => `${category.name} ${category.percent}%`).join(" • ")}
+                    </p>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="rounded-xl border border-dashed border-muted-foreground/30 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                  onClick={() => {
+                    setBudget((prev) => (prev ? { ...prev, categories: [] } : prev));
+                  }}
+                  disabled={!canWriteFinancial}
+                >
+                  <p className="text-sm text-foreground">Personalizado</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Comecar com categorias vazias</p>
+                </button>
+              </div>
+            </Card>
+          )}
+
+          <Card className="border-0 shadow-md p-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm text-muted-foreground">Orcamento Total (EUR)</label>
+              <div className="relative opacity-80">
+                <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  step="0.01"
+                  className="pl-10 h-11 rounded-xl"
+                  value={budget.totalBudget}
+                  readOnly
+                  disabled
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Valor calculado automaticamente pela soma das receitas do mes.
+              </p>
+            </div>
+
+            <div
+              className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl ${
+                Math.abs(pctDiff) < 0.01
+                  ? "bg-emerald-50 text-emerald-700"
+                  : pctDiff < 0
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-red-50 text-red-700"
+              }`}
+            >
+              {Math.abs(pctDiff) < 0.01 ? (
+                <Check className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+              )}
+              <span>
+                Total: {totalPct.toFixed(1)}%
+                {pctDiff < -0.01 && ` — ${Math.abs(pctDiff).toFixed(1)}% por alocar`}
+                {pctDiff > 0.01 && ` — ${pctDiff.toFixed(1)}% a mais`}
+                {Math.abs(pctDiff) < 0.01 && " — 100%"}
+              </span>
+            </div>
+
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full transition-colors ${
+                  Math.abs(pctDiff) < 0.01
+                    ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                    : totalPct > 100
+                      ? "bg-gradient-to-r from-red-400 to-red-500"
+                      : "bg-gradient-to-r from-amber-400 to-amber-500"
+                }`}
+                animate={{ width: `${Math.min(totalPct, 100)}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <label className="text-sm text-muted-foreground">Categorias</label>
+              {budget.categories.map((category, index) => (
+                <div key={category.id} className="rounded-xl border border-border/60 bg-muted/20 p-2.5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${getCatColor(index).gradient} shrink-0`} />
+                    <Input
+                      className="flex-1 h-9 rounded-xl text-sm"
+                      value={category.name}
+                      onChange={(event) => updateCategory(category.id, "name", event.target.value)}
+                      placeholder="Nome da categoria"
+                      disabled={!canWriteFinancial}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
+                      onClick={() => setPendingRemoveCategoryId(category.id)}
+                      aria-label={`Remover categoria ${category.name}`}
+                      disabled={!canWriteFinancial}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="100"
+                        className="w-full h-9 rounded-xl text-sm text-right pr-7"
+                        value={category.percent}
+                        onChange={(event) => updateCategory(category.id, "percent", event.target.value)}
+                        disabled={!canWriteFinancial}
+                      />
+                      <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                    </div>
+                    <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
+                      {formatCurrency(catEur(category, budget.totalBudget))}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              <div className="rounded-xl border border-dashed border-border/80 p-2.5 flex flex-col gap-2 mt-1 pt-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-muted shrink-0" />
+                  <Input
+                    className="flex-1 h-9 rounded-xl text-sm"
+                    value={newCatName}
+                    onChange={(event) => setNewCatName(event.target.value)}
+                    placeholder="Nova categoria..."
+                    onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), addCategory())}
+                    disabled={!canWriteFinancial}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-sky-500 hover:bg-sky-50 rounded-xl h-9 w-9"
+                    onClick={addCategory}
+                    disabled={!newCatName.trim() || !canWriteFinancial}
+                    aria-label="Adicionar categoria"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                      className="w-full h-9 rounded-xl text-sm text-right pr-7"
+                      value={newCatPercent}
+                      onChange={(event) => setNewCatPercent(event.target.value)}
+                      placeholder="0"
+                      onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), addCategory())}
+                      disabled={!canWriteFinancial}
+                    />
+                    <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                  </div>
+                  <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
+                    {formatCurrency(((parseFloat(newCatPercent) || 0) / 100) * budget.totalBudget)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <div className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-sky-100/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="rounded-xl flex-1" onClick={handleBack}>
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-xl flex-1 bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
+                onClick={handleSave}
+                disabled={
+                  saving
+                  || !canWriteFinancial
+                  || budget.categories.length === 0
+                  || Math.abs(pctDiff) > 0.01
+                }
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ) : null}
+
+      <ConfirmActionDialog
+        open={Boolean(pendingRemoveCategoryId)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingRemoveCategoryId(null);
+          }
+        }}
+        title="Remover categoria do orcamento?"
+        description="Esta categoria sera removida deste mes e as percentagens podem deixar de totalizar 100%."
+        confirmLabel="Remover"
+        onConfirm={async () => {
+          if (!pendingRemoveCategoryId) return;
+          setBudget((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              categories: prev.categories.filter((category) => category.id !== pendingRemoveCategoryId),
+            };
+          });
+          setPendingRemoveCategoryId(null);
+        }}
+      />
+    </div>
+  );
+}

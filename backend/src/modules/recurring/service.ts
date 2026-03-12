@@ -4,6 +4,7 @@ import { monthToDate } from "../../lib/month.js";
 import { RecurringRuleModel } from "../../models/recurring-rule.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import { syncBudgetTotalFromTransactions } from "../budgets/service.js";
+import { assertIncomeCategoryActive } from "../income-categories/service.js";
 
 interface RecurringRuleDto {
   id: string;
@@ -57,6 +58,27 @@ function isRuleActiveForMonth(
   return true;
 }
 
+function ensureExpenseCategoryProvided(categoryId?: string): string {
+  const cleanId = categoryId?.trim();
+  if (!cleanId) {
+    unprocessable("Categoria obrigatoria", "RECURRING_CATEGORY_REQUIRED");
+  }
+  return cleanId;
+}
+
+async function ensureRecurringCategoryForType(
+  accountId: string,
+  type: "income" | "expense",
+  categoryId?: string,
+): Promise<string> {
+  if (type === "income") {
+    await assertIncomeCategoryActive(accountId, categoryId);
+    return categoryId!.trim();
+  }
+
+  return ensureExpenseCategoryProvided(categoryId);
+}
+
 export async function listRules(accountId: string): Promise<RecurringRuleDto[]> {
   const rules = await RecurringRuleModel.find({ accountId }).sort({ createdAt: -1 });
   return rules.map(toDto);
@@ -70,11 +92,13 @@ export async function createRule(
     name: string;
     amount: number;
     dayOfMonth: number;
-    categoryId: string;
+    categoryId?: string;
     startMonth: string;
     endMonth?: string;
   },
 ): Promise<RecurringRuleDto> {
+  const categoryId = await ensureRecurringCategoryForType(accountId, input.type, input.categoryId);
+
   const rule = await RecurringRuleModel.create({
     accountId,
     userId: actorUserId,
@@ -82,7 +106,7 @@ export async function createRule(
     name: input.name,
     amount: input.amount,
     dayOfMonth: input.dayOfMonth,
-    categoryId: input.categoryId,
+    categoryId,
     startMonth: input.startMonth,
     endMonth: input.endMonth ?? null,
     active: true,
@@ -113,10 +137,13 @@ export async function updateRule(
     unprocessable("endMonth deve ser >= startMonth", "RECURRING_END_MONTH_INVALID");
   }
 
+  const nextCategoryId = input.categoryId ?? rule.categoryId;
+  const ensuredCategoryId = await ensureRecurringCategoryForType(accountId, rule.type, nextCategoryId);
+
   if (input.name !== undefined) rule.name = input.name;
   if (input.amount !== undefined) rule.amount = input.amount;
   if (input.dayOfMonth !== undefined) rule.dayOfMonth = input.dayOfMonth;
-  if (input.categoryId !== undefined) rule.categoryId = input.categoryId;
+  if (input.categoryId !== undefined || rule.type === "income") rule.categoryId = ensuredCategoryId;
   if (input.endMonth !== undefined) rule.endMonth = input.endMonth;
   if (input.active !== undefined) rule.active = input.active;
   rule.userId = new Types.ObjectId(actorUserId);

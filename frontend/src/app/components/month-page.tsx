@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -7,10 +8,26 @@ import { Progress } from "./ui/progress";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "./ui/dialog";
+import {
+  OverlayBody,
+  OverlayContent,
+  OverlayFooter,
+  OverlayHeader,
+  OverlayTitle,
+  ResponsiveOverlay,
+} from "./ui/responsive-overlay";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "./ui/sheet";
+import { useIsMobile } from "./ui/use-mobile";
 import {
   Wallet,
   CalendarDays,
@@ -34,12 +51,24 @@ import {
   Percent,
   Sparkles,
 } from "lucide-react";
-import { transactionsApi, budgetApi, resolveCategoryName } from "../lib/api";
+import {
+  transactionsApi,
+  budgetApi,
+  incomeCategoriesApi,
+  resolveIncomeCategoryName,
+} from "../lib/api";
 import { getErrorMessage } from "../lib/api-error";
+import { isApiError } from "../lib/http-client";
 import { getAccountRoleLabel } from "../lib/account-role-label";
 import { useAccount } from "../lib/account-context";
-import type { MonthSummary, MonthBudget, Transaction, BudgetCategory, BudgetTemplate } from "../lib/types";
+import type {
+  MonthSummary,
+  MonthBudget,
+  BudgetCategory,
+  IncomeCategory,
+} from "../lib/types";
 import { toast } from "sonner";
+import { ConfirmActionDialog } from "./confirm-action-dialog";
 
 function formatCurrency(val: number) {
   return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
@@ -96,17 +125,26 @@ function catEur(cat: BudgetCategory, totalBudget: number): number {
 // ============================================================
 export function MonthPage() {
   const { activeAccountId, activeAccountRole, canWriteFinancial } = useAccount();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const now = new Date();
-  const [monthOffset, setMonthOffset] = useState(0);
+  const initialMonthOffset = (() => {
+    const monthParam = searchParams.get("month");
+    if (!monthParam || !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) return 0;
+    const [year, month] = monthParam.split("-").map(Number);
+    return (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+  })();
+  const [monthOffset, setMonthOffset] = useState(initialMonthOffset);
   const [summary, setSummary] = useState<MonthSummary | null>(null);
   const [budget, setBudget] = useState<MonthBudget | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [viewTab, setViewTab] = useState<"expenses" | "income">("expenses");
-  const [budgetTemplates, setBudgetTemplates] = useState<BudgetTemplate[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([]);
+  const [showIncomeCategoriesDialog, setShowIncomeCategoriesDialog] = useState(false);
+  const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
 
   const currentMonth = (() => {
     const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
@@ -117,42 +155,42 @@ export function MonthPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [summaryData, budgetData] = await Promise.all([
+      const [summaryData, budgetData, incomeCategoriesData] = await Promise.all([
         transactionsApi.getMonthSummary(currentMonth),
         budgetApi.get(currentMonth),
+        incomeCategoriesApi.list(),
       ]);
       setSummary(summaryData);
       setBudget(budgetData);
+      setIncomeCategories(incomeCategoriesData);
     } catch (error) {
       setLoadError(getErrorMessage(error, "Nao foi possivel carregar os dados do mes"));
       setSummary(null);
       setBudget(null);
+      setIncomeCategories([]);
     } finally {
       setLoading(false);
     }
   }, [activeAccountId, currentMonth]);
 
+  const reloadIncomeCategories = useCallback(async () => {
+    try {
+      const categories = await incomeCategoriesApi.list();
+      setIncomeCategories(categories);
+    } catch {
+      setIncomeCategories([]);
+    }
+  }, [activeAccountId]);
+
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const templates = await budgetApi.getTemplates();
-        if (!cancelled) {
-          setBudgetTemplates(templates);
-        }
-      } catch {
-        if (!cancelled) {
-          setBudgetTemplates([]);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    const queryMonth = searchParams.get("month");
+    if (queryMonth === currentMonth) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("month", currentMonth);
+    setSearchParams(nextParams, { replace: true });
+  }, [currentMonth, searchParams, setSearchParams]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -209,7 +247,7 @@ export function MonthPage() {
               setShowAddDialog(true);
               return;
             }
-            setShowBudgetEditor(true);
+            navigate(`/budget/${currentMonth}/edit`);
           }}
           disabled={!isBudgetReady || !canWriteFinancial}
         >
@@ -220,7 +258,7 @@ export function MonthPage() {
           data-tour="month-budget-button"
           variant="outline"
           className="rounded-xl border-sky-200 text-sky-600 hover:bg-sky-50 h-10 px-4"
-          onClick={() => setShowBudgetEditor(true)}
+          onClick={() => navigate(`/budget/${currentMonth}/edit`)}
           disabled={!canWriteFinancial}
         >
           <Settings2 className="w-4 h-4" />
@@ -280,7 +318,7 @@ export function MonthPage() {
                   <Button
                     size="sm"
                     className="rounded-xl bg-amber-500 text-white hover:bg-amber-600"
-                    onClick={() => setShowBudgetEditor(true)}
+                    onClick={() => navigate(`/budget/${currentMonth}/edit`)}
                   >
                     Criar
                   </Button>
@@ -547,7 +585,7 @@ export function MonthPage() {
                                           {tx.origin === "manual" && canWriteFinancial && (
                                             <button
                                               className="text-muted-foreground/70 active:scale-95 transition-transform shrink-0 p-1.5 rounded-lg"
-                                              onClick={(e) => { e.stopPropagation(); handleDelete(tx.id); }}
+                                              onClick={(e) => { e.stopPropagation(); setPendingDeleteTransactionId(tx.id); }}
                                               aria-label="Remover lancamento"
                                             >
                                               <Trash2 className="w-3.5 h-3.5" />
@@ -600,7 +638,7 @@ export function MonthPage() {
                                 <span className="text-[11px] text-muted-foreground">{formatDate(tx.date)}</span>
                                 <span className="text-muted-foreground/30 text-[11px]">&bull;</span>
                                 <span className="text-[11px] text-muted-foreground truncate">
-                                  {resolveCategoryName(tx.categoryId, budget.categories)}
+                                  {resolveIncomeCategoryName(tx.categoryId, incomeCategories)}
                                 </span>
                                 {tx.origin === "recurring" && (
                                   <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded-full">
@@ -617,7 +655,7 @@ export function MonthPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl transition-all h-9 w-9"
-                                  onClick={() => handleDelete(tx.id)}
+                                  onClick={() => setPendingDeleteTransactionId(tx.id)}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                               </Button>
@@ -650,19 +688,39 @@ export function MonthPage() {
         onClose={() => setShowAddDialog(false)}
         month={currentMonth}
         onAdded={loadData}
-        categories={budget?.categories ?? []}
+        expenseCategories={budget?.categories ?? []}
+        incomeCategories={incomeCategories}
         canWriteFinancial={canWriteFinancial}
+        onManageIncomeCategories={() => {
+          setShowAddDialog(false);
+          setShowIncomeCategoriesDialog(true);
+        }}
+        onRefreshIncomeCategories={reloadIncomeCategories}
+      />
+      <IncomeCategoriesDialog
+        open={showIncomeCategoriesDialog}
+        onClose={() => setShowIncomeCategoriesDialog(false)}
+        categories={incomeCategories}
+        canWriteFinancial={canWriteFinancial}
+        onChanged={reloadIncomeCategories}
       />
 
-      {budget && canWriteFinancial && (
-        <BudgetEditorDialog
-          open={showBudgetEditor}
-          onClose={() => setShowBudgetEditor(false)}
-          budget={budget}
-          templates={budgetTemplates}
-          onSaved={(b) => { setBudget(b); setShowBudgetEditor(false); }}
-        />
-      )}
+      <ConfirmActionDialog
+        open={Boolean(pendingDeleteTransactionId)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeleteTransactionId(null);
+          }
+        }}
+        title="Remover lancamento?"
+        description="Esta acao nao pode ser anulada."
+        confirmLabel="Remover"
+        onConfirm={async () => {
+          if (!pendingDeleteTransactionId) return;
+          await handleDelete(pendingDeleteTransactionId);
+          setPendingDeleteTransactionId(null);
+        }}
+      />
     </div>
   );
 }
@@ -675,33 +733,55 @@ function AddTransactionDialog({
   onClose,
   month,
   onAdded,
-  categories,
+  expenseCategories,
+  incomeCategories,
   canWriteFinancial,
+  onManageIncomeCategories,
+  onRefreshIncomeCategories,
 }: {
   open: boolean;
   onClose: () => void;
   month: string;
   onAdded: () => void;
-  categories: BudgetCategory[];
+  expenseCategories: BudgetCategory[];
+  incomeCategories: IncomeCategory[];
   canWriteFinancial: boolean;
+  onManageIncomeCategories: () => void;
+  onRefreshIncomeCategories: () => Promise<void>;
 }) {
+  const isMobile = useIsMobile();
   const [type, setType] = useState<"income" | "expense">("expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [day, setDay] = useState(String(new Date().getDate()));
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const [expenseCategoryId, setExpenseCategoryId] = useState(expenseCategories[0]?.id ?? "");
+  const [incomeCategoryId, setIncomeCategoryId] = useState(
+    incomeCategories.find((category) => category.active)?.id ?? "",
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (categories.length > 0 && !categoryId) {
-      setCategoryId(categories[0].id);
+    const firstExpenseCategory = expenseCategories[0]?.id ?? "";
+    const hasSelectedExpense = expenseCategories.some((category) => category.id === expenseCategoryId);
+    if (!hasSelectedExpense && expenseCategoryId !== firstExpenseCategory) {
+      setExpenseCategoryId(firstExpenseCategory);
     }
-  }, [categories, categoryId]);
+  }, [expenseCategories, expenseCategoryId]);
+
+  useEffect(() => {
+    const activeIncomeCategories = incomeCategories.filter((category) => category.active);
+    const firstActiveIncomeCategory = activeIncomeCategories[0]?.id ?? "";
+    const hasSelectedIncome = activeIncomeCategories.some((category) => category.id === incomeCategoryId);
+    if (!hasSelectedIncome && incomeCategoryId !== firstActiveIncomeCategory) {
+      setIncomeCategoryId(firstActiveIncomeCategory);
+    }
+  }, [incomeCategories, incomeCategoryId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canWriteFinancial) return;
-    if (!description || !amount || !categoryId) return;
+    const selectedCategoryId = type === "income" ? incomeCategoryId : expenseCategoryId;
+    if (!description || !amount || !selectedCategoryId) return;
     setSaving(true);
     try {
       const [yearPart, monthPart] = month.split("-");
@@ -714,7 +794,7 @@ function AddTransactionDialog({
         origin: "manual",
         description,
         amount: parseFloat(amount),
-        categoryId,
+        categoryId: selectedCategoryId,
       });
       toast.success("Lancamento criado");
       onAdded();
@@ -722,19 +802,27 @@ function AddTransactionDialog({
       setDescription("");
       setAmount("");
     } catch (error) {
+      if (
+        type === "income"
+        && isApiError(error)
+        && (
+          error.code === "INCOME_CATEGORY_REQUIRED"
+          || error.code === "INCOME_CATEGORY_NOT_FOUND"
+          || error.code === "INCOME_CATEGORY_INACTIVE"
+        )
+      ) {
+        await onRefreshIncomeCategories();
+        toast.error("A categoria de receita selecionada deixou de estar valida. Escolhe outra categoria.");
+        return;
+      }
       toast.error(getErrorMessage(error, "Nao foi possivel guardar o lancamento"));
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>Novo Lancamento</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+  const formContent = (mobileFooter = false) => (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex gap-2">
             <button
               type="button"
@@ -782,320 +870,319 @@ function AddTransactionDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-muted-foreground">Categoria</label>
+            <label className="text-sm text-muted-foreground">
+              {type === "income" ? "Categoria de receita" : "Categoria"}
+            </label>
             <select
               className="w-full h-11 rounded-xl border border-input bg-input-background px-3 text-sm"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              value={type === "income" ? incomeCategoryId : expenseCategoryId}
+              onChange={(e) => {
+                if (type === "income") {
+                  setIncomeCategoryId(e.target.value);
+                  return;
+                }
+                setExpenseCategoryId(e.target.value);
+              }}
             >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name} ({c.percent}%)</option>
-              ))}
+              {type === "income"
+                ? incomeCategories
+                    .filter((category) => category.active)
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))
+                : expenseCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name} ({category.percent}%)
+                    </option>
+                  ))}
             </select>
+            {type === "income" && canWriteFinancial && (
+              <button
+                type="button"
+                className="text-left text-xs text-sky-600 hover:text-sky-700 hover:underline w-fit"
+                onClick={onManageIncomeCategories}
+              >
+                Gerir categorias de receita
+              </button>
+            )}
           </div>
-
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="outline" className="rounded-xl" onClick={onClose}>
+          <div
+            className={
+              mobileFooter
+                ? "sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 border-t border-sky-100/70 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md"
+                : "mt-1 flex gap-2 pt-2"
+            }
+          >
+            <Button type="button" variant="outline" className="rounded-xl flex-1" onClick={onClose}>
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={saving || !description || !amount || !canWriteFinancial}
-              className="rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
+              disabled={
+                saving
+                || !description
+                || !amount
+                || !canWriteFinancial
+                || (type === "income" ? !incomeCategoryId : !expenseCategoryId)
+              }
+              className="rounded-xl flex-1 bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
             </Button>
-          </DialogFooter>
-        </form>
+          </div>
+    </form>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+        <SheetContent
+          side="bottom"
+          className="right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-3xl border border-sky-100/70 bg-white/95 p-0 shadow-[0_-24px_64px_-32px_rgba(14,165,233,0.55)] backdrop-blur-xl"
+        >
+          <SheetHeader className="px-4 pt-3 pb-2 text-left">
+            <SheetTitle className="text-base">Novo Lancamento</SheetTitle>
+            <SheetDescription className="sr-only">
+              Formulario para criar um novo lancamento manual.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="max-h-[calc(92vh-4.5rem)] overflow-y-auto px-4 pb-4">
+            {formContent(true)}
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="p-0 border border-sky-100/70 bg-white/95 shadow-[0_30px_80px_-34px_rgba(14,165,233,0.5)] backdrop-blur-xl rounded-3xl overflow-hidden sm:max-w-lg">
+        <DialogHeader className="px-5 pt-5 pb-3 text-left">
+          <DialogTitle className="text-base text-foreground">Novo Lancamento</DialogTitle>
+          <DialogDescription className="sr-only">
+            Formulario para criar um novo lancamento manual.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-5 pb-5">
+          {formContent(false)}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ============================================================
-// BUDGET EDITOR DIALOG
-// ============================================================
-function BudgetEditorDialog({
+function IncomeCategoriesDialog({
   open,
   onClose,
-  budget,
-  templates,
-  onSaved,
+  categories,
+  canWriteFinancial,
+  onChanged,
 }: {
   open: boolean;
   onClose: () => void;
-  budget: MonthBudget;
-  templates: BudgetTemplate[];
-  onSaved: (b: MonthBudget) => void;
+  categories: IncomeCategory[];
+  canWriteFinancial: boolean;
+  onChanged: () => Promise<void>;
 }) {
-  const [editBudget, setEditBudget] = useState<MonthBudget>(JSON.parse(JSON.stringify(budget)));
-  const [saving, setSaving] = useState(false);
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatPercent, setNewCatPercent] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [busyCategoryId, setBusyCategoryId] = useState<string | null>(null);
+  const [pendingDeactivateCategory, setPendingDeactivateCategory] = useState<IncomeCategory | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      setEditBudget(JSON.parse(JSON.stringify(budget)));
-      setNewCatName("");
-      setNewCatPercent("");
-    }
-  }, [open, budget]);
+  const sortedCategories = [...categories].sort((a, b) => {
+    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    return a.name.localeCompare(b.name, "pt-PT");
+  });
 
-  const totalPct = editBudget.categories.reduce((s, c) => s + c.percent, 0);
-  const pctDiff = totalPct - 100;
-
-  const handleSave = async () => {
-    setSaving(true);
+  const handleCreate = async () => {
+    const cleanName = newCategoryName.trim();
+    if (!cleanName || !canWriteFinancial) return;
+    setCreating(true);
     try {
-      const saved = await budgetApi.save(editBudget.month, {
-        totalBudget: editBudget.totalBudget,
-        categories: editBudget.categories,
-      });
-      toast.success("Orcamento guardado");
-      onSaved(saved);
+      await incomeCategoriesApi.create(cleanName);
+      toast.success("Categoria de receita criada");
+      setNewCategoryName("");
+      await onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel guardar o orcamento"));
+      toast.error(getErrorMessage(error, "Nao foi possivel criar a categoria"));
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   };
 
-  const updateCategory = (id: string, field: "name" | "percent", value: string | number) => {
-    setEditBudget((prev) => ({
-      ...prev,
-      categories: prev.categories.map((c) =>
-        c.id === id ? { ...c, [field]: field === "percent" ? (parseFloat(value as string) || 0) : value } : c
-      ),
-    }));
+  const handleRename = async (category: IncomeCategory) => {
+    if (!canWriteFinancial) return;
+    const nextName = window.prompt("Novo nome da categoria", category.name)?.trim();
+    if (!nextName || nextName === category.name) return;
+    setBusyCategoryId(category.id);
+    try {
+      await incomeCategoriesApi.update(category.id, { name: nextName });
+      toast.success("Categoria atualizada");
+      await onChanged();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel renomear a categoria"));
+    } finally {
+      setBusyCategoryId(null);
+    }
   };
 
-  const removeCategory = (id: string) => {
-    setEditBudget((prev) => ({
-      ...prev,
-      categories: prev.categories.filter((c) => c.id !== id),
-    }));
+  const handleToggleActive = async (category: IncomeCategory) => {
+    if (!canWriteFinancial || category.isDefault || !category.active) return;
+    setPendingDeactivateCategory(category);
   };
 
-  const addCategory = () => {
-    if (!newCatName.trim()) return;
-    const newCat: BudgetCategory = {
-      id: `cat_new_${Date.now()}`,
-      name: newCatName.trim(),
-      percent: parseFloat(newCatPercent) || 0,
-    };
-    setEditBudget((prev) => ({
-      ...prev,
-      categories: [...prev.categories, newCat],
-    }));
-    setNewCatName("");
-    setNewCatPercent("");
+  const confirmDeactivateCategory = async () => {
+    if (!pendingDeactivateCategory) return;
+    setBusyCategoryId(pendingDeactivateCategory.id);
+    try {
+      await incomeCategoriesApi.update(pendingDeactivateCategory.id, { active: false });
+      toast.success("Categoria desativada");
+      await onChanged();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel atualizar a categoria"));
+    } finally {
+      setBusyCategoryId(null);
+      setPendingDeactivateCategory(null);
+    }
   };
 
-  const applyTemplate = (template: BudgetTemplate) => {
-    setEditBudget((prev) => ({
-      ...prev,
-      categories: template.categories.map((category) => ({
-        id: `${template.id}_${category.id}`,
-        name: category.name,
-        percent: category.percent,
-      })),
-    }));
+  const handleActivate = async (category: IncomeCategory) => {
+    if (!canWriteFinancial || category.isDefault || category.active) return;
+    setBusyCategoryId(category.id);
+    try {
+      await incomeCategoriesApi.update(category.id, { active: true });
+      toast.success("Categoria reativada");
+      await onChanged();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel atualizar a categoria"));
+    } finally {
+      setBusyCategoryId(null);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Editar Orcamento</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-5">
-          {/* Budget templates */}
-          {templates.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <label className="text-sm text-muted-foreground">Templates</label>
-              <div className="grid grid-cols-1 gap-2">
-                {templates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    className="rounded-xl border border-sky-100 bg-sky-50/50 px-3 py-2 text-left hover:bg-sky-50 transition-colors"
-                    onClick={() => applyTemplate(template)}
-                  >
-                    <p className="text-sm text-sky-700">{template.name}</p>
-                    <p className="text-[10px] text-sky-600/80 mt-0.5">
-                      {template.categories.map((c) => `${c.name} ${c.percent}%`).join(" • ")}
-                    </p>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="rounded-xl border border-dashed border-muted-foreground/30 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
-                  onClick={() => setEditBudget((prev) => ({ ...prev, categories: [] }))}
-                >
-                  <p className="text-sm text-foreground">Personalizado</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Comecar com categorias vazias</p>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Total Budget */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-muted-foreground">Orcamento Total (EUR)</label>
-            <div className="relative opacity-80">
-              <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="number"
-                step="0.01"
-                className="pl-10 h-11 rounded-xl"
-                value={editBudget.totalBudget}
-                readOnly
-                disabled
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Valor calculado automaticamente pela soma das receitas do mes.
-            </p>
-          </div>
-
-          {/* Percentage validation */}
-          <div className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl ${
-            Math.abs(pctDiff) < 0.01
-              ? "bg-emerald-50 text-emerald-700"
-              : pctDiff < 0
-              ? "bg-amber-50 text-amber-700"
-              : "bg-red-50 text-red-700"
-          }`}>
-            {Math.abs(pctDiff) < 0.01 ? (
-              <Check className="w-4 h-4 shrink-0" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-            )}
-            <span>
-              Total: {totalPct.toFixed(1)}%
-              {pctDiff < -0.01 && ` — ${Math.abs(pctDiff).toFixed(1)}% por alocar`}
-              {pctDiff > 0.01 && ` — ${pctDiff.toFixed(1)}% a mais`}
-              {Math.abs(pctDiff) < 0.01 && " — 100%"}
-            </span>
-          </div>
-
-          {/* Percentage progress bar */}
-          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className={`h-full rounded-full transition-colors ${
-                Math.abs(pctDiff) < 0.01
-                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
-                  : totalPct > 100
-                  ? "bg-gradient-to-r from-red-400 to-red-500"
-                  : "bg-gradient-to-r from-amber-400 to-amber-500"
-              }`}
-              animate={{ width: `${Math.min(totalPct, 100)}%` }}
-              transition={{ duration: 0.3 }}
+    <>
+      <ResponsiveOverlay open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+        <OverlayContent density="manager">
+          <OverlayHeader>
+            <OverlayTitle>Categorias de Receita</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-0">
+            <div className="flex flex-col gap-3">
+          <div className="rounded-xl border border-border/70 p-2.5 flex items-center gap-2">
+            <Input
+              className="h-9 rounded-xl"
+              placeholder="Nova categoria..."
+              value={newCategoryName}
+              onChange={(event) => setNewCategoryName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleCreate();
+                }
+              }}
+              disabled={!canWriteFinancial || creating}
             />
+            <Button
+              type="button"
+              size="icon"
+              className="h-9 w-9 rounded-xl"
+              onClick={() => {
+                void handleCreate();
+              }}
+              disabled={!canWriteFinancial || !newCategoryName.trim() || creating}
+            >
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            </Button>
           </div>
 
-          {/* Categories */}
-          <div className="flex flex-col gap-2.5">
-            <label className="text-sm text-muted-foreground">Categorias</label>
-            {editBudget.categories.map((cat, ci) => (
-              <div key={cat.id} className="rounded-xl border border-border/60 bg-muted/20 p-2.5 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${getCatColor(ci).gradient} shrink-0`} />
-                  <Input
-                    className="flex-1 h-9 rounded-xl text-sm"
-                    value={cat.name}
-                    onChange={(e) => updateCategory(cat.id, "name", e.target.value)}
-                    placeholder="Nome da categoria"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
-                    onClick={() => removeCategory(cat.id)}
-                    aria-label={`Remover categoria ${cat.name}`}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="100"
-                      className="w-full h-9 rounded-xl text-sm text-right pr-7"
-                      value={cat.percent}
-                      onChange={(e) => updateCategory(cat.id, "percent", e.target.value)}
-                    />
-                    <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+          <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-1">
+            {sortedCategories.map((category) => {
+              const rowBusy = busyCategoryId === category.id;
+              return (
+                <Card key={category.id} className="p-2.5 border border-border/60 shadow-none">
+                  <div className="flex items-center gap-2 justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm text-foreground truncate">{category.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {category.isDefault && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
+                            Default
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                            category.active
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {category.active ? "Ativa" : "Inativa"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-lg px-2 text-xs"
+                        disabled={!canWriteFinancial || rowBusy}
+                        onClick={() => {
+                          void handleRename(category);
+                        }}
+                      >
+                        Renomear
+                      </Button>
+                      {!category.isDefault && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-8 rounded-lg px-2 text-xs"
+                          disabled={!canWriteFinancial || rowBusy}
+                          onClick={() => {
+                            if (category.active) {
+                              void handleToggleActive(category);
+                              return;
+                            }
+                            void handleActivate(category);
+                          }}
+                        >
+                          {rowBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : category.active ? "Desativar" : "Ativar"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
-                    {formatCurrency(catEur(cat, editBudget.totalBudget))}
-                  </span>
-                </div>
-              </div>
-            ))}
-
-            {/* Add new category */}
-            <div className="rounded-xl border border-dashed border-border/80 p-2.5 flex flex-col gap-2 mt-1 pt-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-muted shrink-0" />
-                <Input
-                  className="flex-1 h-9 rounded-xl text-sm"
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="Nova categoria..."
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-sky-500 hover:bg-sky-50 rounded-xl h-9 w-9"
-                  onClick={addCategory}
-                  disabled={!newCatName.trim()}
-                  aria-label="Adicionar categoria"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-                <div className="relative">
-                  <Input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="100"
-                    className="w-full h-9 rounded-xl text-sm text-right pr-7"
-                    value={newCatPercent}
-                    onChange={(e) => setNewCatPercent(e.target.value)}
-                    placeholder="0"
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
-                  />
-                  <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                </div>
-                <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
-                  {formatCurrency(((parseFloat(newCatPercent) || 0) / 100) * editBudget.totalBudget)}
-                </span>
-              </div>
-            </div>
+                </Card>
+              );
+            })}
+            {sortedCategories.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                Sem categorias de receita.
+              </p>
+            )}
           </div>
-        </div>
+            </div>
+          </OverlayBody>
 
-        <DialogFooter className="gap-2 sm:gap-2 mt-4">
-          <Button variant="outline" className="rounded-xl" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            className="rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
-            onClick={handleSave}
-            disabled={saving || editBudget.categories.length === 0 || Math.abs(pctDiff) > 0.01}
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Guardar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <OverlayFooter sticky>
+            <Button type="button" variant="outline" className="rounded-xl" onClick={onClose}>
+              Fechar
+            </Button>
+          </OverlayFooter>
+        </OverlayContent>
+      </ResponsiveOverlay>
+
+      <ConfirmActionDialog
+        open={Boolean(pendingDeactivateCategory)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPendingDeactivateCategory(null);
+        }}
+        title="Desativar categoria de receita?"
+        description="Novos lancamentos nao poderao usar esta categoria, mas os lancamentos antigos serao mantidos."
+        confirmLabel="Desativar"
+        onConfirm={confirmDeactivateCategory}
+      />
+    </>
   );
 }

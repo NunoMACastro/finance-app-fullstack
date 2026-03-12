@@ -10,13 +10,15 @@ import type { AccountRole } from "../lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+  OverlayBody,
+  OverlayContent,
+  OverlayFooter,
+  OverlayHeader,
+  OverlayTitle,
+  ResponsiveOverlay,
+} from "./ui/responsive-overlay";
 import { TutorialTour, type TourScope } from "./tutorial-tour";
+import { ConfirmActionDialog } from "./confirm-action-dialog";
 import {
   BarChart3,
   CircleHelp,
@@ -62,6 +64,13 @@ export function AppLayout() {
   const [joinCode, setJoinCode] = useState("");
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [memberRemoving, setMemberRemoving] = useState(false);
+  const [leavingAccount, setLeavingAccount] = useState(false);
+  const [pendingMemberRemoval, setPendingMemberRemoval] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+  const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false);
   const [members, setMembers] = useState<Array<{
     userId: string;
     name: string;
@@ -158,6 +167,31 @@ export function AppLayout() {
       toast.success("Saiu da conta partilhada");
     } catch (error) {
       toast.error(getErrorMessage(error, "Nao foi possivel sair da conta"));
+    }
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!activeAccount || !pendingMemberRemoval) return;
+    setMemberRemoving(true);
+    try {
+      await removeMember(activeAccount.id, pendingMemberRemoval.userId);
+      setMembers((prev) => prev.filter((item) => item.userId !== pendingMemberRemoval.userId));
+      toast.success("Membro removido");
+      setPendingMemberRemoval(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Nao foi possivel remover membro"));
+    } finally {
+      setMemberRemoving(false);
+    }
+  };
+
+  const confirmLeaveCurrentAccount = async () => {
+    setLeavingAccount(true);
+    try {
+      await leaveCurrentAccount();
+      setConfirmLeaveOpen(false);
+    } finally {
+      setLeavingAccount(false);
     }
   };
 
@@ -296,149 +330,179 @@ export function AppLayout() {
         </div>
       </nav>
 
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Criar orcamento partilhado</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={newAccountName}
-            onChange={(event) => setNewAccountName(event.target.value)}
-            placeholder="Ex: Familia Silva"
-            className="rounded-xl"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  await createSharedAccount(newAccountName);
-                  setNewAccountName("");
-                  setCreateDialogOpen(false);
-                  toast.success("Orcamento partilhado criado");
-                } catch (error) {
-                  toast.error(getErrorMessage(error, "Nao foi possivel criar conta partilhada"));
-                }
-              }}
-              disabled={!newAccountName.trim()}
-            >
-              Criar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ResponsiveOverlay open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <OverlayContent density="compact">
+          <OverlayHeader>
+            <OverlayTitle>Criar orcamento partilhado</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-0 flex flex-col gap-4">
+            <Input
+              value={newAccountName}
+              onChange={(event) => setNewAccountName(event.target.value)}
+              placeholder="Ex: Familia Silva"
+              className="rounded-xl"
+            />
+            <OverlayFooter sticky className="px-0 sm:px-0">
+              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    await createSharedAccount(newAccountName);
+                    setNewAccountName("");
+                    setCreateDialogOpen(false);
+                    toast.success("Orcamento partilhado criado");
+                  } catch (error) {
+                    toast.error(getErrorMessage(error, "Nao foi possivel criar conta partilhada"));
+                  }
+                }}
+                disabled={!newAccountName.trim()}
+              >
+                Criar
+              </Button>
+            </OverlayFooter>
+          </OverlayBody>
+        </OverlayContent>
+      </ResponsiveOverlay>
 
-      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Entrar em orcamento partilhado</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={joinCode}
-            onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-            placeholder="CODIGO123"
-            className="rounded-xl uppercase"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setJoinDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  await joinByCode(joinCode);
-                  setJoinCode("");
-                  setJoinDialogOpen(false);
-                  toast.success("Entrou no orcamento partilhado");
-                } catch (error) {
-                  toast.error(getErrorMessage(error, "Nao foi possivel entrar com esse codigo"));
-                }
-              }}
-              disabled={!joinCode.trim()}
-            >
-              Entrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ResponsiveOverlay open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <OverlayContent density="compact">
+          <OverlayHeader>
+            <OverlayTitle>Entrar em orcamento partilhado</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-0 flex flex-col gap-4">
+            <Input
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+              placeholder="CODIGO123"
+              className="rounded-xl uppercase"
+            />
+            <OverlayFooter sticky className="px-0 sm:px-0">
+              <Button variant="outline" onClick={() => setJoinDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    await joinByCode(joinCode);
+                    setJoinCode("");
+                    setJoinDialogOpen(false);
+                    toast.success("Entrou no orcamento partilhado");
+                  } catch (error) {
+                    toast.error(getErrorMessage(error, "Nao foi possivel entrar com esse codigo"));
+                  }
+                }}
+                disabled={!joinCode.trim()}
+              >
+                Entrar
+              </Button>
+            </OverlayFooter>
+          </OverlayBody>
+        </OverlayContent>
+      </ResponsiveOverlay>
 
-      <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
-        <DialogContent className="rounded-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Membros do orcamento partilhado</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex flex-col items-stretch gap-2">
-            <Button variant="outline" onClick={() => void regenerateCode()}>
-              Regenerar codigo
-            </Button>
-            {inviteCode && (
-              <div className="text-xs rounded-xl px-3 py-2 bg-muted/50">Codigo: {inviteCode}</div>
-            )}
-          </div>
-
-          {membersLoading ? (
-            <p className="text-sm text-muted-foreground">A carregar membros...</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {members.map((member) => (
-                <div key={member.userId} className="rounded-xl border p-3 flex flex-col gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm truncate">{member.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="h-10 rounded-lg border border-input bg-white px-2 text-xs flex-1"
-                      value={member.role}
-                      onChange={async (event) => {
-                        try {
-                          const role = event.target.value as AccountRole;
-                          const updated = await updateMemberRole(activeAccount!.id, member.userId, role);
-                          setMembers((prev) =>
-                            prev.map((item) => (item.userId === updated.userId ? updated : item)),
-                          );
-                          toast.success("Role atualizada");
-                        } catch (error) {
-                          toast.error(getErrorMessage(error, "Nao foi possivel atualizar a role"));
-                        }
-                      }}
-                    >
-                      <option value="owner">{getAccountRoleLabel("owner")}</option>
-                      <option value="editor">{getAccountRoleLabel("editor")}</option>
-                      <option value="viewer">{getAccountRoleLabel("viewer")}</option>
-                    </select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive h-10 px-3"
-                      onClick={async () => {
-                        try {
-                          await removeMember(activeAccount!.id, member.userId);
-                          setMembers((prev) => prev.filter((item) => item.userId !== member.userId));
-                          toast.success("Membro removido");
-                        } catch (error) {
-                          toast.error(getErrorMessage(error, "Nao foi possivel remover membro"));
-                        }
-                      }}
-                    >
-                      Remover
-                    </Button>
-                  </div>
-                </div>
-              ))}
+      <ResponsiveOverlay open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
+        <OverlayContent density="manager">
+          <OverlayHeader>
+            <OverlayTitle>Membros do orcamento partilhado</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-0 flex flex-col gap-3">
+            <div className="flex flex-col items-stretch gap-2">
+              <Button variant="outline" onClick={() => void regenerateCode()}>
+                Regenerar codigo
+              </Button>
+              {inviteCode && (
+                <div className="text-xs rounded-xl px-3 py-2 bg-muted/50">Codigo: {inviteCode}</div>
+              )}
             </div>
-          )}
 
-          {activeAccount?.type === "shared" && (
-            <Button variant="outline" className="w-full" onClick={() => void leaveCurrentAccount()}>
-              Sair deste orcamento partilhado
-            </Button>
-          )}
-        </DialogContent>
-      </Dialog>
+            {membersLoading ? (
+              <p className="text-sm text-muted-foreground">A carregar membros...</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {members.map((member) => (
+                  <div key={member.userId} className="rounded-xl border p-3 flex flex-col gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm truncate">{member.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="h-10 rounded-lg border border-input bg-white px-2 text-xs flex-1"
+                        value={member.role}
+                        onChange={async (event) => {
+                          try {
+                            const role = event.target.value as AccountRole;
+                            const updated = await updateMemberRole(activeAccount!.id, member.userId, role);
+                            setMembers((prev) =>
+                              prev.map((item) => (item.userId === updated.userId ? updated : item)),
+                            );
+                            toast.success("Role atualizada");
+                          } catch (error) {
+                            toast.error(getErrorMessage(error, "Nao foi possivel atualizar a role"));
+                          }
+                        }}
+                      >
+                        <option value="owner">{getAccountRoleLabel("owner")}</option>
+                        <option value="editor">{getAccountRoleLabel("editor")}</option>
+                        <option value="viewer">{getAccountRoleLabel("viewer")}</option>
+                      </select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive h-10 px-3"
+                        onClick={() =>
+                          setPendingMemberRemoval({
+                            userId: member.userId,
+                            name: member.name,
+                          })
+                        }
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeAccount?.type === "shared" && (
+              <Button variant="outline" className="w-full" onClick={() => setConfirmLeaveOpen(true)}>
+                Sair deste orcamento partilhado
+              </Button>
+            )}
+          </OverlayBody>
+        </OverlayContent>
+      </ResponsiveOverlay>
+
+      <ConfirmActionDialog
+        open={Boolean(pendingMemberRemoval)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingMemberRemoval(null);
+          }
+        }}
+        title="Remover membro?"
+        description={
+          pendingMemberRemoval
+            ? `O membro ${pendingMemberRemoval.name} vai perder acesso a este orcamento partilhado.`
+            : "Este membro vai perder acesso a este orcamento partilhado."
+        }
+        confirmLabel="Remover"
+        loading={memberRemoving}
+        onConfirm={confirmRemoveMember}
+      />
+
+      <ConfirmActionDialog
+        open={confirmLeaveOpen}
+        onOpenChange={setConfirmLeaveOpen}
+        title="Sair desta conta partilhada?"
+        description="Vais perder acesso a este orcamento partilhado ate voltares a entrar por convite."
+        confirmLabel="Sair"
+        loading={leavingAccount}
+        onConfirm={confirmLeaveCurrentAccount}
+      />
 
       <TutorialTour
         open={tutorialOpen}

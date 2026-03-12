@@ -49,6 +49,14 @@ describe("budget + transactions integration", () => {
     const accessToken = registerRes.body.tokens.accessToken;
     const month = monthKeyFromNow();
 
+    const incomeCategoriesRes = await request(app)
+      .get("/api/v1/income-categories")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(incomeCategoriesRes.status).toBe(200);
+    const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
+    expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
+
     const blockedRes = await request(app)
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
@@ -92,7 +100,7 @@ describe("budget + transactions integration", () => {
         origin: "manual",
         description: "Ordenado",
         amount: 1200,
-        categoryId: "cat_despesas",
+        categoryId: defaultIncomeCategoryId,
       });
 
     expect(incomeRes.status).toBe(201);

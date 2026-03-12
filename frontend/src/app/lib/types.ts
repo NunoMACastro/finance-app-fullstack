@@ -48,6 +48,16 @@ export interface BudgetCategory {
   percent: number; // percentage of totalBudget (0-100)
 }
 
+export interface IncomeCategory {
+  id: string;
+  accountId: string;
+  name: string;
+  active: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Monthly budget — each month has its own budget */
 export interface MonthBudget {
   accountId: string;
@@ -189,6 +199,24 @@ export interface CategorySeriesItem {
   monthly: CategorySeriesMonthlyItem[];
 }
 
+export interface IncomeByCategoryItem {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  percent: number;
+}
+
+export interface IncomeCategorySeriesMonthlyItem {
+  month: MonthKey;
+  amount: number;
+}
+
+export interface IncomeCategorySeriesItem {
+  categoryId: string;
+  categoryName: string;
+  monthly: IncomeCategorySeriesMonthlyItem[];
+}
+
 export interface StatsSnapshot {
   periodType: "semester" | "year";
   periodKey: string;
@@ -196,6 +224,8 @@ export interface StatsSnapshot {
   trend: TrendItem[];
   budgetVsActual: BudgetVsActualItem[];
   categorySeries: CategorySeriesItem[];
+  incomeByCategory: IncomeByCategoryItem[];
+  incomeCategorySeries: IncomeCategorySeriesItem[];
   forecast: {
     projectedIncome: number;
     projectedExpense: number;

@@ -1,0 +1,4 @@
+- Patch notes login
+- Redesign todas as páginas (incluindo login) para um look mais clean e moderno
+- Compor e organizar o header
+- Organizar e uniformizar os modals/drawers

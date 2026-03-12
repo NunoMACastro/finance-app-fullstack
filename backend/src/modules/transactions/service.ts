@@ -4,6 +4,7 @@ import { monthFromDate } from "../../lib/month.js";
 import { BudgetModel } from "../../models/budget.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import { isBudgetReady, syncBudgetTotalFromTransactions } from "../budgets/service.js";
+import { assertIncomeCategoryActive } from "../income-categories/service.js";
 
 interface TransactionDto {
   id: string;
@@ -85,6 +86,27 @@ async function ensureManualTransactionsAllowed(accountId: string, month: string)
   }
 }
 
+function ensureExpenseCategoryProvided(categoryId?: string): string {
+  const cleanId = categoryId?.trim();
+  if (!cleanId) {
+    unprocessable("Categoria obrigatoria", "TRANSACTION_CATEGORY_REQUIRED");
+  }
+  return cleanId;
+}
+
+async function ensureCategoryForType(
+  accountId: string,
+  type: "income" | "expense",
+  categoryId?: string,
+): Promise<string> {
+  if (type === "income") {
+    await assertIncomeCategoryActive(accountId, categoryId);
+    return categoryId!.trim();
+  }
+
+  return ensureExpenseCategoryProvided(categoryId);
+}
+
 export async function getMonthSummary(accountId: string, month: string): Promise<MonthSummaryDto> {
   const transactions = await TransactionModel.find({ accountId, month }).sort({ date: -1, createdAt: -1 });
   const txs = transactions.map((t) => toTransactionDto(t));
@@ -116,7 +138,7 @@ export async function createTransaction(
     recurringRuleId?: string;
     description: string;
     amount: number;
-    categoryId: string;
+    categoryId?: string;
   },
 ): Promise<TransactionDto> {
   const date = parseAndValidateDate(input.date, input.month);
@@ -129,6 +151,7 @@ export async function createTransaction(
     input.origin === "recurring" && input.recurringRuleId
       ? new Types.ObjectId(input.recurringRuleId)
       : null;
+  const categoryId = await ensureCategoryForType(accountId, input.type, input.categoryId);
 
   const transaction = await TransactionModel.create({
     accountId,
@@ -140,7 +163,7 @@ export async function createTransaction(
     recurringRuleId,
     description: input.description,
     amount: input.amount,
-    categoryId: input.categoryId,
+    categoryId,
   });
 
   if (transaction.type === "income") {
@@ -182,6 +205,10 @@ export async function updateTransaction(
     await ensureManualTransactionsAllowed(accountId, nextMonth);
   }
 
+  const nextType = input.type ?? transaction.type;
+  const nextCategoryId = input.categoryId ?? transaction.categoryId;
+  const ensuredCategoryId = await ensureCategoryForType(accountId, nextType, nextCategoryId);
+
   if (input.type) {
     transaction.type = input.type;
   }
@@ -195,7 +222,9 @@ export async function updateTransaction(
   }
 
   if (input.categoryId !== undefined) {
-    transaction.categoryId = input.categoryId;
+    transaction.categoryId = ensuredCategoryId;
+  } else if (nextType === "income") {
+    transaction.categoryId = ensuredCategoryId;
   }
 
   transaction.userId = new Types.ObjectId(actorUserId);

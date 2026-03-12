@@ -8,6 +8,7 @@ import type {
   TrendItem,
   BudgetVsActualItem,
   BudgetCategory,
+  IncomeCategory,
 } from "./types";
 
 // Current month helper
@@ -46,6 +47,25 @@ export const mockMonthBudget: MonthBudget = {
   isReady: true,
 };
 
+const defaultIncomeCategoryDefs = [
+  { id: "inc1", name: "Salario" },
+  { id: "inc2", name: "Freelance" },
+  { id: "inc3", name: "Outras receitas" },
+] as const;
+
+export function buildDefaultIncomeCategories(accountId: string): IncomeCategory[] {
+  const nowIso = new Date().toISOString();
+  return defaultIncomeCategoryDefs.map((item) => ({
+    id: item.id,
+    accountId,
+    name: item.name,
+    active: true,
+    isDefault: item.id === "inc3",
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  }));
+}
+
 export const mockRecurringRules: RecurringRule[] = [
   {
     id: "rr1",
@@ -55,7 +75,7 @@ export const mockRecurringRules: RecurringRule[] = [
     name: "Ordenado",
     amount: 2200,
     dayOfMonth: 1,
-    categoryId: "cat1",
+    categoryId: "inc1",
     startMonth: "2025-01",
     active: true,
   },
@@ -67,7 +87,7 @@ export const mockRecurringRules: RecurringRule[] = [
     name: "Freelance",
     amount: 300,
     dayOfMonth: 15,
-    categoryId: "cat8",
+    categoryId: "inc2",
     startMonth: "2025-06",
     active: true,
   },
@@ -133,7 +153,7 @@ export const mockTransactions: Transaction[] = [
     recurringRuleId: "rr1",
     description: "Ordenado",
     amount: 2200,
-    categoryId: "cat1",
+    categoryId: "inc1",
     createdAt: `${currentMonth}-01T08:00:00Z`,
     updatedAt: `${currentMonth}-01T08:00:00Z`,
   },
@@ -148,7 +168,7 @@ export const mockTransactions: Transaction[] = [
     recurringRuleId: "rr2",
     description: "Freelance",
     amount: 300,
-    categoryId: "cat8",
+    categoryId: "inc2",
     createdAt: `${currentMonth}-15T08:00:00Z`,
     updatedAt: `${currentMonth}-15T08:00:00Z`,
   },
@@ -304,6 +324,11 @@ export function getCategoryName(categoryId: string, categories?: BudgetCategory[
   return cats.find((c) => c.id === categoryId)?.name ?? categoryId;
 }
 
+export function getIncomeCategoryName(categoryId: string, categories?: IncomeCategory[]): string {
+  const cats = categories ?? buildDefaultIncomeCategories(PERSONAL_ACCOUNT_ID);
+  return cats.find((c) => c.id === categoryId)?.name ?? categoryId;
+}
+
 // Stats helpers (deterministic - no random values)
 const INCOME_FACTORS = [0.91, 0.96, 1.03, 0.98, 1.07, 1.01, 1.05, 0.94, 1.08, 1.02, 0.99, 1.06];
 const EXPENSE_FACTORS = [0.67, 0.71, 0.69, 0.73, 0.75, 0.72, 0.7, 0.74, 0.76, 0.71, 0.69, 0.73];
@@ -393,6 +418,47 @@ export function getStatsSnapshot(type: "semester" | "year"): StatsSnapshot {
   const avgIncome = Math.round(last3.reduce((s, t) => s + t.income, 0) / 3);
   const avgExpense = Math.round(last3.reduce((s, t) => s + t.expense, 0) / 3);
 
+  const incomeCategorySeeds = [
+    { categoryId: "inc1", categoryName: "Salario", weight: 0.72 },
+    { categoryId: "inc2", categoryName: "Freelance", weight: 0.2 },
+    { categoryId: "inc3", categoryName: "Outras receitas", weight: 0.08 },
+  ];
+
+  const incomeCategorySeries = incomeCategorySeeds.map((seed, seedIndex) => ({
+    categoryId: seed.categoryId,
+    categoryName: seed.categoryName,
+    monthly: trend.map((item, monthIndex) => {
+      if (seedIndex === incomeCategorySeeds.length - 1) {
+        const partial = incomeCategorySeeds
+          .slice(0, -1)
+          .reduce((sum, entry, idx) => {
+            const multiplier = 0.95 + ((monthIndex + idx) % 4) * 0.02;
+            return sum + Math.round(item.income * entry.weight * multiplier);
+          }, 0);
+        return {
+          month: item.month,
+          amount: Math.max(item.income - partial, 0),
+        };
+      }
+
+      const multiplier = 0.95 + ((monthIndex + seedIndex) % 4) * 0.02;
+      return {
+        month: item.month,
+        amount: Math.round(item.income * seed.weight * multiplier),
+      };
+    }),
+  }));
+
+  const incomeByCategory = incomeCategorySeries.map((series) => {
+    const amount = series.monthly.reduce((sum, point) => sum + point.amount, 0);
+    return {
+      categoryId: series.categoryId,
+      categoryName: series.categoryName,
+      amount,
+      percent: totalIncome > 0 ? Math.round((amount / totalIncome) * 10000) / 100 : 0,
+    };
+  });
+
   return {
     periodType: type,
     periodKey: type === "semester"
@@ -413,6 +479,8 @@ export function getStatsSnapshot(type: "semester" | "year"): StatsSnapshot {
         actual: Math.max(0, point.actual),
       })),
     })),
+    incomeByCategory,
+    incomeCategorySeries,
     forecast: {
       projectedIncome: avgIncome,
       projectedExpense: avgExpense,

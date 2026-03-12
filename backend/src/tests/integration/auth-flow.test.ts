@@ -89,5 +89,15 @@ describe("auth flow integration", () => {
       (account) => account.type === "personal",
     );
     expect(personalAccounts).toHaveLength(1);
+
+    const incomeCategoriesRes = await request(app)
+      .get("/api/v1/income-categories")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(incomeCategoriesRes.status).toBe(200);
+    expect(Array.isArray(incomeCategoriesRes.body)).toBe(true);
+    expect(incomeCategoriesRes.body.length).toBeGreaterThanOrEqual(1);
+    expect(incomeCategoriesRes.body[0]?.isDefault).toBe(true);
+    expect(incomeCategoriesRes.body[0]?.active).toBe(true);
   });
 });

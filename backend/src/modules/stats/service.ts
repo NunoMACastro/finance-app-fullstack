@@ -1,7 +1,9 @@
 import { BudgetModel } from "../../models/budget.model.js";
+import { IncomeCategoryModel } from "../../models/income-category.model.js";
 import { StatsSnapshotModel } from "../../models/stats-snapshot.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import { lastNMonthsEndingAt, monthFromDate } from "../../lib/month.js";
+import { Types } from "mongoose";
 
 interface TrendItem {
   month: string;
@@ -30,6 +32,24 @@ interface CategorySeriesItem {
   monthly: CategorySeriesMonthItem[];
 }
 
+interface IncomeByCategoryItem {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  percent: number;
+}
+
+interface IncomeCategorySeriesMonthItem {
+  month: string;
+  amount: number;
+}
+
+interface IncomeCategorySeriesItem {
+  categoryId: string;
+  categoryName: string;
+  monthly: IncomeCategorySeriesMonthItem[];
+}
+
 interface StatsSnapshotDto {
   periodType: "semester" | "year";
   periodKey: string;
@@ -41,6 +61,8 @@ interface StatsSnapshotDto {
   trend: TrendItem[];
   budgetVsActual: BudgetVsActualItem[];
   categorySeries: CategorySeriesItem[];
+  incomeByCategory: IncomeByCategoryItem[];
+  incomeCategorySeries: IncomeCategorySeriesItem[];
   forecast: {
     projectedIncome: number;
     projectedExpense: number;
@@ -118,19 +140,24 @@ async function buildStats(
   const expenseByMonth = new Map<string, number>();
   const actualByCategoryMonth = new Map<string, number>();
   const budgetByCategoryMonth = new Map<string, number>();
-  const categoryNames = new Map<string, string>();
-  const categoryIds = new Set<string>();
+  const expenseCategoryNames = new Map<string, string>();
+  const expenseCategoryIds = new Set<string>();
+  const incomeByCategoryMonth = new Map<string, number>();
+  const incomeCategoryIds = new Set<string>();
 
   for (const tx of transactions) {
     if (tx.type === "income") {
       incomeByMonth.set(tx.month, (incomeByMonth.get(tx.month) ?? 0) + tx.amount);
+      const incomeKey = categoryMonthKey(tx.categoryId, tx.month);
+      incomeByCategoryMonth.set(incomeKey, (incomeByCategoryMonth.get(incomeKey) ?? 0) + tx.amount);
+      incomeCategoryIds.add(tx.categoryId);
       continue;
     }
 
     expenseByMonth.set(tx.month, (expenseByMonth.get(tx.month) ?? 0) + tx.amount);
     const key = categoryMonthKey(tx.categoryId, tx.month);
     actualByCategoryMonth.set(key, (actualByCategoryMonth.get(key) ?? 0) + tx.amount);
-    categoryIds.add(tx.categoryId);
+    expenseCategoryIds.add(tx.categoryId);
   }
 
   for (const budget of budgets) {
@@ -139,11 +166,26 @@ async function buildStats(
       const budgetedAmount = (category.percent / 100) * monthIncome;
       const key = categoryMonthKey(category.id, budget.month);
 
-      categoryNames.set(category.id, category.name);
+      expenseCategoryNames.set(category.id, category.name);
       budgetByCategoryMonth.set(key, (budgetByCategoryMonth.get(key) ?? 0) + budgetedAmount);
-      categoryIds.add(category.id);
+      expenseCategoryIds.add(category.id);
     }
   }
+
+  const incomeCategoryObjectIds = Array.from(incomeCategoryIds)
+    .filter((categoryId) => Types.ObjectId.isValid(categoryId))
+    .map((categoryId) => new Types.ObjectId(categoryId));
+
+  const incomeCategories = await IncomeCategoryModel.find({
+    accountId,
+    _id: { $in: incomeCategoryObjectIds },
+  })
+    .select({ _id: 1, name: 1 })
+    .lean();
+
+  const incomeCategoryNames = new Map(
+    incomeCategories.map((category) => [category._id.toString(), category.name]),
+  );
 
   const trend: TrendItem[] = months.map((month) => {
     const income = round(incomeByMonth.get(month) ?? 0);
@@ -159,7 +201,7 @@ async function buildStats(
   const totalIncome = trend.reduce((sum, item) => sum + item.income, 0);
   const totalExpense = trend.reduce((sum, item) => sum + item.expense, 0);
 
-  const budgetVsActual: BudgetVsActualItem[] = Array.from(categoryIds).map((categoryId) => {
+  const budgetVsActual: BudgetVsActualItem[] = Array.from(expenseCategoryIds).map((categoryId) => {
     const budgeted = round(
       months.reduce(
         (sum, month) => sum + (budgetByCategoryMonth.get(categoryMonthKey(categoryId, month)) ?? 0),
@@ -175,7 +217,7 @@ async function buildStats(
 
     return {
       categoryId,
-      categoryName: categoryNames.get(categoryId) ?? categoryId,
+      categoryName: expenseCategoryNames.get(categoryId) ?? categoryId,
       budgeted,
       actual,
       difference: round(budgeted - actual),
@@ -194,6 +236,33 @@ async function buildStats(
     })),
   }));
 
+  const incomeByCategory: IncomeByCategoryItem[] = Array.from(incomeCategoryIds).map((categoryId) => {
+    const amount = round(
+      months.reduce(
+        (sum, month) => sum + (incomeByCategoryMonth.get(categoryMonthKey(categoryId, month)) ?? 0),
+        0,
+      ),
+    );
+
+    return {
+      categoryId,
+      categoryName: incomeCategoryNames.get(categoryId) ?? categoryId,
+      amount,
+      percent: totalIncome > 0 ? round((amount / totalIncome) * 100) : 0,
+    };
+  });
+
+  incomeByCategory.sort((a, b) => b.amount - a.amount);
+
+  const incomeCategorySeries: IncomeCategorySeriesItem[] = incomeByCategory.map((item) => ({
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+    monthly: months.map((month) => ({
+      month,
+      amount: round(incomeByCategoryMonth.get(categoryMonthKey(item.categoryId, month)) ?? 0),
+    })),
+  }));
+
   return {
     periodType,
     periodKey,
@@ -205,6 +274,8 @@ async function buildStats(
     trend,
     budgetVsActual,
     categorySeries,
+    incomeByCategory,
+    incomeCategorySeries,
     forecast: buildForecast(trend),
   };
 }

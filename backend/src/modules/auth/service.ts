@@ -14,6 +14,7 @@ import { AccountModel } from "../../models/account.model.js";
 import { RefreshTokenModel } from "../../models/refresh-token.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { ensurePersonalAccountForUser } from "../accounts/service.js";
+import { ensureDefaultIncomeCategoryForAccount } from "../income-categories/service.js";
 
 interface UserProfile {
   id: string;
@@ -122,6 +123,8 @@ export async function register(input: {
         ],
         { session },
       );
+
+      await ensureDefaultIncomeCategoryForAccount(personalAccountId.toString(), session);
 
       await UserModel.create(
         [

@@ -124,6 +124,15 @@ describe("accounts flow integration", () => {
     expect(budgetRes.status).toBe(200);
     expect(budgetRes.body.isReady).toBe(true);
 
+    const incomeCategoriesRes = await request(app)
+      .get("/api/v1/income-categories")
+      .set("Authorization", `Bearer ${memberToken}`)
+      .set("X-Account-Id", sharedAccountId);
+
+    expect(incomeCategoriesRes.status).toBe(200);
+    const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
+    expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
+
     const incomeRes = await request(app)
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${memberToken}`)
@@ -135,7 +144,7 @@ describe("accounts flow integration", () => {
         origin: "manual",
         description: "Ordenado",
         amount: 1500,
-        categoryId: "cat_despesas",
+        categoryId: defaultIncomeCategoryId,
       });
 
     expect(incomeRes.status).toBe(201);

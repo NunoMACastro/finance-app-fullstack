@@ -49,6 +49,14 @@ describe("stats integration", () => {
     const accessToken = registerRes.body.tokens.accessToken as string;
     const month = monthKeyFromNow();
 
+    const incomeCategoriesRes = await request(app)
+      .get("/api/v1/income-categories")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(incomeCategoriesRes.status).toBe(200);
+    const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
+    expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
+
     const budgetRes = await request(app)
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
@@ -72,7 +80,7 @@ describe("stats integration", () => {
         origin: "manual",
         description: "Salario",
         amount: 2000,
-        categoryId: "cat_despesas",
+        categoryId: defaultIncomeCategoryId,
       });
 
     expect(incomeRes.status).toBe(201);
@@ -118,8 +126,13 @@ describe("stats integration", () => {
     expect(statsResB.status).toBe(200);
 
     expect(statsResA.body.categorySeries).toEqual(statsResB.body.categorySeries);
+    expect(statsResA.body.incomeByCategory).toEqual(statsResB.body.incomeByCategory);
+    expect(statsResA.body.incomeCategorySeries).toEqual(statsResB.body.incomeCategorySeries);
     expect(Array.isArray(statsResA.body.categorySeries)).toBe(true);
     expect(statsResA.body.categorySeries.length).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(statsResA.body.incomeByCategory)).toBe(true);
+    expect(Array.isArray(statsResA.body.incomeCategorySeries)).toBe(true);
+    expect(statsResA.body.incomeByCategory.length).toBeGreaterThanOrEqual(1);
 
     for (const series of statsResA.body.categorySeries as Array<{
       categoryId: string;
@@ -133,6 +146,32 @@ describe("stats integration", () => {
         expect(point.month).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/);
         expect(Number.isFinite(point.budgeted)).toBe(true);
         expect(Number.isFinite(point.actual)).toBe(true);
+      }
+    }
+
+    for (const item of statsResA.body.incomeByCategory as Array<{
+      categoryId: string;
+      categoryName: string;
+      amount: number;
+      percent: number;
+    }>) {
+      expect(item.categoryId).toBeTypeOf("string");
+      expect(item.categoryName).toBeTypeOf("string");
+      expect(Number.isFinite(item.amount)).toBe(true);
+      expect(Number.isFinite(item.percent)).toBe(true);
+    }
+
+    for (const series of statsResA.body.incomeCategorySeries as Array<{
+      categoryId: string;
+      categoryName: string;
+      monthly: Array<{ month: string; amount: number }>;
+    }>) {
+      expect(series.categoryId).toBeTypeOf("string");
+      expect(series.categoryName).toBeTypeOf("string");
+      expect(series.monthly.length).toBe(6);
+      for (const point of series.monthly) {
+        expect(point.month).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/);
+        expect(Number.isFinite(point.amount)).toBe(true);
       }
     }
   });
