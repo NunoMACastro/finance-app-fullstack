@@ -150,7 +150,7 @@ function ensureMockIncomeCategoryAllowed(accountId: string, categoryId?: string)
   if (!cleanId) {
     throw {
       code: "INCOME_CATEGORY_REQUIRED",
-      message: "Categoria de receita obrigatoria",
+      message: "Categoria de receita obrigatória",
     };
   }
 
@@ -158,7 +158,7 @@ function ensureMockIncomeCategoryAllowed(accountId: string, categoryId?: string)
   if (!category) {
     throw {
       code: "INCOME_CATEGORY_NOT_FOUND",
-      message: "Categoria de receita nao encontrada",
+      message: "Categoria de receita não encontrada",
     };
   }
 
@@ -203,7 +203,7 @@ function ensureMockManualAllowed(accountId: string, month: string): void {
   if (!budget || !budget.isReady) {
     throw {
       code: "BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS",
-      message: "Precisa de criar um orcamento valido para este mes antes de adicionar lancamentos manuais",
+      message: "Precisa de criar um orçamento válido para este mês antes de adicionar lançamentos manuais",
     };
   }
 }
@@ -211,7 +211,7 @@ function ensureMockManualAllowed(accountId: string, month: string): void {
 function requireMockOwner(accountId: string): void {
   const account = _mockAccounts.find((item) => item.id === accountId);
   if (!account) {
-    throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
+    throw { code: "ACCOUNT_NOT_FOUND", message: "Conta não encontrada" };
   }
   if (account.role !== "owner") {
     throw { code: "ACCOUNT_OWNER_REQUIRED", message: "Apenas owners podem gerir esta conta" };
@@ -352,11 +352,11 @@ export const accountsApi = {
       await delay(120);
       const invite = _mockInviteCodes[code.trim().toUpperCase()];
       if (!invite) {
-        throw { code: "INVITE_CODE_INVALID_OR_EXPIRED", message: "Codigo de convite invalido" };
+        throw { code: "INVITE_CODE_INVALID_OR_EXPIRED", message: "Código de convite inválido" };
       }
       const account = _mockAccounts.find((item) => item.id === invite.accountId);
       if (!account) {
-        throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
+        throw { code: "ACCOUNT_NOT_FOUND", message: "Conta não encontrada" };
       }
       ensureIncomeCategoryStore(account.id);
       return clone(account);
@@ -394,7 +394,7 @@ export const accountsApi = {
       requireMockOwner(accountId);
       const members = _mockMembersByAccount[accountId] ?? [];
       const target = members.find((member) => member.userId === userId);
-      if (!target) throw { code: "ACCOUNT_MEMBER_NOT_FOUND", message: "Membro nao encontrado" };
+      if (!target) throw { code: "ACCOUNT_MEMBER_NOT_FOUND", message: "Membro não encontrado" };
 
       if (target.role === "owner" && role !== "owner") {
         const ownerCount = members.filter((member) => member.role === "owner" && member.status === "active").length;
@@ -420,7 +420,7 @@ export const accountsApi = {
       requireMockOwner(accountId);
       const members = _mockMembersByAccount[accountId] ?? [];
       const target = members.find((member) => member.userId === userId);
-      if (!target) throw { code: "ACCOUNT_MEMBER_NOT_FOUND", message: "Membro nao encontrado" };
+      if (!target) throw { code: "ACCOUNT_MEMBER_NOT_FOUND", message: "Membro não encontrado" };
       if (target.role === "owner") {
         const ownerCount = members.filter((member) => member.role === "owner" && member.status === "active").length;
         if (ownerCount <= 1) {
@@ -437,9 +437,9 @@ export const accountsApi = {
     if (config.useMock) {
       await delay(100);
       const account = _mockAccounts.find((item) => item.id === accountId);
-      if (!account) throw { code: "ACCOUNT_NOT_FOUND", message: "Conta nao encontrada" };
+      if (!account) throw { code: "ACCOUNT_NOT_FOUND", message: "Conta não encontrada" };
       if (account.type === "personal") {
-        throw { code: "PERSONAL_ACCOUNT_CANNOT_LEAVE", message: "Nao e possivel sair da conta pessoal" };
+        throw { code: "PERSONAL_ACCOUNT_CANNOT_LEAVE", message: "Não é possível sair da conta pessoal" };
       }
       if (account.role === "owner") {
         const members = _mockMembersByAccount[accountId] ?? [];
@@ -447,7 +447,7 @@ export const accountsApi = {
         if (ownerCount <= 1) {
           throw {
             code: "LAST_OWNER_CANNOT_LEAVE",
-            message: "Nao pode sair da conta sendo o ultimo owner",
+            message: "Não pode sair da conta sendo o último owner",
           };
         }
       }
@@ -501,12 +501,12 @@ export const incomeCategoriesApi = {
       const categories = ensureIncomeCategoryStore(accountId);
       const target = categories.find((item) => item.id === id);
       if (!target) {
-        throw { code: "INCOME_CATEGORY_NOT_FOUND", message: "Categoria de receita nao encontrada" };
+        throw { code: "INCOME_CATEGORY_NOT_FOUND", message: "Categoria de receita não encontrada" };
       }
       if (target.isDefault && payload.active === false) {
         throw {
           code: "INCOME_CATEGORY_DEFAULT_PROTECTED",
-          message: "A categoria default nao pode ser desativada",
+          message: "A categoria default não pode ser desativada",
         };
       }
       if (payload.name !== undefined) {
@@ -529,12 +529,12 @@ export const incomeCategoriesApi = {
       const categories = ensureIncomeCategoryStore(accountId);
       const target = categories.find((item) => item.id === id);
       if (!target) {
-        throw { code: "INCOME_CATEGORY_NOT_FOUND", message: "Categoria de receita nao encontrada" };
+        throw { code: "INCOME_CATEGORY_NOT_FOUND", message: "Categoria de receita não encontrada" };
       }
       if (target.isDefault) {
         throw {
           code: "INCOME_CATEGORY_DEFAULT_PROTECTED",
-          message: "A categoria default nao pode ser removida",
+          message: "A categoria default não pode ser removida",
         };
       }
       target.active = false;
@@ -603,7 +603,7 @@ export const transactionsApi = {
       const accountId = mockAccountId();
       const idx = _mockTransactions.findIndex((tx) => tx.id === id && tx.accountId === accountId);
       if (idx < 0) {
-        throw { code: "TRANSACTION_NOT_FOUND", message: "Transacao nao encontrada" };
+        throw { code: "TRANSACTION_NOT_FOUND", message: "Transação não encontrada" };
       }
 
       const current = _mockTransactions[idx];
@@ -691,7 +691,7 @@ export const recurringApi = {
       const accountId = mockAccountId();
       const idx = _mockRecurringRules.findIndex((rule) => rule.id === id && rule.accountId === accountId);
       if (idx < 0) {
-        throw { code: "RECURRING_RULE_NOT_FOUND", message: "Regra recorrente nao encontrada" };
+        throw { code: "RECURRING_RULE_NOT_FOUND", message: "Regra recorrente não encontrada" };
       }
       const current = _mockRecurringRules[idx];
       if (current.type === "income") {
@@ -794,7 +794,7 @@ export const budgetApi = {
       const store = ensureBudgetStore(accountId);
       const source = store[sourceMonth];
       if (!source) {
-        throw { code: "SOURCE_BUDGET_NOT_FOUND", message: "Mes de origem nao encontrado" };
+        throw { code: "SOURCE_BUDGET_NOT_FOUND", message: "Mês de origem não encontrado" };
       }
       const copy = normaliseMockBudget(accountId, targetMonth, {
         accountId,

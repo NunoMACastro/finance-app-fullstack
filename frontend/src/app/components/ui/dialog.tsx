@@ -38,7 +38,7 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px]",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-overlay backdrop-blur-[2px]",
       className,
     )}
     {...props}
@@ -56,7 +56,7 @@ const DialogContent = React.forwardRef<
       ref={ref}
       data-slot="dialog-content"
       className={cn(
-        "bg-white/95 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[60] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-3xl border border-sky-100/70 p-6 shadow-[0_30px_80px_-34px_rgba(14,165,233,0.5)] duration-200 backdrop-blur-xl sm:max-w-lg",
+        "bg-card/95 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[60] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-3xl border border-border/80 p-6 shadow-overlay duration-200 backdrop-blur-xl sm:max-w-lg",
         className,
       )}
       aria-describedby={ariaDescribedBy ?? undefined}
@@ -76,7 +76,7 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute top-3 right-3 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-sky-50 hover:text-sky-700 focus:ring-2 focus:ring-sky-200 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+      <DialogPrimitive.Close className="absolute top-3 right-3 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus:ring-2 focus:ring-ring-soft focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
         <XIcon />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

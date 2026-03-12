@@ -18,7 +18,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     code: "RATE_LIMITED",
-    message: "Muitos pedidos de autenticacao. Tente novamente daqui a pouco.",
+    message: "Muitos pedidos de autenticação. Tente novamente daqui a pouco.",
   },
 });
 

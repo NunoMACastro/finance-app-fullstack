@@ -58,8 +58,8 @@ function AppContent() {
   // Show splash while checking for stored tokens
   if (isInitialising) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-sky-50 to-cyan-50">
-        <Loader2 className="w-8 h-8 animate-spin text-sky-400" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-page-gradient">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
         <span className="text-sm text-muted-foreground">A carregar...</span>
       </div>
     );
@@ -69,15 +69,15 @@ function AppContent() {
     return (
       <>
         {showDesktopNotice && (
-          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] w-[min(92vw,520px)] rounded-xl border border-sky-200 bg-sky-50/95 shadow-lg backdrop-blur-sm">
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] w-[min(92vw,520px)] rounded-xl border border-border bg-card/95 shadow-card backdrop-blur-sm">
             <div className="px-3 py-2.5 flex items-start gap-2">
-              <Smartphone className="w-4 h-4 text-sky-700 mt-0.5 shrink-0" />
-              <p className="text-xs text-sky-900 flex-1">
+              <Smartphone className="w-4 h-4 text-status-info mt-0.5 shrink-0" />
+              <p className="text-xs text-foreground flex-1">
                 Esta app está otimizada para telemóvel. Podes continuar no desktop, mas a melhor experiência é no mobile.
               </p>
               <button
                 type="button"
-                className="p-1 rounded-md text-sky-700 hover:bg-sky-100"
+                className="p-1 rounded-md text-muted-foreground hover:bg-muted"
                 onClick={dismissDesktopNotice}
                 aria-label="Fechar aviso"
               >
@@ -94,15 +94,15 @@ function AppContent() {
   return (
     <>
       {showDesktopNotice && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] w-[min(92vw,520px)] rounded-xl border border-sky-200 bg-sky-50/95 shadow-lg backdrop-blur-sm">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] w-[min(92vw,520px)] rounded-xl border border-border bg-card/95 shadow-card backdrop-blur-sm">
           <div className="px-3 py-2.5 flex items-start gap-2">
-            <Smartphone className="w-4 h-4 text-sky-700 mt-0.5 shrink-0" />
-            <p className="text-xs text-sky-900 flex-1">
+            <Smartphone className="w-4 h-4 text-status-info mt-0.5 shrink-0" />
+            <p className="text-xs text-foreground flex-1">
               Esta app está otimizada para telemóvel. Podes continuar no desktop, mas a melhor experiência é no mobile.
             </p>
             <button
               type="button"
-              className="p-1 rounded-md text-sky-700 hover:bg-sky-100"
+              className="p-1 rounded-md text-muted-foreground hover:bg-muted"
               onClick={dismissDesktopNotice}
               aria-label="Fechar aviso"
             >

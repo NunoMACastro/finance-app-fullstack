@@ -13,15 +13,15 @@ import { Input } from "./ui/input";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
 
 const CATEGORY_COLORS = [
-  { gradient: "from-violet-400 to-purple-400" },
-  { gradient: "from-pink-300 to-rose-300" },
-  { gradient: "from-emerald-300 to-teal-300" },
-  { gradient: "from-amber-300 to-yellow-300" },
-  { gradient: "from-sky-300 to-blue-300" },
-  { gradient: "from-orange-300 to-amber-300" },
-  { gradient: "from-cyan-300 to-sky-300" },
-  { gradient: "from-rose-300 to-pink-300" },
-  { gradient: "from-indigo-300 to-violet-300" },
+  { gradient: "bg-category-gradient-1" },
+  { gradient: "bg-category-gradient-2" },
+  { gradient: "bg-category-gradient-3" },
+  { gradient: "bg-category-gradient-4" },
+  { gradient: "bg-category-gradient-5" },
+  { gradient: "bg-category-gradient-6" },
+  { gradient: "bg-category-gradient-7" },
+  { gradient: "bg-category-gradient-8" },
+  { gradient: "bg-category-gradient-9" },
 ];
 
 function getCatColor(index: number) {
@@ -76,7 +76,7 @@ export function BudgetEditorPage() {
         setTemplates(loadedTemplates);
       } catch (error) {
         if (cancelled) return;
-        setLoadError(getErrorMessage(error, "Nao foi possivel carregar o editor de orcamento"));
+        setLoadError(getErrorMessage(error, "Não foi possível carregar o editor de orçamento"));
         setBudget(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -160,10 +160,10 @@ export function BudgetEditorPage() {
         categories: budget.categories,
       });
       setBudget(saved);
-      toast.success("Orcamento guardado");
+      toast.success("Orçamento guardado");
       navigate(`/?month=${saved.month}`);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel guardar o orcamento"));
+      toast.error(getErrorMessage(error, "Não foi possível guardar o orçamento"));
     } finally {
       setSaving(false);
     }
@@ -172,29 +172,29 @@ export function BudgetEditorPage() {
   return (
     <div className="flex flex-col gap-4 pb-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-sky-50" onClick={handleBack}>
+        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={handleBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h2 className="text-base text-foreground">Editar Orcamento</h2>
+          <h2 className="text-base text-foreground">Editar Orçamento</h2>
           <p className="text-xs text-muted-foreground capitalize">{getMonthLabel(month)}</p>
         </div>
       </div>
 
       {loading ? (
         <Card className="p-8 border-0 shadow-md flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-sky-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </Card>
       ) : loadError ? (
-        <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+        <Card className="border-warning/40 bg-warning-soft shadow-sm">
           <div className="p-4 flex flex-col gap-3">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800">{loadError}</p>
+              <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
+              <p className="text-sm text-warning-foreground">{loadError}</p>
             </div>
             <Button
               variant="outline"
-              className="rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100"
+              className="rounded-xl border-warning/60 text-status-warning hover:bg-warning/20"
               onClick={() => navigate(0)}
             >
               Tentar novamente
@@ -204,9 +204,9 @@ export function BudgetEditorPage() {
       ) : budget ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
           {!canWriteFinancial && (
-            <Card className="border-sky-100 bg-sky-50/60 shadow-sm">
-              <div className="p-3 text-xs text-sky-700">
-                Modo leitura: sem permissao para editar o orcamento.
+            <Card className="border-border bg-info-soft shadow-sm">
+              <div className="p-3 text-xs text-info-foreground">
+                Modo leitura: sem permissão para editar o orçamento.
               </div>
             </Card>
           )}
@@ -219,12 +219,12 @@ export function BudgetEditorPage() {
                   <button
                     key={template.id}
                     type="button"
-                    className="rounded-xl border border-sky-100 bg-sky-50/50 px-3 py-2 text-left hover:bg-sky-50 transition-colors"
+                    className="rounded-xl border border-border bg-surface-soft px-3 py-2 text-left hover:bg-accent transition-colors"
                     onClick={() => applyTemplate(template)}
                     disabled={!canWriteFinancial}
                   >
-                    <p className="text-sm text-sky-700">{template.name}</p>
-                    <p className="text-[10px] text-sky-600/80 mt-0.5">
+                    <p className="text-sm text-info-foreground">{template.name}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
                       {template.categories.map((category) => `${category.name} ${category.percent}%`).join(" • ")}
                     </p>
                   </button>
@@ -238,7 +238,7 @@ export function BudgetEditorPage() {
                   disabled={!canWriteFinancial}
                 >
                   <p className="text-sm text-foreground">Personalizado</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Comecar com categorias vazias</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Começar com categorias vazias</p>
                 </button>
               </div>
             </Card>
@@ -246,7 +246,7 @@ export function BudgetEditorPage() {
 
           <Card className="border-0 shadow-md p-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-muted-foreground">Orcamento Total (EUR)</label>
+              <label className="text-sm text-muted-foreground">Orçamento Total (EUR)</label>
               <div className="relative opacity-80">
                 <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -259,17 +259,17 @@ export function BudgetEditorPage() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Valor calculado automaticamente pela soma das receitas do mes.
+                Valor calculado automaticamente pela soma das receitas do mês.
               </p>
             </div>
 
             <div
               className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl ${
                 Math.abs(pctDiff) < 0.01
-                  ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-success-soft text-status-success"
                   : pctDiff < 0
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-red-50 text-red-700"
+                    ? "bg-warning-soft text-status-warning"
+                    : "bg-danger-soft text-status-danger"
               }`}
             >
               {Math.abs(pctDiff) < 0.01 ? (
@@ -289,10 +289,10 @@ export function BudgetEditorPage() {
               <motion.div
                 className={`h-full rounded-full transition-colors ${
                   Math.abs(pctDiff) < 0.01
-                    ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                    ? "bg-success"
                     : totalPct > 100
-                      ? "bg-gradient-to-r from-red-400 to-red-500"
-                      : "bg-gradient-to-r from-amber-400 to-amber-500"
+                      ? "bg-danger"
+                      : "bg-warning"
                 }`}
                 animate={{ width: `${Math.min(totalPct, 100)}%` }}
                 transition={{ duration: 0.3 }}
@@ -304,7 +304,7 @@ export function BudgetEditorPage() {
               {budget.categories.map((category, index) => (
                 <div key={category.id} className="rounded-xl border border-border/60 bg-muted/20 p-2.5 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${getCatColor(index).gradient} shrink-0`} />
+                    <div className={`w-3 h-3 rounded-full ${getCatColor(index).gradient} shrink-0`} />
                     <Input
                       className="flex-1 h-9 rounded-xl text-sm"
                       value={category.name}
@@ -358,7 +358,7 @@ export function BudgetEditorPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 text-sky-500 hover:bg-sky-50 rounded-xl h-9 w-9"
+                      className="shrink-0 text-primary hover:bg-accent rounded-xl h-9 w-9"
                     onClick={addCategory}
                     disabled={!newCatName.trim() || !canWriteFinancial}
                     aria-label="Adicionar categoria"
@@ -390,13 +390,13 @@ export function BudgetEditorPage() {
             </div>
           </Card>
 
-          <div className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-sky-100/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-border/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center gap-2">
               <Button variant="outline" className="rounded-xl flex-1" onClick={handleBack}>
                 Cancelar
               </Button>
               <Button
-                className="rounded-xl flex-1 bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
+                className="rounded-xl flex-1 bg-brand-gradient text-primary-foreground border-0 shadow-card"
                 onClick={handleSave}
                 disabled={
                   saving
@@ -420,8 +420,8 @@ export function BudgetEditorPage() {
             setPendingRemoveCategoryId(null);
           }
         }}
-        title="Remover categoria do orcamento?"
-        description="Esta categoria sera removida deste mes e as percentagens podem deixar de totalizar 100%."
+        title="Remover categoria do orçamento?"
+        description="Esta categoria será removida deste mês e as percentagens podem deixar de totalizar 100%."
         confirmLabel="Remover"
         onConfirm={async () => {
           if (!pendingRemoveCategoryId) return;

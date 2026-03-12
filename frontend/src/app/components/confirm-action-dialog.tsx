@@ -34,7 +34,7 @@ export function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="border border-sky-100/70 bg-white/95 shadow-[0_30px_80px_-34px_rgba(14,165,233,0.5)] backdrop-blur-xl rounded-3xl">
+      <AlertDialogContent className="border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-3xl">
         <AlertDialogHeader className="text-left">
           <AlertDialogTitle className="text-base">{title}</AlertDialogTitle>
           <AlertDialogDescription className="text-sm">{description}</AlertDialogDescription>
@@ -42,7 +42,7 @@ export function ConfirmActionDialog({
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl">{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
-            className={destructive ? "rounded-xl bg-destructive text-white hover:bg-destructive/90" : "rounded-xl"}
+            className={destructive ? "rounded-xl bg-destructive text-primary-foreground hover:bg-destructive/90" : "rounded-xl"}
             onClick={(event) => {
               event.preventDefault();
               void onConfirm();

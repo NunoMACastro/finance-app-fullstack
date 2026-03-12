@@ -61,7 +61,7 @@ describe("accounts flow integration", () => {
     const createShared = await request(app)
       .post("/api/v1/accounts")
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ name: "Familia Silva" });
+      .send({ name: "Família Silva" });
 
     expect(createShared.status).toBe(201);
     const sharedAccountId = createShared.body.id as string;

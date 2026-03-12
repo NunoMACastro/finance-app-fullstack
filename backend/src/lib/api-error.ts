@@ -18,7 +18,7 @@ export function badRequest(message: string, code = "BAD_REQUEST", details?: ApiE
   throw new ApiError(400, code, message, details);
 }
 
-export function unauthorized(message = "Nao autenticado", code = "UNAUTHORIZED"): never {
+export function unauthorized(message = "Não autenticado", code = "UNAUTHORIZED"): never {
   throw new ApiError(401, code, message);
 }
 
@@ -26,7 +26,7 @@ export function forbidden(message = "Acesso negado", code = "FORBIDDEN"): never 
   throw new ApiError(403, code, message);
 }
 
-export function notFound(message = "Recurso nao encontrado", code = "NOT_FOUND"): never {
+export function notFound(message = "Recurso não encontrado", code = "NOT_FOUND"): never {
   throw new ApiError(404, code, message);
 }
 

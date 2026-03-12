@@ -101,15 +101,15 @@ function getDaysRemainingInMonth(monthKey: string): number {
 }
 
 const CATEGORY_COLORS = [
-  { text: "text-violet-500", bar: "[&>div]:bg-violet-400", lightBg: "from-violet-100 to-purple-100", gradient: "from-violet-400 to-purple-400" },
-  { text: "text-pink-400", bar: "[&>div]:bg-pink-300", lightBg: "from-pink-100 to-rose-100", gradient: "from-pink-300 to-rose-300" },
-  { text: "text-emerald-400", bar: "[&>div]:bg-emerald-300", lightBg: "from-emerald-100 to-teal-100", gradient: "from-emerald-300 to-teal-300" },
-  { text: "text-amber-400", bar: "[&>div]:bg-amber-300", lightBg: "from-amber-100 to-yellow-100", gradient: "from-amber-300 to-yellow-300" },
-  { text: "text-sky-400", bar: "[&>div]:bg-sky-300", lightBg: "from-sky-100 to-blue-100", gradient: "from-sky-300 to-blue-300" },
-  { text: "text-orange-400", bar: "[&>div]:bg-orange-300", lightBg: "from-orange-100 to-peach-100", gradient: "from-orange-300 to-amber-300" },
-  { text: "text-cyan-400", bar: "[&>div]:bg-cyan-300", lightBg: "from-cyan-100 to-sky-100", gradient: "from-cyan-300 to-sky-300" },
-  { text: "text-rose-400", bar: "[&>div]:bg-rose-300", lightBg: "from-rose-100 to-pink-100", gradient: "from-rose-300 to-pink-300" },
-  { text: "text-indigo-400", bar: "[&>div]:bg-indigo-300", lightBg: "from-indigo-100 to-violet-100", gradient: "from-indigo-300 to-violet-300" },
+  { text: "text-category-1", bar: "[&>div]:bg-category-solid-1", lightBg: "bg-category-soft-1", gradient: "bg-category-gradient-1" },
+  { text: "text-category-2", bar: "[&>div]:bg-category-solid-2", lightBg: "bg-category-soft-2", gradient: "bg-category-gradient-2" },
+  { text: "text-category-3", bar: "[&>div]:bg-category-solid-3", lightBg: "bg-category-soft-3", gradient: "bg-category-gradient-3" },
+  { text: "text-category-4", bar: "[&>div]:bg-category-solid-4", lightBg: "bg-category-soft-4", gradient: "bg-category-gradient-4" },
+  { text: "text-category-5", bar: "[&>div]:bg-category-solid-5", lightBg: "bg-category-soft-5", gradient: "bg-category-gradient-5" },
+  { text: "text-category-6", bar: "[&>div]:bg-category-solid-6", lightBg: "bg-category-soft-6", gradient: "bg-category-gradient-6" },
+  { text: "text-category-7", bar: "[&>div]:bg-category-solid-7", lightBg: "bg-category-soft-7", gradient: "bg-category-gradient-7" },
+  { text: "text-category-8", bar: "[&>div]:bg-category-solid-8", lightBg: "bg-category-soft-8", gradient: "bg-category-gradient-8" },
+  { text: "text-category-9", bar: "[&>div]:bg-category-solid-9", lightBg: "bg-category-soft-9", gradient: "bg-category-gradient-9" },
 ];
 
 function getCatColor(index: number) {
@@ -164,7 +164,7 @@ export function MonthPage() {
       setBudget(budgetData);
       setIncomeCategories(incomeCategoriesData);
     } catch (error) {
-      setLoadError(getErrorMessage(error, "Nao foi possivel carregar os dados do mes"));
+      setLoadError(getErrorMessage(error, "Não foi possível carregar os dados do mês"));
       setSummary(null);
       setBudget(null);
       setIncomeCategories([]);
@@ -195,10 +195,10 @@ export function MonthPage() {
   const handleDelete = async (id: string) => {
     try {
       await transactionsApi.delete(id);
-      toast.success("Lancamento removido");
+      toast.success("Lançamento removido");
       await loadData();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel remover o lancamento"));
+      toast.error(getErrorMessage(error, "Não foi possível remover o lançamento"));
     }
   };
 
@@ -223,14 +223,14 @@ export function MonthPage() {
     <div className="flex flex-col gap-4 pb-4">
       {/* Top bar: Month nav + actions */}
       <div className="flex items-center justify-between" data-tour="month-nav">
-        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-sky-50" onClick={() => setMonthOffset((p) => p - 1)}>
+        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={() => setMonthOffset((p) => p - 1)}>
           <ChevronLeft className="w-5 h-5" />
         </Button>
         <motion.h2 key={currentMonth} className="capitalize text-foreground" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
           {getMonthLabel(currentMonth)}
         </motion.h2>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-sky-50" onClick={() => setMonthOffset((p) => p + 1)} disabled={monthOffset >= 0}>
+          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={() => setMonthOffset((p) => p + 1)} disabled={monthOffset >= 0}>
             <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
@@ -240,7 +240,7 @@ export function MonthPage() {
       <div className="flex items-center gap-2">
         <Button
           data-tour="month-add-transaction"
-          className="flex-1 rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30 h-10"
+          className="flex-1 rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card h-10"
           onClick={() => {
             if (!canWriteFinancial) return;
             if (isBudgetReady) {
@@ -252,25 +252,25 @@ export function MonthPage() {
           disabled={!isBudgetReady || !canWriteFinancial}
         >
           <Plus className="w-4 h-4" />
-          Novo lancamento
+          Novo lançamento
         </Button>
         <Button
           data-tour="month-budget-button"
           variant="outline"
-          className="rounded-xl border-sky-200 text-sky-600 hover:bg-sky-50 h-10 px-4"
+          className="rounded-xl border-border text-primary hover:bg-accent h-10 px-4"
           onClick={() => navigate(`/budget/${currentMonth}/edit`)}
           disabled={!canWriteFinancial}
         >
           <Settings2 className="w-4 h-4" />
-          {isBudgetReady ? "Orcamento" : "Criar orcamento"}
+          {isBudgetReady ? "Orçamento" : "Criar orçamento"}
         </Button>
       </div>
 
       {!canWriteFinancial && (
-          <Card className="border-sky-100 bg-sky-50/60 shadow-sm">
-            <div className="p-3 text-xs text-sky-700">
-              Modo leitura ({getAccountRoleLabel(activeAccountRole)}): nao tens permissao para criar ou editar
-              lancamentos/orcamento.
+          <Card className="border-border bg-info-soft shadow-sm">
+            <div className="p-3 text-xs text-info-foreground">
+              Modo leitura ({getAccountRoleLabel(activeAccountRole)}): não tens permissão para criar ou editar
+              lançamentos/orçamento.
             </div>
           </Card>
         )}
@@ -278,20 +278,20 @@ export function MonthPage() {
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-sky-400" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <span className="text-sm text-muted-foreground">A carregar...</span>
           </div>
         </div>
       ) : loadError ? (
-        <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+        <Card className="border-warning/40 bg-warning-soft shadow-sm">
           <div className="p-4 flex flex-col gap-3">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800">{loadError}</p>
+              <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
+              <p className="text-sm text-warning-foreground">{loadError}</p>
             </div>
             <Button
               variant="outline"
-              className="w-full rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100"
+              className="w-full rounded-xl border-warning/60 text-status-warning hover:bg-warning/20"
               onClick={() => {
                 void loadData();
               }}
@@ -304,20 +304,20 @@ export function MonthPage() {
         <motion.div className="flex flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
           {!isBudgetReady && canWriteFinancial && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
+              <Card className="border-warning/40 bg-warning-soft shadow-sm">
                 <div className="p-4 flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
-                    <Sparkles className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <Sparkles className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-sm text-amber-800">Cria primeiro um orcamento mensal</p>
-                      <p className="text-xs text-amber-700/80 mt-0.5">
-                        Os lancamentos manuais ficam desbloqueados quando tiveres categorias a 100%.
+                      <p className="text-sm text-warning-foreground">Cria primeiro um orçamento mensal</p>
+                      <p className="text-xs text-warning-foreground/80 mt-0.5">
+                        Os lançamentos manuais ficam desbloqueados quando tiveres categorias a 100%.
                       </p>
                     </div>
                   </div>
                   <Button
                     size="sm"
-                    className="rounded-xl bg-amber-500 text-white hover:bg-amber-600"
+                    className="rounded-xl bg-warning text-warning-foreground hover:bg-warning/90"
                     onClick={() => navigate(`/budget/${currentMonth}/edit`)}
                   >
                     Criar
@@ -329,60 +329,60 @@ export function MonthPage() {
 
           {/* Budget Hero Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <Card className="relative overflow-hidden border-0 shadow-xl shadow-sky-200/20">
-              <div className="absolute inset-0 bg-gradient-to-br from-sky-300 via-cyan-300 to-teal-300" />
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.3),transparent_60%)]" />
+            <Card className="relative overflow-hidden border-0 shadow-xl shadow-card">
+              <div className="absolute inset-0 bg-info-gradient" />
+              <div className="absolute inset-0 bg-brand-gradient-soft opacity-30" />
               <div className="relative p-5">
                 <div className="flex items-center gap-2 mb-1">
-                  <Wallet className="w-4 h-4 text-white/80" />
-                  <span className="text-sm text-white/80">Orcamento do Mes</span>
+                  <Wallet className="w-4 h-4 text-primary-foreground/80" />
+                  <span className="text-sm text-primary-foreground/80">Orçamento do Mês</span>
                 </div>
-                <p className="text-3xl text-white tracking-tight">
+                <p className="text-3xl text-primary-foreground tracking-tight">
                   {formatCurrency(totalBudget)}
                 </p>
 
                 {/* Progress bar */}
                 <div className="mt-4 mb-3">
-                  <div className="h-2.5 w-full bg-white/30 rounded-full overflow-hidden">
+                  <div className="h-2.5 w-full bg-primary-foreground/30 rounded-full overflow-hidden">
                     <motion.div
-                      className={`h-full rounded-full ${remaining >= 0 ? "bg-white/80" : "bg-rose-200"}`}
+                      className={`h-full rounded-full ${remaining >= 0 ? "bg-primary-foreground/80" : "bg-danger-soft"}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${spentPercent}%` }}
                       transition={{ duration: 0.8, ease: "easeOut" }}
                     />
                   </div>
                   <div className="flex justify-between mt-1.5">
-                    <span className="text-xs text-white/70">Gasto: {formatCurrency(totalSpent)}</span>
-                    <span className="text-xs text-white/70">Restante: {formatCurrency(Math.max(remaining, 0))}</span>
+                    <span className="text-xs text-primary-foreground/70">Gasto: {formatCurrency(totalSpent)}</span>
+                    <span className="text-xs text-primary-foreground/70">Restante: {formatCurrency(Math.max(remaining, 0))}</span>
                   </div>
                 </div>
 
                 {/* Daily budget + balance row */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 text-center">
+                  <div className="bg-primary-foreground/20 backdrop-blur-sm rounded-2xl p-3 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <CalendarDays className="w-3.5 h-3.5 text-white/70" />
-                      <p className="text-[11px] text-white/70">Orcamento/dia</p>
+                      <CalendarDays className="w-3.5 h-3.5 text-primary-foreground/70" />
+                      <p className="text-[11px] text-primary-foreground/70">Orçamento/dia</p>
                     </div>
-                    <p className={`text-white tabular-nums ${dailyBudget <= 0 ? "text-rose-100" : ""}`}>
+                    <p className={`text-primary-foreground tabular-nums ${dailyBudget <= 0 ? "text-danger-soft" : ""}`}>
                       {daysLeft > 0 ? formatCurrency(dailyBudget) : "--"}
                     </p>
-                    <p className="text-[10px] text-white/50 mt-0.5">{daysLeft} dias restantes</p>
+                    <p className="text-[10px] text-primary-foreground/50 mt-0.5">{daysLeft} dias restantes</p>
                   </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-3 text-center">
+                  <div className="bg-primary-foreground/20 backdrop-blur-sm rounded-2xl p-3 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
                       {remaining >= 0 ? (
-                        <TrendingUp className="w-3.5 h-3.5 text-white" />
+                        <TrendingUp className="w-3.5 h-3.5 text-primary-foreground" />
                       ) : (
-                        <TrendingDown className="w-3.5 h-3.5 text-rose-100" />
+                        <TrendingDown className="w-3.5 h-3.5 text-danger-soft" />
                       )}
-                      <p className="text-[11px] text-white/70">Saldo</p>
+                      <p className="text-[11px] text-primary-foreground/70">Saldo</p>
                     </div>
-                    <p className={`tabular-nums ${remaining >= 0 ? "text-white" : "text-rose-100"}`}>
+                    <p className={`tabular-nums ${remaining >= 0 ? "text-primary-foreground" : "text-danger-soft"}`}>
                       {formatCurrency(remaining)}
                     </p>
-                    <p className="text-[10px] text-white/50 mt-0.5">
-                      {remaining >= 0 ? "Dentro do orcamento" : "Acima do orcamento"}
+                    <p className="text-[10px] text-primary-foreground/50 mt-0.5">
+                      {remaining >= 0 ? "Dentro do orçamento" : "Acima do orçamento"}
                     </p>
                   </div>
                 </div>
@@ -393,21 +393,21 @@ export function MonthPage() {
           {/* Income / Expense summary pills */}
           <motion.div className="grid grid-cols-2 gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <Card className="p-3.5 border-0 shadow-md flex-row items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+              <div className="w-9 h-9 rounded-xl bg-success-soft flex items-center justify-center shrink-0">
+                <ArrowUpRight className="w-4 h-4 text-status-success" />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] text-muted-foreground">Receitas</p>
-                <p className="text-emerald-500 tabular-nums tracking-tight">{formatCurrency(summary.totalIncome)}</p>
+                <p className="text-status-success tabular-nums tracking-tight">{formatCurrency(summary.totalIncome)}</p>
               </div>
             </Card>
             <Card className="p-3.5 border-0 shadow-md flex-row items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
-                <ArrowDownRight className="w-4 h-4 text-rose-400" />
+              <div className="w-9 h-9 rounded-xl bg-danger-soft flex items-center justify-center shrink-0">
+                <ArrowDownRight className="w-4 h-4 text-status-danger" />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] text-muted-foreground">Despesas</p>
-                <p className="text-rose-400 tabular-nums tracking-tight">{formatCurrency(summary.totalExpense)}</p>
+                <p className="text-status-danger tabular-nums tracking-tight">{formatCurrency(summary.totalExpense)}</p>
               </div>
             </Card>
           </motion.div>
@@ -421,7 +421,7 @@ export function MonthPage() {
                 <button
                   className={`px-3 py-1.5 rounded-lg text-xs transition-all ${
                     viewTab === "expenses"
-                      ? "bg-white text-foreground shadow-sm"
+                      ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   onClick={() => setViewTab("expenses")}
@@ -431,7 +431,7 @@ export function MonthPage() {
                 <button
                   className={`px-3 py-1.5 rounded-lg text-xs transition-all ${
                     viewTab === "income"
-                      ? "bg-white text-foreground shadow-sm"
+                      ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   onClick={() => setViewTab("income")}
@@ -455,16 +455,16 @@ export function MonthPage() {
                   {budget.categories.length === 0 ? (
                     <div className="flex flex-col items-center py-12 text-muted-foreground">
                       <ShoppingCart className="w-10 h-10 mb-3 text-muted-foreground/20" />
-                      <p className="text-sm text-center">Sem categorias de despesas neste mes</p>
+                      <p className="text-sm text-center">Sem categorias de despesas neste mês</p>
                       <p className="text-xs text-muted-foreground/70 text-center mt-1">
-                        Cria um orcamento para começares a registar despesas.
+                        Cria um orçamento para começares a registar despesas.
                       </p>
                     </div>
                   ) : summary.expenseTransactions.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-center">
                       <p className="text-sm text-foreground">Sem despesas neste periodo</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Ainda nao tens movimentos de despesa neste mes.
+                        Ainda não tens movimentos de despesa neste mês.
                       </p>
                     </div>
                   ) : null}
@@ -484,8 +484,8 @@ export function MonthPage() {
                       </div>
                       {Math.abs(allocatedPct - 100) > 0.01 && (
                         <div className="flex items-center gap-1 mt-1.5">
-                          <AlertTriangle className="w-3 h-3 text-amber-500" />
-                          <span className="text-[10px] text-amber-600">{allocatedPct.toFixed(0)}% alocado</span>
+                          <AlertTriangle className="w-3 h-3 text-status-warning" />
+                          <span className="text-[10px] text-status-warning">{allocatedPct.toFixed(0)}% alocado</span>
                         </div>
                       )}
                     </div>
@@ -517,7 +517,7 @@ export function MonthPage() {
                             className="w-full p-3 flex items-center gap-3 text-left"
                             onClick={() => setExpandedCat(isExpanded ? null : cat.id)}
                           >
-                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${color.lightBg} flex items-center justify-center shrink-0`}>
+                            <div className={`w-9 h-9 rounded-xl ${color.lightBg} flex items-center justify-center shrink-0`}>
                               <Tag className={`w-3.5 h-3.5 ${color.text}`} />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -527,7 +527,7 @@ export function MonthPage() {
                                   <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full">{cat.percent}%</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className={`text-xs tabular-nums ${over ? "text-red-600" : "text-muted-foreground"}`}>
+                                  <span className={`text-xs tabular-nums ${over ? "text-status-danger" : "text-muted-foreground"}`}>
                                     {formatCurrency(spent)}
                                   </span>
                                   <span className="text-[10px] text-muted-foreground/40">/</span>
@@ -539,7 +539,7 @@ export function MonthPage() {
                                 className={`h-1.5 rounded-full ${over ? "[&>div]:bg-destructive" : color.bar}`}
                               />
                               <div className="flex items-center justify-between mt-1">
-                                <span className={`text-[10px] ${over ? "text-red-500" : "text-muted-foreground/60"}`}>
+                                <span className={`text-[10px] ${over ? "text-status-danger" : "text-muted-foreground/60"}`}>
                                   {over ? `+${formatCurrency(spent - allocated)} acima` : `${formatCurrency(catRemaining)} restante`}
                                 </span>
                                 {catTransactions.length > 0 && (
@@ -581,12 +581,12 @@ export function MonthPage() {
                                           )}
                                           <span className="text-xs text-foreground truncate flex-1">{tx.description}</span>
                                           <span className="text-[10px] text-muted-foreground/40 shrink-0">{formatDate(tx.date)}</span>
-                                          <span className="text-xs text-red-600 tabular-nums shrink-0">-{formatCurrency(tx.amount)}</span>
+                                          <span className="text-xs text-status-danger tabular-nums shrink-0">-{formatCurrency(tx.amount)}</span>
                                           {tx.origin === "manual" && canWriteFinancial && (
                                             <button
                                               className="text-muted-foreground/70 active:scale-95 transition-transform shrink-0 p-1.5 rounded-lg"
                                               onClick={(e) => { e.stopPropagation(); setPendingDeleteTransactionId(tx.id); }}
-                                              aria-label="Remover lancamento"
+                                              aria-label="Remover lançamento"
                                             >
                                               <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -625,11 +625,11 @@ export function MonthPage() {
                       .map((tx, i) => (
                         <motion.div key={tx.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                           <Card className="p-3 flex-row items-center gap-3 border-0 shadow-sm">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-success-soft flex items-center justify-center shrink-0">
                               {tx.origin === "recurring" ? (
-                                <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                                <RefreshCw className="w-3.5 h-3.5 text-status-success" />
                               ) : (
-                                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+                                <ArrowUpRight className="w-3.5 h-3.5 text-status-success" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -641,13 +641,13 @@ export function MonthPage() {
                                   {resolveIncomeCategoryName(tx.categoryId, incomeCategories)}
                                 </span>
                                 {tx.origin === "recurring" && (
-                                  <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded-full">
+                                  <span className="text-[10px] bg-status-info-soft text-status-info px-1.5 py-0.5 rounded-full">
                                     Recorrente
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <p className="text-sm text-emerald-600 tabular-nums shrink-0">
+                            <p className="text-sm text-status-success tabular-nums shrink-0">
                               +{formatCurrency(tx.amount)}
                             </p>
                             {tx.origin === "manual" && canWriteFinancial && (
@@ -712,8 +712,8 @@ export function MonthPage() {
             setPendingDeleteTransactionId(null);
           }
         }}
-        title="Remover lancamento?"
-        description="Esta acao nao pode ser anulada."
+        title="Remover lançamento?"
+        description="Esta ação não pode ser anulada."
         confirmLabel="Remover"
         onConfirm={async () => {
           if (!pendingDeleteTransactionId) return;
@@ -796,7 +796,7 @@ function AddTransactionDialog({
         amount: parseFloat(amount),
         categoryId: selectedCategoryId,
       });
-      toast.success("Lancamento criado");
+      toast.success("Lançamento criado");
       onAdded();
       onClose();
       setDescription("");
@@ -815,7 +815,7 @@ function AddTransactionDialog({
         toast.error("A categoria de receita selecionada deixou de estar valida. Escolhe outra categoria.");
         return;
       }
-      toast.error(getErrorMessage(error, "Nao foi possivel guardar o lancamento"));
+      toast.error(getErrorMessage(error, "Não foi possível guardar o lançamento"));
     } finally {
       setSaving(false);
     }
@@ -823,113 +823,141 @@ function AddTransactionDialog({
 
   const formContent = (mobileFooter = false) => (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm transition-all ${
-                type === "expense"
-                  ? "bg-red-50 text-red-700 shadow-sm ring-1 ring-red-200"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              }`}
-              onClick={() => setType("expense")}
-            >
-              <ArrowDownRight className="w-4 h-4" />
-              Despesa
-            </button>
-            <button
-              type="button"
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm transition-all ${
-                type === "income"
-                  ? "bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-200"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              }`}
-              onClick={() => setType("income")}
-            >
-              <ArrowUpRight className="w-4 h-4" />
-              Receita
-            </button>
-          </div>
+      <div className="flex gap-2 rounded-2xl border border-border bg-surface-soft p-1">
+        <button
+          type="button"
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            type === "expense"
+              ? "bg-card text-status-danger ring-1 ring-danger/25 shadow-sm"
+              : "text-muted-foreground hover:bg-card"
+          }`}
+          onClick={() => setType("expense")}
+        >
+          <ArrowDownRight className="w-4 h-4" />
+          Despesa
+        </button>
+        <button
+          type="button"
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            type === "income"
+              ? "bg-card text-status-success ring-1 ring-success/25 shadow-sm"
+              : "text-muted-foreground hover:bg-card"
+          }`}
+          onClick={() => setType("income")}
+        >
+          <ArrowUpRight className="w-4 h-4" />
+          Receita
+        </button>
+      </div>
 
+      <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">Descricao</label>
+          <Input
+            placeholder="Ex: Supermercado"
+            className="h-11 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-muted-foreground">Descricao</label>
-            <Input placeholder="Ex: Supermercado" className="h-11 rounded-xl" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-muted-foreground">Valor (EUR)</label>
-              <div className="relative">
-                <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input type="number" step="0.01" min="0" placeholder="0.00" className="pl-10 h-11 rounded-xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-muted-foreground">Dia</label>
-              <Input type="number" min="1" max="31" className="h-11 rounded-xl" value={day} onChange={(e) => setDay(e.target.value)} />
+            <label className="text-sm font-medium text-foreground">Valor (EUR)</label>
+            <div className="relative">
+              <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                className="pl-10 h-11 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
             </div>
           </div>
-
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-muted-foreground">
-              {type === "income" ? "Categoria de receita" : "Categoria"}
-            </label>
-            <select
-              className="w-full h-11 rounded-xl border border-input bg-input-background px-3 text-sm"
-              value={type === "income" ? incomeCategoryId : expenseCategoryId}
-              onChange={(e) => {
-                if (type === "income") {
-                  setIncomeCategoryId(e.target.value);
-                  return;
-                }
-                setExpenseCategoryId(e.target.value);
-              }}
-            >
-              {type === "income"
-                ? incomeCategories
-                    .filter((category) => category.active)
-                    .map((category) => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))
-                : expenseCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name} ({category.percent}%)
-                    </option>
-                  ))}
-            </select>
-            {type === "income" && canWriteFinancial && (
-              <button
-                type="button"
-                className="text-left text-xs text-sky-600 hover:text-sky-700 hover:underline w-fit"
-                onClick={onManageIncomeCategories}
-              >
-                Gerir categorias de receita
-              </button>
-            )}
+            <label className="text-sm font-medium text-foreground">Dia</label>
+            <Input
+              type="number"
+              min="1"
+              max="31"
+              className="h-11 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+            />
           </div>
-          <div
-            className={
-              mobileFooter
-                ? "sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 border-t border-sky-100/70 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md"
-                : "mt-1 flex gap-2 pt-2"
-            }
-          >
-            <Button type="button" variant="outline" className="rounded-xl flex-1" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                saving
-                || !description
-                || !amount
-                || !canWriteFinancial
-                || (type === "income" ? !incomeCategoryId : !expenseCategoryId)
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">
+            {type === "income" ? "Categoria de receita" : "Categoria"}
+          </label>
+          <select
+            className="w-full h-11 rounded-xl border border-border bg-input-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring-soft"
+            value={type === "income" ? incomeCategoryId : expenseCategoryId}
+            onChange={(e) => {
+              if (type === "income") {
+                setIncomeCategoryId(e.target.value);
+                return;
               }
-              className="rounded-xl flex-1 bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0 shadow-md shadow-sky-200/30"
+              setExpenseCategoryId(e.target.value);
+            }}
+          >
+            {type === "income"
+              ? incomeCategories
+                  .filter((category) => category.active)
+                  .map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))
+              : expenseCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({category.percent}%)
+                  </option>
+                ))}
+          </select>
+          {type === "income" && canWriteFinancial && (
+            <button
+              type="button"
+              className="text-left text-xs font-medium text-primary hover:text-primary/80 hover:underline w-fit"
+              onClick={onManageIncomeCategories}
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
-            </Button>
-          </div>
+              Gerir categorias de receita
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={
+          mobileFooter
+            ? "sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 border-t border-border bg-card/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md"
+            : "mt-1 flex gap-2 pt-2"
+        }
+      >
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl flex-1 border-border bg-input-background text-foreground hover:bg-surface-soft"
+          onClick={onClose}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          disabled={
+            saving
+            || !description
+            || !amount
+            || !canWriteFinancial
+            || (type === "income" ? !incomeCategoryId : !expenseCategoryId)
+          }
+          className="rounded-xl flex-1 bg-brand-gradient text-primary-foreground border-0 shadow-card"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
+        </Button>
+      </div>
     </form>
   );
 
@@ -938,12 +966,12 @@ function AddTransactionDialog({
       <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
         <SheetContent
           side="bottom"
-          className="right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-3xl border border-sky-100/70 bg-white/95 p-0 shadow-[0_-24px_64px_-32px_rgba(14,165,233,0.55)] backdrop-blur-xl"
+          className="right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-3xl border border-border/80 bg-card/95 p-0 shadow-overlay backdrop-blur-xl"
         >
           <SheetHeader className="px-4 pt-3 pb-2 text-left">
-            <SheetTitle className="text-base">Novo Lancamento</SheetTitle>
+            <SheetTitle className="text-base">Novo Lançamento</SheetTitle>
             <SheetDescription className="sr-only">
-              Formulario para criar um novo lancamento manual.
+              Formulário para criar um novo lançamento manual.
             </SheetDescription>
           </SheetHeader>
           <div className="max-h-[calc(92vh-4.5rem)] overflow-y-auto px-4 pb-4">
@@ -956,11 +984,11 @@ function AddTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="p-0 border border-sky-100/70 bg-white/95 shadow-[0_30px_80px_-34px_rgba(14,165,233,0.5)] backdrop-blur-xl rounded-3xl overflow-hidden sm:max-w-lg">
+      <DialogContent className="p-0 border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-3xl overflow-hidden sm:max-w-lg">
         <DialogHeader className="px-5 pt-5 pb-3 text-left">
-          <DialogTitle className="text-base text-foreground">Novo Lancamento</DialogTitle>
+          <DialogTitle className="text-base text-foreground">Novo Lançamento</DialogTitle>
           <DialogDescription className="sr-only">
-            Formulario para criar um novo lancamento manual.
+            Formulário para criar um novo lançamento manual.
           </DialogDescription>
         </DialogHeader>
         <div className="px-5 pb-5">
@@ -1005,7 +1033,7 @@ function IncomeCategoriesDialog({
       setNewCategoryName("");
       await onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel criar a categoria"));
+      toast.error(getErrorMessage(error, "Não foi possível criar a categoria"));
     } finally {
       setCreating(false);
     }
@@ -1021,7 +1049,7 @@ function IncomeCategoriesDialog({
       toast.success("Categoria atualizada");
       await onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel renomear a categoria"));
+      toast.error(getErrorMessage(error, "Não foi possível renomear a categoria"));
     } finally {
       setBusyCategoryId(null);
     }
@@ -1040,7 +1068,7 @@ function IncomeCategoriesDialog({
       toast.success("Categoria desativada");
       await onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel atualizar a categoria"));
+      toast.error(getErrorMessage(error, "Não foi possível atualizar a categoria"));
     } finally {
       setBusyCategoryId(null);
       setPendingDeactivateCategory(null);
@@ -1055,7 +1083,7 @@ function IncomeCategoriesDialog({
       toast.success("Categoria reativada");
       await onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel atualizar a categoria"));
+      toast.error(getErrorMessage(error, "Não foi possível atualizar a categoria"));
     } finally {
       setBusyCategoryId(null);
     }
@@ -1070,98 +1098,98 @@ function IncomeCategoriesDialog({
           </OverlayHeader>
           <OverlayBody className="pt-0">
             <div className="flex flex-col gap-3">
-          <div className="rounded-xl border border-border/70 p-2.5 flex items-center gap-2">
-            <Input
-              className="h-9 rounded-xl"
-              placeholder="Nova categoria..."
-              value={newCategoryName}
-              onChange={(event) => setNewCategoryName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void handleCreate();
-                }
-              }}
-              disabled={!canWriteFinancial || creating}
-            />
-            <Button
-              type="button"
-              size="icon"
-              className="h-9 w-9 rounded-xl"
-              onClick={() => {
-                void handleCreate();
-              }}
-              disabled={!canWriteFinancial || !newCategoryName.trim() || creating}
-            >
-              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            </Button>
-          </div>
+              <div className="rounded-2xl border border-border bg-card p-2.5 flex items-center gap-2">
+                <Input
+                  className="h-10 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
+                  placeholder="Nova categoria..."
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void handleCreate();
+                    }
+                  }}
+                  disabled={!canWriteFinancial || creating}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+                  onClick={() => {
+                    void handleCreate();
+                  }}
+                  disabled={!canWriteFinancial || !newCategoryName.trim() || creating}
+                >
+                  {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                </Button>
+              </div>
 
-          <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-1">
-            {sortedCategories.map((category) => {
-              const rowBusy = busyCategoryId === category.id;
-              return (
-                <Card key={category.id} className="p-2.5 border border-border/60 shadow-none">
-                  <div className="flex items-center gap-2 justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm text-foreground truncate">{category.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {category.isDefault && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
-                            Default
-                          </span>
-                        )}
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                            category.active
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {category.active ? "Ativa" : "Inativa"}
-                        </span>
+              <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-1">
+                {sortedCategories.map((category) => {
+                  const rowBusy = busyCategoryId === category.id;
+                  return (
+                    <Card key={category.id} className="p-2.5 border border-border bg-card shadow-none">
+                      <div className="flex items-center gap-2 justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground truncate">{category.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {category.isDefault && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info-soft text-info-foreground">
+                                Default
+                              </span>
+                            )}
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                category.active
+                                  ? "bg-success-soft text-status-success"
+                                  : "bg-surface-soft text-muted-foreground"
+                              }`}
+                            >
+                              {category.active ? "Ativa" : "Inativa"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8 rounded-lg px-2 text-xs border-border bg-input-background text-foreground hover:bg-surface-soft"
+                            disabled={!canWriteFinancial || rowBusy}
+                            onClick={() => {
+                              void handleRename(category);
+                            }}
+                          >
+                            Renomear
+                          </Button>
+                          {!category.isDefault && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-8 rounded-lg px-2 text-xs border-border bg-input-background text-foreground hover:bg-surface-soft"
+                              disabled={!canWriteFinancial || rowBusy}
+                              onClick={() => {
+                                if (category.active) {
+                                  void handleToggleActive(category);
+                                  return;
+                                }
+                                void handleActivate(category);
+                              }}
+                            >
+                              {rowBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : category.active ? "Desativar" : "Ativar"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-8 rounded-lg px-2 text-xs"
-                        disabled={!canWriteFinancial || rowBusy}
-                        onClick={() => {
-                          void handleRename(category);
-                        }}
-                      >
-                        Renomear
-                      </Button>
-                      {!category.isDefault && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-8 rounded-lg px-2 text-xs"
-                          disabled={!canWriteFinancial || rowBusy}
-                          onClick={() => {
-                            if (category.active) {
-                              void handleToggleActive(category);
-                              return;
-                            }
-                            void handleActivate(category);
-                          }}
-                        >
-                          {rowBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : category.active ? "Desativar" : "Ativar"}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-            {sortedCategories.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                Sem categorias de receita.
-              </p>
-            )}
-          </div>
+                    </Card>
+                  );
+                })}
+                {sortedCategories.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    Sem categorias de receita.
+                  </p>
+                )}
+              </div>
             </div>
           </OverlayBody>
 
@@ -1179,7 +1207,7 @@ function IncomeCategoriesDialog({
           if (!nextOpen) setPendingDeactivateCategory(null);
         }}
         title="Desativar categoria de receita?"
-        description="Novos lancamentos nao poderao usar esta categoria, mas os lancamentos antigos serao mantidos."
+        description="Novos lançamentos não poderão usar esta categoria, mas os lançamentos antigos serão mantidos."
         confirmLabel="Desativar"
         onConfirm={confirmDeactivateCategory}
       />

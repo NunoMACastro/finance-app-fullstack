@@ -37,7 +37,7 @@ const DrawerOverlay = React.forwardRef<
     ref={ref}
     data-slot="drawer-overlay"
     className={cn(
-      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px]",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-overlay backdrop-blur-[2px]",
       className,
     )}
     {...props}
@@ -55,7 +55,7 @@ const DrawerContent = React.forwardRef<
       ref={ref}
       data-slot="drawer-content"
       className={cn(
-        "group/drawer-content bg-white/95 fixed inset-x-0 bottom-0 z-[60] mt-24 flex w-full max-h-[88vh] flex-col rounded-t-3xl border border-sky-100/70 border-t backdrop-blur-xl shadow-[0_-24px_64px_-32px_rgba(14,165,233,0.55)]",
+        "group/drawer-content bg-card/95 fixed inset-x-0 bottom-0 z-[60] mt-24 flex w-full max-h-[88vh] flex-col rounded-t-3xl border border-border/80 border-t backdrop-blur-xl shadow-overlay",
         "data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:bottom-auto data-[vaul-drawer-direction=top]:mt-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:rounded-b-3xl data-[vaul-drawer-direction=top]:rounded-t-none data-[vaul-drawer-direction=top]:border-b",
         "data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:left-auto data-[vaul-drawer-direction=right]:mt-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:rounded-l-3xl data-[vaul-drawer-direction=right]:rounded-t-none data-[vaul-drawer-direction=right]:border-l data-[vaul-drawer-direction=right]:sm:max-w-sm",
         "data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:right-auto data-[vaul-drawer-direction=left]:mt-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:rounded-r-3xl data-[vaul-drawer-direction=left]:rounded-t-none data-[vaul-drawer-direction=left]:border-r data-[vaul-drawer-direction=left]:sm:max-w-sm",
@@ -63,7 +63,7 @@ const DrawerContent = React.forwardRef<
       )}
       {...props}
     >
-      <div className="bg-sky-100 mx-auto mt-3 h-1.5 w-[88px] shrink-0 rounded-full" />
+      <div className="bg-accent mx-auto mt-3 h-1.5 w-[88px] shrink-0 rounded-full" />
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>

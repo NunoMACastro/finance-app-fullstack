@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { XIcon } from "lucide-react";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -12,14 +10,13 @@ import {
   DialogTitle,
 } from "./dialog";
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "./drawer";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "./sheet";
 import { useIsMobile } from "./use-mobile";
 import { cn } from "./utils";
 
@@ -56,15 +53,15 @@ function ResponsiveOverlay({
   if (isMobile) {
     return (
       <OverlayMobileContext.Provider value={isMobile}>
-        <Drawer
+        <Sheet
           open={open}
-          onOpenChange={onOpenChange}
-          dismissible={dismissible}
-          modal
-          direction="bottom"
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen && !dismissible) return;
+            onOpenChange(nextOpen);
+          }}
         >
           {children}
-        </Drawer>
+        </Sheet>
       </OverlayMobileContext.Provider>
     );
   }
@@ -91,40 +88,31 @@ function OverlayContent({
   density = "form",
   hideClose = false,
 }: OverlayContentProps) {
+  void hideClose;
   const isMobile = useOverlayMode();
   if (isMobile) {
     return (
-      <DrawerContent
+      <SheetContent
+        side="bottom"
+        aria-describedby={undefined}
         className={cn(
-          "relative border border-sky-100/70 bg-white/95 shadow-[0_-24px_64px_-32px_rgba(14,165,233,0.55)] backdrop-blur-xl rounded-t-3xl max-h-[92vh]",
+          "right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-3xl border border-border bg-card/95 p-0 shadow-overlay backdrop-blur-xl",
           className,
         )}
       >
-        {!hideClose && (
-          <DrawerClose className="absolute top-3 right-3 z-10 rounded-xl p-2 text-muted-foreground hover:bg-sky-50 hover:text-sky-700">
-            <XIcon className="w-4 h-4" />
-            <span className="sr-only">Fechar</span>
-          </DrawerClose>
-        )}
         {children}
-      </DrawerContent>
+      </SheetContent>
     );
   }
 
   return (
     <DialogContent
       className={cn(
-        "p-0 border border-sky-100/70 bg-white/95 shadow-[0_30px_80px_-34px_rgba(14,165,233,0.5)] backdrop-blur-xl rounded-3xl overflow-hidden",
+        "p-0 border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-3xl overflow-hidden",
         densityClassMap[density],
         className,
       )}
     >
-      {!hideClose && (
-        <DialogClose className="absolute top-3 right-3 z-10 rounded-xl p-2 text-muted-foreground hover:bg-sky-50 hover:text-sky-700">
-          <XIcon className="w-4 h-4" />
-          <span className="sr-only">Fechar</span>
-        </DialogClose>
-      )}
       {children}
     </DialogContent>
   );
@@ -136,7 +124,7 @@ function OverlayHeader({
 }: React.ComponentProps<"div">) {
   const isMobile = useOverlayMode();
   if (isMobile) {
-    return <DrawerHeader className={cn("px-4 pt-2 pb-3 text-left", className)} {...props} />;
+    return <SheetHeader className={cn("px-4 pt-3 pb-2 text-left", className)} {...props} />;
   }
   return <DialogHeader className={cn("px-5 pt-5 pb-3 text-left", className)} {...props} />;
 }
@@ -147,7 +135,7 @@ function OverlayTitle({
 }: React.ComponentProps<typeof DialogTitle>) {
   const isMobile = useOverlayMode();
   if (isMobile) {
-    return <DrawerTitle className={cn("text-base text-foreground", className)} {...props} />;
+    return <SheetTitle className={cn("text-base text-foreground", className)} {...props} />;
   }
   return <DialogTitle className={cn("text-base text-foreground", className)} {...props} />;
 }
@@ -158,7 +146,7 @@ function OverlayDescription({
 }: React.ComponentProps<typeof DialogDescription>) {
   const isMobile = useOverlayMode();
   if (isMobile) {
-    return <DrawerDescription className={cn("text-xs text-muted-foreground", className)} {...props} />;
+    return <SheetDescription className={cn("text-xs text-muted-foreground", className)} {...props} />;
   }
   return <DialogDescription className={cn("text-xs text-muted-foreground", className)} {...props} />;
 }
@@ -179,13 +167,13 @@ function OverlayFooter({
   const baseClass = cn(
     "gap-2",
     sticky
-      ? "sticky bottom-0 border-t border-sky-100/70 bg-white/95 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      ? "sticky bottom-0 border-t border-border bg-card/95 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       : "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
     className,
   );
 
   if (isMobile) {
-    return <DrawerFooter className={cn("px-4 pt-3", baseClass)} {...props} />;
+    return <SheetFooter className={cn("px-4 pt-3", baseClass)} {...props} />;
   }
   return <DialogFooter className={cn("px-5 pt-3 pb-5 sm:flex-row sm:justify-end", baseClass)} {...props} />;
 }

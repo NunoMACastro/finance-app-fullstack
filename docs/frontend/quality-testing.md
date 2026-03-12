@@ -5,6 +5,7 @@
 ```bash
 cd frontend
 npm run typecheck
+npm run check:tokens
 npm run lint
 npm run test
 npm run build
@@ -13,6 +14,7 @@ npm run build
 ## Tooling
 
 - TypeScript (`tsc --noEmit`)
+- Token guardrail (`scripts/check-tokens.mjs`)
 - ESLint (`@typescript-eslint`, hooks, react-refresh)
 - Vitest + Testing Library + jsdom
 
@@ -35,6 +37,7 @@ Arquivo: `vitest.config.ts`
 Na pipeline principal:
 - install
 - typecheck
+- check:tokens
 - lint
 - tests
 - build
@@ -60,4 +63,3 @@ Recomendacoes continuas:
 - [ ] stats page lida com erro e retry
 - [ ] tutorial continua por escopo e sem jump visual
 - [ ] typecheck/lint/test/build verdes
-

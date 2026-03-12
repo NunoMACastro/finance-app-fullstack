@@ -110,6 +110,7 @@ npm run test
 cd frontend
 npm run dev
 npm run typecheck
+npm run check:tokens
 npm run lint
 npm run test
 npm run build

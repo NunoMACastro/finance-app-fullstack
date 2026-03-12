@@ -15,7 +15,7 @@ function zodToDetails(error: ZodError): Record<string, string> {
 export function notFoundHandler(_req: Request, res: Response): void {
   res.status(404).json({
     code: "NOT_FOUND",
-    message: "Rota nao encontrada",
+    message: "Rota não encontrada",
   });
 }
 
@@ -32,7 +32,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   if (err instanceof ZodError) {
     res.status(422).json({
       code: "VALIDATION_ERROR",
-      message: "Dados invalidos",
+      message: "Dados inválidos",
       details: zodToDetails(err),
     });
     return;

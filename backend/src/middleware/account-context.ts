@@ -51,7 +51,7 @@ export function requireAccountRole(roles: readonly AccountRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const role = req.auth?.accountRole;
     if (!role || !roles.includes(role)) {
-      forbidden("Sem permissao para esta operacao", "ACCOUNT_ROLE_FORBIDDEN");
+      forbidden("Sem permissão para esta operação", "ACCOUNT_ROLE_FORBIDDEN");
     }
 
     next();

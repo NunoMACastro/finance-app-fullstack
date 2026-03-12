@@ -90,7 +90,7 @@ export function validateBudgetPercentages(
 ): void {
   const total = categories.reduce((sum, c) => sum + c.percent, 0);
   if (Math.abs(total - 100) > tolerance) {
-    unprocessable("Percentagens de orcamento devem totalizar 100%", "BUDGET_PERCENT_INVALID", {
+    unprocessable("Percentagens de orçamento devem totalizar 100%", "BUDGET_PERCENT_INVALID", {
       totalPercent: total.toFixed(2),
       expected: "100.00",
     });
@@ -273,7 +273,7 @@ export async function copyBudgetFromMonth(
 ): Promise<MonthBudgetDto> {
   const source = await BudgetModel.findOne({ accountId, month: sourceMonth });
   if (!source) {
-    notFound("Orcamento de origem nao encontrado", "SOURCE_BUDGET_NOT_FOUND");
+    notFound("Orçamento de origem não encontrado", "SOURCE_BUDGET_NOT_FOUND");
   }
 
   const totalBudget = await sumIncomeForMonth(accountId, targetMonth);

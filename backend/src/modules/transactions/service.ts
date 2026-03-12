@@ -66,11 +66,11 @@ function toTransactionDto(doc: {
 function parseAndValidateDate(date: string, expectedMonth?: string): Date {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime())) {
-    unprocessable("Data invalida", "INVALID_DATE");
+    unprocessable("Data inválida", "INVALID_DATE");
   }
 
   if (expectedMonth && monthFromDate(parsed) !== expectedMonth) {
-    unprocessable("A data nao corresponde ao mes indicado", "DATE_MONTH_MISMATCH");
+    unprocessable("A data não corresponde ao mês indicado", "DATE_MONTH_MISMATCH");
   }
 
   return parsed;
@@ -80,7 +80,7 @@ async function ensureManualTransactionsAllowed(accountId: string, month: string)
   const budget = await BudgetModel.findOne({ accountId, month }).lean();
   if (!budget || !isBudgetReady(budget.categories)) {
     unprocessable(
-      "Precisa de criar um orcamento valido para este mes antes de adicionar lancamentos manuais",
+      "Precisa de criar um orçamento válido para este mês antes de adicionar lançamentos manuais",
       "BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS",
     );
   }
@@ -187,7 +187,7 @@ export async function updateTransaction(
 ): Promise<TransactionDto> {
   const transaction = await TransactionModel.findOne({ _id: transactionId, accountId });
   if (!transaction) {
-    notFound("Transacao nao encontrada", "TRANSACTION_NOT_FOUND");
+    notFound("Transação não encontrada", "TRANSACTION_NOT_FOUND");
   }
 
   const originalType = transaction.type;
@@ -247,7 +247,7 @@ export async function updateTransaction(
 export async function deleteTransaction(accountId: string, transactionId: string): Promise<void> {
   const deleted = await TransactionModel.findOneAndDelete({ _id: transactionId, accountId });
   if (!deleted) {
-    notFound("Transacao nao encontrada", "TRANSACTION_NOT_FOUND");
+    notFound("Transação não encontrada", "TRANSACTION_NOT_FOUND");
   }
 
   if (deleted.type === "income") {

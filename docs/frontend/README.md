@@ -28,6 +28,11 @@ UI mobile-first para:
 - `app/lib/*`: API client, stores locais, contextos e tipos
 - `styles/*`: tema, tailwind, fontes
 
+## Design System
+
+- Tokens e regras semânticas: [`./design-tokens.md`](./design-tokens.md)
+- Guardrail automático: `npm run check:tokens` (incluído em `npm run lint` e CI)
+
 ## Providers globais
 
 - `AuthProvider`
@@ -52,4 +57,3 @@ UI mobile-first para:
 - Safe-area iOS aplicada no header e bottom nav.
 - Tutorial auto apenas para users sem `tutorialSeenAt` e com delay de 1 segundo.
 - Tutorial por pagina (month/stats), sem navegacao forcada.
-

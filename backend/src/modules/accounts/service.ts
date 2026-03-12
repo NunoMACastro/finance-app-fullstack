@@ -79,7 +79,7 @@ async function getAccountOrThrow(accountId: string, session?: ClientSession) {
   if (session) query.session(session);
   const account = await query;
   if (!account) {
-    notFound("Conta nao encontrada", "ACCOUNT_NOT_FOUND");
+    notFound("Conta não encontrada", "ACCOUNT_NOT_FOUND");
   }
   return account;
 }
@@ -91,7 +91,7 @@ async function ensurePersonalAccountForUserInSession(
 ): Promise<string> {
   const user = await UserModel.findById(userId).session(session);
   if (!user) {
-    notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
+    notFound("Utilizador não encontrado", "USER_NOT_FOUND");
   }
 
   const accountName = nameHint ? `${nameHint} (Pessoal)` : "Conta Pessoal";
@@ -129,7 +129,7 @@ async function ensurePersonalAccountForUserInSession(
   })();
 
   if (!personalAccount) {
-    notFound("Conta pessoal nao encontrada", "PERSONAL_ACCOUNT_NOT_FOUND");
+    notFound("Conta pessoal não encontrada", "PERSONAL_ACCOUNT_NOT_FOUND");
   }
 
   if (!user.personalAccountId || user.personalAccountId.toString() !== personalAccount._id.toString()) {
@@ -254,7 +254,7 @@ export async function createSharedAccount(userId: string, name: string): Promise
     );
     const account = createdAccounts[0];
     if (!account) {
-      notFound("Conta nao encontrada", "ACCOUNT_NOT_FOUND");
+      notFound("Conta não encontrada", "ACCOUNT_NOT_FOUND");
     }
 
     await AccountMembershipModel.create(
@@ -355,7 +355,7 @@ export async function generateInviteCode(userId: string, accountId: string): Pro
 export async function joinByInviteCode(userId: string, code: string): Promise<AccountSummaryDto> {
   const cleanCode = code.trim().toUpperCase();
   if (!cleanCode) {
-    unprocessable("Codigo de convite invalido", "INVITE_CODE_INVALID");
+    unprocessable("Código de convite inválido", "INVITE_CODE_INVALID");
   }
 
   const personalAccountId = await ensurePersonalAccountForUser(userId);
@@ -367,12 +367,12 @@ export async function joinByInviteCode(userId: string, code: string): Promise<Ac
   }).sort({ createdAt: -1 });
 
   if (!invite) {
-    unprocessable("Codigo de convite invalido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
+    unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
   }
 
   const account = await getAccountOrThrow(invite.accountId.toString());
   if (account.type !== "shared") {
-    unprocessable("Codigo nao corresponde a conta partilhada", "INVITE_ONLY_SHARED_ACCOUNT");
+    unprocessable("Código não corresponde a conta partilhada", "INVITE_ONLY_SHARED_ACCOUNT");
   }
 
   const membership = await AccountMembershipModel.findOneAndUpdate(
@@ -397,7 +397,7 @@ export async function joinByInviteCode(userId: string, code: string): Promise<Ac
   );
 
   if (!membership) {
-    notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+    notFound("Membro não encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
   }
 
   return {
@@ -457,7 +457,7 @@ export async function updateMemberRole(
 
     const account = await getAccountOrThrow(accountId, session);
     if (account.type !== "shared") {
-      unprocessable("A conta pessoal nao permite gerir roles", "PERSONAL_ACCOUNT_ROLE_FORBIDDEN");
+      unprocessable("A conta pessoal não permite gerir roles", "PERSONAL_ACCOUNT_ROLE_FORBIDDEN");
     }
 
     const membership = await AccountMembershipModel.findOne({
@@ -467,7 +467,7 @@ export async function updateMemberRole(
     }).session(session);
 
     if (!membership) {
-      notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+      notFound("Membro não encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
     }
 
     if (membership.role === "owner" && role !== "owner") {
@@ -486,7 +486,7 @@ export async function updateMemberRole(
 
     const user = await UserModel.findById(memberUserId).session(session).lean();
     if (!user) {
-      notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
+      notFound("Utilizador não encontrado", "USER_NOT_FOUND");
     }
 
     return {
@@ -509,7 +509,7 @@ export async function removeMember(
 
     const account = await getAccountOrThrow(accountId, session);
     if (account.type !== "shared") {
-      unprocessable("A conta pessoal nao permite remover membros", "PERSONAL_ACCOUNT_MEMBER_FORBIDDEN");
+      unprocessable("A conta pessoal não permite remover membros", "PERSONAL_ACCOUNT_MEMBER_FORBIDDEN");
     }
 
     const membership = await AccountMembershipModel.findOne({
@@ -519,7 +519,7 @@ export async function removeMember(
     }).session(session);
 
     if (!membership) {
-      notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+      notFound("Membro não encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
     }
 
     if (membership.role === "owner") {
@@ -544,7 +544,7 @@ export async function leaveAccount(userId: string, accountId: string): Promise<v
     const account = await getAccountOrThrow(accountId, session);
 
     if (account.type === "personal") {
-      unprocessable("Nao e possivel sair da conta pessoal", "PERSONAL_ACCOUNT_CANNOT_LEAVE");
+      unprocessable("Não é possível sair da conta pessoal", "PERSONAL_ACCOUNT_CANNOT_LEAVE");
     }
 
     const membership = await AccountMembershipModel.findOne({
@@ -554,7 +554,7 @@ export async function leaveAccount(userId: string, accountId: string): Promise<v
     }).session(session);
 
     if (!membership) {
-      notFound("Membro nao encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+      notFound("Membro não encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
     }
 
     if (membership.role === "owner") {
@@ -566,7 +566,7 @@ export async function leaveAccount(userId: string, accountId: string): Promise<v
 
       if (ownerCount <= 1) {
         unprocessable(
-          "Nao pode sair da conta sendo o ultimo owner. Promova outro owner primeiro.",
+          "Não pode sair da conta sendo o último owner. Promova outro owner primeiro.",
           "LAST_OWNER_CANNOT_LEAVE",
         );
       }

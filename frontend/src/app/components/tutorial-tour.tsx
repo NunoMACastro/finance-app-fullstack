@@ -16,19 +16,19 @@ const HEADER_TOUR_STEPS: TourStep[] = [
     id: "header-account-select",
     selector: '[data-tour="header-account-select"]',
     title: "Conta ativa",
-    description: "Este dropdown troca entre o teu espaco pessoal e os orcamentos partilhados.",
+    description: "Este dropdown troca entre o teu espaço pessoal e os orçamentos partilhados.",
   },
   {
     id: "header-create-shared",
     selector: '[data-tour="header-create-shared"]',
-    title: "Novo orcamento partilhado",
-    description: "No botao + crias um novo espaco partilhado para gerir despesas em conjunto.",
+    title: "Novo orçamento partilhado",
+    description: "No botão + crias um novo espaço partilhado para gerir despesas em conjunto.",
   },
   {
     id: "header-join-shared",
     selector: '[data-tour="header-join-shared"]',
-    title: "Entrar por codigo",
-    description: "Usa este botao para entrar num orcamento partilhado com codigo de convite.",
+    title: "Entrar por código",
+    description: "Usa este botão para entrar num orçamento partilhado com código de convite.",
   },
   {
     id: "header-profile-badge",
@@ -40,7 +40,7 @@ const HEADER_TOUR_STEPS: TourStep[] = [
     id: "header-logout",
     selector: '[data-tour="header-logout"]',
     title: "Sair",
-    description: "Termina a sessao e volta ao ecran de autenticacao.",
+    description: "Termina a sessão e volta ao ecrã de autenticação.",
   },
 ];
 
@@ -50,32 +50,32 @@ const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
     {
       id: "month-nav",
       selector: '[data-tour="month-nav"]',
-      title: "Navegacao mensal",
-      description: "Aqui mudas rapidamente entre meses para veres historico ou voltares ao mes atual.",
+      title: "Navegação mensal",
+      description: "Aqui mudas rapidamente entre meses para veres histórico ou voltares ao mês atual.",
     },
     {
       id: "month-add",
       selector: '[data-tour="month-add-transaction"]',
-      title: "Novo lancamento",
-      description: "Usa este botao para criar receitas e despesas manuais do mes selecionado.",
+      title: "Novo lançamento",
+      description: "Usa este botão para criar receitas e despesas manuais do mês selecionado.",
     },
     {
       id: "month-budget",
       selector: '[data-tour="month-budget-button"]',
-      title: "Criacao de orcamento",
-      description: "Abre o editor de orcamento, aplica templates e define a distribuicao por categorias.",
+      title: "Criação de orçamento",
+      description: "Abre o editor de orçamento, aplica templates e define a distribuição por categorias.",
     },
     {
       id: "month-tabs",
       selector: '[data-tour="month-view-tabs"]',
-      title: "Separacao por tipo",
+      title: "Separação por tipo",
       description: "Alterna entre vista de despesas e receitas para manter o controlo do fluxo mensal.",
     },
     {
       id: "month-categories",
       selector: '[data-tour="month-categories"]',
-      title: "Categorias do orcamento",
-      description: "Cada categoria mostra o valor alocado, gasto atual e o restante disponivel.",
+      title: "Categorias do orçamento",
+      description: "Cada categoria mostra o valor alocado, gasto atual e o restante disponível.",
     },
   ],
   stats: [
@@ -83,20 +83,20 @@ const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
     {
       id: "stats-period",
       selector: '[data-tour="stats-period-tabs"]',
-      title: "Periodo de analise",
-      description: "Escolhe entre 6 ou 12 meses para comparar evolucao de receitas, despesas e saldo.",
+      title: "Período de análise",
+      description: "Escolhe entre 6 ou 12 meses para comparar evolução de receitas, despesas e saldo.",
     },
     {
       id: "stats-trend",
       selector: '[data-tour="stats-trend-chart"]',
-      title: "Tendencia mensal",
-      description: "Este grafico mostra o comportamento mensal e permite abrir detalhes por ponto.",
+      title: "Tendência mensal",
+      description: "Este gráfico mostra o comportamento mensal e permite abrir detalhes por ponto.",
     },
     {
       id: "stats-budget-vs-actual",
       selector: '[data-tour="stats-budget-actual"]',
-      title: "Orcamento vs real",
-      description: "Compara o valor orcamentado com o gasto real por categoria e deteta desvios.",
+      title: "Orçamento vs real",
+      description: "Compara o valor orçamentado com o gasto real por categoria e deteta desvios.",
     },
   ],
 };
@@ -253,7 +253,7 @@ export function TutorialTour({
         transition={{ duration: 0.28, ease: "easeOut" }}
       >
         <motion.div
-          className="absolute inset-0 bg-slate-950/50"
+          className="absolute inset-0 bg-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -264,13 +264,13 @@ export function TutorialTour({
           {targetRect && (
             <motion.div
               key={step.id}
-              className="fixed rounded-xl border-2 border-sky-300 pointer-events-none"
+              className="fixed rounded-xl border-2 border-primary pointer-events-none"
               style={{
                 top: targetRect.top - 5,
                 left: targetRect.left - 5,
                 width: targetRect.width + 10,
                 height: targetRect.height + 10,
-                boxShadow: "0 0 0 9999px rgba(2,6,23,0.42)",
+                boxShadow: "0 0 0 9999px var(--overlay)",
               }}
               initial={{ opacity: 0 }}
               animate={{
@@ -286,14 +286,14 @@ export function TutorialTour({
           {cardPosition && (
             <motion.div
               key={`card-${step.id}`}
-              className="fixed w-[min(360px,calc(100vw-32px))] rounded-2xl border border-sky-100 bg-white p-4 shadow-2xl"
+              className="fixed w-[min(360px,calc(100vw-32px))] rounded-2xl border border-border bg-card p-4 shadow-overlay"
               style={{ top: cardPosition.top, left: cardPosition.left }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.24, ease: "easeOut" }}
             >
-              <p className="text-[11px] text-sky-600 mb-1">
+              <p className="text-[11px] text-primary mb-1">
                 Passo {stepIndex + 1} de {steps.length}
               </p>
               <h3 className="text-sm text-foreground mb-1">{step.title}</h3>
@@ -311,7 +311,7 @@ export function TutorialTour({
                     Anterior
                   </Button>
                   <Button
-                    className="rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 text-white border-0"
+                    className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
                     onClick={() => {
                       if (isLast) {
                         onClose("done");
@@ -332,7 +332,7 @@ export function TutorialTour({
           {!cardPosition && (
             <motion.div
               key="tour-loading"
-              className="fixed left-1/2 -translate-x-1/2 bottom-5 rounded-xl border border-sky-100 bg-white px-3 py-2 shadow-xl"
+              className="fixed left-1/2 -translate-x-1/2 bottom-5 rounded-xl border border-border bg-card px-3 py-2 shadow-overlay"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}

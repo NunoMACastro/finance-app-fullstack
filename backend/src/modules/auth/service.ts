@@ -196,12 +196,12 @@ export async function refresh(refreshToken: string, req?: Request): Promise<Toke
     try {
       return verifyRefreshToken(refreshToken);
     } catch {
-      unauthorized("Refresh token invalido ou expirado", "REFRESH_TOKEN_INVALID");
+      unauthorized("Refresh token inválido ou expirado", "REFRESH_TOKEN_INVALID");
     }
   })();
 
   if (payload.type !== "refresh") {
-    unauthorized("Refresh token invalido", "REFRESH_TOKEN_INVALID");
+    unauthorized("Refresh token inválido", "REFRESH_TOKEN_INVALID");
   }
 
   const tokenDoc = await RefreshTokenModel.findOne({
@@ -214,7 +214,7 @@ export async function refresh(refreshToken: string, req?: Request): Promise<Toke
   }
 
   if (tokenDoc.tokenHash !== sha256(refreshToken)) {
-    unauthorized("Refresh token invalido", "REFRESH_TOKEN_INVALID");
+    unauthorized("Refresh token inválido", "REFRESH_TOKEN_INVALID");
   }
 
   const nextJti = newId();
@@ -269,7 +269,7 @@ export async function logout(refreshToken?: string): Promise<void> {
 export async function me(userId: string): Promise<UserProfile> {
   const user = await UserModel.findById(userId);
   if (!user) {
-    notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
+    notFound("Utilizador não encontrado", "USER_NOT_FOUND");
   }
 
   const personalAccountId = await ensurePersonalAccountForUser(
@@ -287,7 +287,7 @@ export async function completeTutorial(userId: string): Promise<UserProfile> {
     { new: true },
   );
   if (!user) {
-    notFound("Utilizador nao encontrado", "USER_NOT_FOUND");
+    notFound("Utilizador não encontrado", "USER_NOT_FOUND");
   }
 
   const personalAccountId = await ensurePersonalAccountForUser(

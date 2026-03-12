@@ -56,7 +56,7 @@ function ensureCategoryName(name: string): { name: string; nameNormalized: strin
 
 async function findIncomeCategoryOrThrow(accountId: string, incomeCategoryId: string) {
   if (!Types.ObjectId.isValid(incomeCategoryId)) {
-    notFound("Categoria de receita nao encontrada", "INCOME_CATEGORY_NOT_FOUND");
+    notFound("Categoria de receita não encontrada", "INCOME_CATEGORY_NOT_FOUND");
   }
 
   const category = await IncomeCategoryModel.findOne({
@@ -65,7 +65,7 @@ async function findIncomeCategoryOrThrow(accountId: string, incomeCategoryId: st
   });
 
   if (!category) {
-    notFound("Categoria de receita nao encontrada", "INCOME_CATEGORY_NOT_FOUND");
+    notFound("Categoria de receita não encontrada", "INCOME_CATEGORY_NOT_FOUND");
   }
 
   return category;
@@ -143,7 +143,7 @@ export async function updateIncomeCategory(
 
   if (category.isDefault && input.active === false) {
     unprocessable(
-      "A categoria de receita default nao pode ser desativada",
+      "A categoria de receita default não pode ser desativada",
       "INCOME_CATEGORY_DEFAULT_PROTECTED",
     );
   }
@@ -175,7 +175,7 @@ export async function softDeleteIncomeCategory(accountId: string, incomeCategory
 
   if (category.isDefault) {
     unprocessable(
-      "A categoria de receita default nao pode ser removida",
+      "A categoria de receita default não pode ser removida",
       "INCOME_CATEGORY_DEFAULT_PROTECTED",
     );
   }
@@ -191,7 +191,7 @@ export async function assertIncomeCategoryActive(accountId: string, incomeCatego
   }
 
   if (!Types.ObjectId.isValid(cleanId)) {
-    unprocessable("Categoria de receita nao encontrada", "INCOME_CATEGORY_NOT_FOUND");
+    unprocessable("Categoria de receita não encontrada", "INCOME_CATEGORY_NOT_FOUND");
   }
 
   const category = await IncomeCategoryModel.findOne({
@@ -200,7 +200,7 @@ export async function assertIncomeCategoryActive(accountId: string, incomeCatego
   }).lean();
 
   if (!category) {
-    unprocessable("Categoria de receita nao encontrada", "INCOME_CATEGORY_NOT_FOUND");
+    unprocessable("Categoria de receita não encontrada", "INCOME_CATEGORY_NOT_FOUND");
   }
 
   if (!category.active) {

@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Mes" },
+  { to: "/", icon: LayoutDashboard, label: "Mês" },
   { to: "/stats", icon: BarChart3, label: "Stats" },
 ];
 
@@ -84,7 +84,7 @@ export function AppLayout() {
       await logout();
       navigate("/");
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel terminar sessao"));
+      toast.error(getErrorMessage(error, "Não foi possível terminar sessão"));
     }
   };
 
@@ -142,7 +142,7 @@ export function AppLayout() {
       const data = await listMembers(activeAccount.id);
       setMembers(data);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel carregar membros"));
+      toast.error(getErrorMessage(error, "Não foi possível carregar membros"));
     } finally {
       setMembersLoading(false);
     }
@@ -153,9 +153,9 @@ export function AppLayout() {
     try {
       const code = await generateInviteCode(activeAccount.id);
       setInviteCode(code.code);
-      toast.success("Codigo de convite gerado");
+      toast.success("Código de convite gerado");
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel gerar codigo"));
+      toast.error(getErrorMessage(error, "Não foi possível gerar código"));
     }
   };
 
@@ -166,7 +166,7 @@ export function AppLayout() {
       setMembersDialogOpen(false);
       toast.success("Saiu da conta partilhada");
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel sair da conta"));
+      toast.error(getErrorMessage(error, "Não foi possível sair da conta"));
     }
   };
 
@@ -179,7 +179,7 @@ export function AppLayout() {
       toast.success("Membro removido");
       setPendingMemberRemoval(null);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Nao foi possivel remover membro"));
+      toast.error(getErrorMessage(error, "Não foi possível remover membro"));
     } finally {
       setMemberRemoving(false);
     }
@@ -197,12 +197,12 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-[430px] mx-auto w-full">
-      <header className="sticky top-0 z-40 border-b bg-white/70 backdrop-blur-xl pt-[max(env(safe-area-inset-top),0px)]">
+      <header className="sticky top-0 z-40 border-b bg-card/70 backdrop-blur-xl pt-[max(env(safe-area-inset-top),0px)]">
         <div className="max-w-[430px] mx-auto px-4 py-3 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-300 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-200/40 shrink-0">
-                <Wallet className="w-4 h-4 text-white" />
+              <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-card shrink-0">
+                <Wallet className="w-4 h-4 text-primary-foreground" />
               </div>
               <span className="text-foreground text-sm truncate">Poupérrimo</span>
             </div>
@@ -212,7 +212,7 @@ export function AppLayout() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setCreateDialogOpen(true)}
-                title="Criar orcamento partilhado"
+                title="Criar orçamento partilhado"
                 className="rounded-xl h-9 w-9"
                 data-tour="header-create-shared"
               >
@@ -222,16 +222,13 @@ export function AppLayout() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setJoinDialogOpen(true)}
-                title="Entrar por codigo de partilha"
+                title="Entrar por código de partilha"
                 className="rounded-xl h-9 w-9"
                 data-tour="header-join-shared"
               >
                 <UserPlus className="w-4 h-4" />
               </Button>
-              <div
-                className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-cyan-200 flex items-center justify-center text-xs text-sky-700"
-                data-tour="header-profile-badge"
-              >
+              <div className="w-9 h-9 rounded-full bg-brand-gradient-soft flex items-center justify-center text-xs text-foreground" data-tour="header-profile-badge">
                 {initials}
               </div>
               <Button
@@ -251,7 +248,7 @@ export function AppLayout() {
             <select
               value={activeAccountId ?? ""}
               onChange={(event) => setActiveAccount(event.target.value)}
-              className="flex-1 h-10 rounded-xl border border-input bg-white px-3 text-sm min-w-0"
+              className="flex-1 h-10 rounded-xl border border-input bg-input-background px-3 text-sm min-w-0"
               data-tour="header-account-select"
             >
               {accounts.map((account) => (
@@ -268,7 +265,7 @@ export function AppLayout() {
                 setTutorialOpen(true);
               }}
               title="Tutorial"
-              className="text-muted-foreground hover:text-sky-600 rounded-xl h-9 w-9 shrink-0"
+              className="text-muted-foreground hover:text-primary rounded-xl h-9 w-9 shrink-0"
             >
               <CircleHelp className="w-4 h-4" />
             </Button>
@@ -299,7 +296,7 @@ export function AppLayout() {
         </motion.div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-xl border-t">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-xl border-t">
         <div className="max-w-[430px] mx-auto flex items-center justify-around pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-2">
           {navItems.map((item) => (
             <NavLink
@@ -307,7 +304,7 @@ export function AppLayout() {
               to={item.to}
               className={({ isActive }) =>
                 `relative flex flex-col items-center gap-0.5 px-5 py-2 rounded-2xl transition-all duration-200 ${
-                  isActive ? "text-sky-600" : "text-muted-foreground hover:text-foreground"
+                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`
               }
               end={item.to === "/"}
@@ -317,7 +314,7 @@ export function AppLayout() {
                   {isActive && (
                     <motion.div
                       layoutId="nav-active"
-                      className="absolute inset-0 bg-sky-50 rounded-2xl"
+                      className="absolute inset-0 bg-accent rounded-2xl"
                       transition={{ type: "spring", duration: 0.5, bounce: 0.2 }}
                     />
                   )}
@@ -333,28 +330,33 @@ export function AppLayout() {
       <ResponsiveOverlay open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <OverlayContent density="compact">
           <OverlayHeader>
-            <OverlayTitle>Criar orcamento partilhado</OverlayTitle>
+            <OverlayTitle>Criar orçamento partilhado</OverlayTitle>
           </OverlayHeader>
           <OverlayBody className="pt-0 flex flex-col gap-4">
             <Input
               value={newAccountName}
               onChange={(event) => setNewAccountName(event.target.value)}
-              placeholder="Ex: Familia Silva"
-              className="rounded-xl"
+              placeholder="Ex: Família Silva"
+              className="h-11 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
             />
             <OverlayFooter sticky className="px-0 sm:px-0">
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              <Button
+                variant="outline"
+                className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
+                onClick={() => setCreateDialogOpen(false)}
+              >
                 Cancelar
               </Button>
               <Button
+                className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
                 onClick={async () => {
                   try {
                     await createSharedAccount(newAccountName);
                     setNewAccountName("");
                     setCreateDialogOpen(false);
-                    toast.success("Orcamento partilhado criado");
+                    toast.success("Orçamento partilhado criado");
                   } catch (error) {
-                    toast.error(getErrorMessage(error, "Nao foi possivel criar conta partilhada"));
+                    toast.error(getErrorMessage(error, "Não foi possível criar conta partilhada"));
                   }
                 }}
                 disabled={!newAccountName.trim()}
@@ -369,28 +371,33 @@ export function AppLayout() {
       <ResponsiveOverlay open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
         <OverlayContent density="compact">
           <OverlayHeader>
-            <OverlayTitle>Entrar em orcamento partilhado</OverlayTitle>
+            <OverlayTitle>Entrar em orçamento partilhado</OverlayTitle>
           </OverlayHeader>
           <OverlayBody className="pt-0 flex flex-col gap-4">
             <Input
               value={joinCode}
               onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
               placeholder="CODIGO123"
-              className="rounded-xl uppercase"
+              className="h-11 rounded-xl uppercase border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
             />
             <OverlayFooter sticky className="px-0 sm:px-0">
-              <Button variant="outline" onClick={() => setJoinDialogOpen(false)}>
+              <Button
+                variant="outline"
+                className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
+                onClick={() => setJoinDialogOpen(false)}
+              >
                 Cancelar
               </Button>
               <Button
+                className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
                 onClick={async () => {
                   try {
                     await joinByCode(joinCode);
                     setJoinCode("");
                     setJoinDialogOpen(false);
-                    toast.success("Entrou no orcamento partilhado");
+                    toast.success("Entrou no orçamento partilhado");
                   } catch (error) {
-                    toast.error(getErrorMessage(error, "Nao foi possivel entrar com esse codigo"));
+                    toast.error(getErrorMessage(error, "Não foi possível entrar com esse código"));
                   }
                 }}
                 disabled={!joinCode.trim()}
@@ -405,15 +412,21 @@ export function AppLayout() {
       <ResponsiveOverlay open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
         <OverlayContent density="manager">
           <OverlayHeader>
-            <OverlayTitle>Membros do orcamento partilhado</OverlayTitle>
+            <OverlayTitle>Membros do orçamento partilhado</OverlayTitle>
           </OverlayHeader>
           <OverlayBody className="pt-0 flex flex-col gap-3">
             <div className="flex flex-col items-stretch gap-2">
-              <Button variant="outline" onClick={() => void regenerateCode()}>
-                Regenerar codigo
+              <Button
+                variant="outline"
+                className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
+                onClick={() => void regenerateCode()}
+              >
+                Regenerar código
               </Button>
               {inviteCode && (
-                <div className="text-xs rounded-xl px-3 py-2 bg-muted/50">Codigo: {inviteCode}</div>
+                <div className="text-xs rounded-xl px-3 py-2 border border-border bg-surface-soft text-foreground">
+                  Código: {inviteCode}
+                </div>
               )}
             </div>
 
@@ -422,14 +435,14 @@ export function AppLayout() {
             ) : (
               <div className="flex flex-col gap-2">
                 {members.map((member) => (
-                  <div key={member.userId} className="rounded-xl border p-3 flex flex-col gap-2">
+                  <div key={member.userId} className="rounded-xl border border-border bg-card p-3 flex flex-col gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm truncate">{member.name}</p>
+                      <p className="text-sm text-foreground truncate">{member.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <select
-                        className="h-10 rounded-lg border border-input bg-white px-2 text-xs flex-1"
+                        className="h-10 rounded-lg border border-border bg-input-background px-2 text-xs text-foreground flex-1 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring-soft"
                         value={member.role}
                         onChange={async (event) => {
                           try {
@@ -440,7 +453,7 @@ export function AppLayout() {
                             );
                             toast.success("Role atualizada");
                           } catch (error) {
-                            toast.error(getErrorMessage(error, "Nao foi possivel atualizar a role"));
+                            toast.error(getErrorMessage(error, "Não foi possível atualizar a role"));
                           }
                         }}
                       >
@@ -451,7 +464,7 @@ export function AppLayout() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-destructive h-10 px-3"
+                        className="text-destructive h-10 px-3 rounded-lg hover:bg-status-danger-soft"
                         onClick={() =>
                           setPendingMemberRemoval({
                             userId: member.userId,
@@ -468,8 +481,12 @@ export function AppLayout() {
             )}
 
             {activeAccount?.type === "shared" && (
-              <Button variant="outline" className="w-full" onClick={() => setConfirmLeaveOpen(true)}>
-                Sair deste orcamento partilhado
+              <Button
+                variant="outline"
+                className="w-full rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
+                onClick={() => setConfirmLeaveOpen(true)}
+              >
+                Sair deste orçamento partilhado
               </Button>
             )}
           </OverlayBody>
@@ -486,8 +503,8 @@ export function AppLayout() {
         title="Remover membro?"
         description={
           pendingMemberRemoval
-            ? `O membro ${pendingMemberRemoval.name} vai perder acesso a este orcamento partilhado.`
-            : "Este membro vai perder acesso a este orcamento partilhado."
+            ? `O membro ${pendingMemberRemoval.name} vai perder acesso a este orçamento partilhado.`
+            : "Este membro vai perder acesso a este orçamento partilhado."
         }
         confirmLabel="Remover"
         loading={memberRemoving}
@@ -498,7 +515,7 @@ export function AppLayout() {
         open={confirmLeaveOpen}
         onOpenChange={setConfirmLeaveOpen}
         title="Sair desta conta partilhada?"
-        description="Vais perder acesso a este orcamento partilhado ate voltares a entrar por convite."
+        description="Vais perder acesso a este orçamento partilhado até voltares a entrar por convite."
         confirmLabel="Sair"
         loading={leavingAccount}
         onConfirm={confirmLeaveCurrentAccount}

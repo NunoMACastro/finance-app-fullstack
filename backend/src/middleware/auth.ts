@@ -13,12 +13,12 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
   try {
     const payload = verifyAccessToken(token);
     if (payload.type !== "access") {
-      unauthorized("Token invalido", "ACCESS_TOKEN_INVALID");
+      unauthorized("Token inválido", "ACCESS_TOKEN_INVALID");
     }
 
     req.auth = { userId: payload.sub };
     next();
   } catch {
-    unauthorized("Token invalido ou expirado", "ACCESS_TOKEN_INVALID");
+    unauthorized("Token inválido ou expirado", "ACCESS_TOKEN_INVALID");
   }
 }

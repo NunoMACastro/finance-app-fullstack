@@ -61,6 +61,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Token guardrail
+        run: npm run check:tokens
+
       - name: Frontend tests
         run: npm run test
 

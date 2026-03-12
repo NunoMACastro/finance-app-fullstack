@@ -130,7 +130,7 @@ export async function updateRule(
 ): Promise<RecurringRuleDto> {
   const rule = await RecurringRuleModel.findOne({ _id: ruleId, accountId });
   if (!rule) {
-    notFound("Regra recorrente nao encontrada", "RECURRING_RULE_NOT_FOUND");
+    notFound("Regra recorrente não encontrada", "RECURRING_RULE_NOT_FOUND");
   }
 
   if (input.endMonth && input.endMonth < rule.startMonth) {
@@ -155,7 +155,7 @@ export async function updateRule(
 export async function deleteRule(accountId: string, ruleId: string): Promise<void> {
   const result = await RecurringRuleModel.deleteOne({ _id: ruleId, accountId });
   if (result.deletedCount === 0) {
-    notFound("Regra recorrente nao encontrada", "RECURRING_RULE_NOT_FOUND");
+    notFound("Regra recorrente não encontrada", "RECURRING_RULE_NOT_FOUND");
   }
 }
 

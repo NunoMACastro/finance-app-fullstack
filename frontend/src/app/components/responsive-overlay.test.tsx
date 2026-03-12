@@ -20,7 +20,7 @@ function mockViewport(width: number) {
     writable: true,
     value: (query: string) => ({
       matches: query.includes("max-width") ? width < 768 : false,
-      media: query,
+      média: query,
       onchange: null,
       addEventListener: () => {},
       removeEventListener: () => {},
@@ -32,7 +32,7 @@ function mockViewport(width: number) {
 }
 
 describe("ResponsiveOverlay", () => {
-  test("renders drawer on mobile", async () => {
+  test("renders sheet on mobile", async () => {
     mockViewport(390);
     render(
       <ResponsiveOverlay open onOpenChange={() => {}}>
@@ -46,7 +46,7 @@ describe("ResponsiveOverlay", () => {
     );
 
     await waitFor(() => {
-      expect(document.querySelector('[data-slot="drawer-content"]')).toBeInTheDocument();
+      expect(document.querySelector('[data-slot="sheet-content"]')).toBeInTheDocument();
     });
   });
 

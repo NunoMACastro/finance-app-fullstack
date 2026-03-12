@@ -6,6 +6,6 @@ describe("MobileOnlyScreen", () => {
   test("renders desktop/tablet warning copy", () => {
     render(<MobileOnlyScreen />);
     expect(screen.getByText("App mobile apenas")).toBeInTheDocument();
-    expect(screen.getByText(/foi otimizada para telemovel/i)).toBeInTheDocument();
+    expect(screen.getByText(/foi otimizada para telemóvel/i)).toBeInTheDocument();
   });
 });

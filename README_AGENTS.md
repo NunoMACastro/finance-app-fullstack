@@ -63,6 +63,8 @@ Ao criar/editar/apagar income:
 
 - Nao remover injecao de `X-Account-Id` no `http-client`.
 - Nao regressar para mock por default (`VITE_USE_MOCK` default deve continuar `false`).
+- UI usa tokens semanticos puros (`theme.css`), sem classes de paleta hardcoded.
+- `npm run check:tokens` deve permanecer verde (incluido no lint/CI).
 - Tutorial auto apenas quando `tutorialSeenAt === null`.
 - Tutorial por pagina, sem forcar navegacao de rota.
 - Manter aviso desktop nao bloqueante.
@@ -89,6 +91,7 @@ npm run migrate:accounts
 cd frontend
 npm run dev
 npm run typecheck
+npm run check:tokens
 npm run lint
 npm run test
 ```
@@ -108,4 +111,3 @@ npm run test
 - [ ] docs atualizadas (`docs/` + README relevante)
 - [ ] sem segredos em codigo
 - [ ] invariantes acima mantidos
-

@@ -21,6 +21,7 @@ Este diretorio contem a documentacao tecnica oficial do `Finance v2` / `Pouperri
 - [Frontend overview](./frontend/README.md)
 - [Setup e configuracao](./frontend/setup-config.md)
 - [Arquitetura frontend](./frontend/architecture.md)
+- [Design tokens frontend](./frontend/design-tokens.md)
 - [Ecras e fluxos](./frontend/screens-flows.md)
 - [Estado, API client e contextos](./frontend/state-and-api.md)
 - [Qualidade, testes e build](./frontend/quality-testing.md)
