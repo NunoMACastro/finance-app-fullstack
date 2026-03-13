@@ -22,7 +22,7 @@ Arquivo: `src/jobs/scheduler.ts`
 
 Fluxo do job diario:
 1. calcula mes atual (`monthFromDate`, UTC)
-2. gera transacoes recorrentes para todas as contas ativas
+2. gera transacoes recorrentes para todas as contas
 3. materializa snapshots de stats (`semester` e `year`) para cada conta
 
 ## Migracao de contas
@@ -100,4 +100,3 @@ Acoes:
 - scheduler ligado no ambiente correto
 - `npm run test` verde
 - monitorizacao em `/metrics` integrada
-

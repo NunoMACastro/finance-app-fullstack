@@ -29,6 +29,13 @@ export const router = createBrowserRouter([
           return { Component: mod.BudgetEditorPage };
         },
       },
+      {
+        path: "profile",
+        lazy: async () => {
+          const mod = await import("./components/profile-page");
+          return { Component: mod.ProfilePage };
+        },
+      },
     ],
   },
 ]);

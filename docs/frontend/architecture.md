@@ -6,7 +6,7 @@
 
 `App` (`app/App.tsx`):
 1. verifica maintenance mode
-2. envolve app com `AuthProvider` e `AccountProvider`
+2. envolve app com `AuthProvider`, `ThemePreferencesProvider` e `AccountProvider`
 3. renderiza `RouterProvider`
 4. injeta `Toaster` global
 
@@ -17,6 +17,8 @@ Arquivo: `app/routes.ts`
 Rotas lazy:
 - `/` -> `MonthPage`
 - `/stats` -> `StatsPage`
+- `/budget/:month/edit` -> `BudgetEditorPage`
+- `/profile` -> `ProfilePage`
 
 Layout comum:
 - `AppLayout`
@@ -33,12 +35,13 @@ Responsabilidades:
 - carregar resumo mensal (`transactionsApi.getMonthSummary`)
 - carregar budget mensal (`budgetApi.get`)
 - gerir dialog de novo lancamento
-- gerir editor de budget (templates + custom)
+- carregar e gerir categorias de receita
+- encaminhar para `BudgetEditorPage` quando o budget precisa de edicao
 - gerir regras recorrentes
 
 Pontos chave:
 - botao de novo lancamento desativado se budget nao estiver pronto
-- CTA para criar budget quando necessario
+- CTA para criar/editar budget navega para `/budget/:month/edit`
 - feedback visual para roles sem escrita (`viewer`)
 
 ### StatsPage
@@ -47,6 +50,20 @@ Responsabilidades:
 - renderizar tendencia, categorias, budget vs actual e forecast
 - suportar detalhe por categoria com `categorySeries`
 - tratar erros com retry
+
+### BudgetEditorPage
+Responsabilidades:
+- editar categorias/percentagens do budget mensal
+- aplicar templates predefinidos
+- guardar com `budgetApi.save`
+
+### ProfilePage
+Responsabilidades:
+- gerir perfil (`nome`, `moeda`, `email`, password)
+- gerir sessoes e seguranca
+- gerir preferencias (tema/ocultar valores/tutorial)
+- exportar dados e desativar conta
+- gerir contas partilhadas no modo hub
 
 ## TutorialTour
 
@@ -81,4 +98,3 @@ Caracteristicas:
   - `charts-vendor`
   - `ui-vendor`
   - `vendor`
-

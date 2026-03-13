@@ -15,6 +15,7 @@ Pasta fonte: `frontend/src`
 UI mobile-first para:
 - autenticacao,
 - gestao mensal (orcamento + lancamentos + recorrencias),
+- gestao de categorias de receita,
 - stats por periodo,
 - contas pessoais e partilhadas,
 - tutorial guiado contextual.
@@ -23,7 +24,7 @@ UI mobile-first para:
 
 - `main.tsx`: bootstrap
 - `app/App.tsx`: providers, gating de auth, maintenance mode, aviso desktop
-- `app/routes.ts`: rotas lazy (`/`, `/stats`)
+- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/budget/:month/edit`, `/profile`)
 - `app/components/*`: ecras e layout
 - `app/lib/*`: API client, stores locais, contextos e tipos
 - `styles/*`: tema, tailwind, fontes
@@ -37,7 +38,13 @@ UI mobile-first para:
 
 - `AuthProvider`
   - sessao, user profile, login/register/logout
-  - complete tutorial
+  - update profile/email/password
+  - complete/reset tutorial
+  - sessions/export/delete account
+  - toggle de visibilidade de valores
+- `ThemePreferencesProvider`
+  - aplica paleta visual (`data-theme-palette`)
+  - persiste preferencia de tema
 - `AccountProvider`
   - lista de contas
   - conta ativa e role
@@ -48,7 +55,7 @@ UI mobile-first para:
 1. App arranca e verifica maintenance mode.
 2. AuthProvider tenta reidratacao de sessao.
 3. Se autenticado, AccountProvider resolve contas e conta ativa.
-4. Router renderiza `MonthPage` ou `StatsPage`.
+4. Router renderiza `MonthPage`, `StatsPage`, `BudgetEditorPage` ou `ProfilePage`.
 5. Todas as chamadas autenticadas injetam `Authorization` e `X-Account-Id`.
 
 ## Comportamentos de UX importantes

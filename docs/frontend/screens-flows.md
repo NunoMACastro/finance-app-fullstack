@@ -18,6 +18,7 @@ Elementos:
 - dropdown de conta ativa
 - icone `+` para criar orcamento partilhado
 - icone para entrar por codigo
+- toggle para mostrar/ocultar valores (session override)
 - badge de perfil
 - logout
 - botao tutorial
@@ -32,23 +33,31 @@ Dialogs:
 
 ### Fluxo de carregamento
 1. calcula mes ativo
-2. chama em paralelo resumo + budget
+2. chama em paralelo resumo + budget + categorias de receita
 3. renderiza cards, listas e progresso
 
 ### Fluxo de novo lancamento
 1. user toca `Novo lancamento`
 2. se `canWriteFinancial=false`: bloqueado
-3. se `budget.isReady=false`: abre editor de budget
+3. se `budget.isReady=false`: navega para `/budget/:month/edit`
 4. se pronto: abre dialog de lancamento
 5. submit -> `transactionsApi.create`
 6. sucesso -> reload dados do mes
 
 ### Fluxo de editar budget
-1. abre `BudgetEditorDialog`
+1. user abre rota `/budget/:month/edit`
 2. opcionalmente aplica template
 3. edita categorias/pesos
 4. guardar -> `budgetApi.save`
 5. backend valida soma = 100
+6. voltar para month page e recarregar resumo/budget
+
+### Fluxo de categorias de receita
+- listar categorias da conta ativa (`incomeCategoriesApi.list`)
+- criar categoria (`incomeCategoriesApi.create`)
+- editar nome ou estado ativo (`incomeCategoriesApi.update`)
+- remover (soft-delete) categoria (`incomeCategoriesApi.remove`)
+- categoria default existe sempre e nao pode ser removida/desativada
 
 ### Fluxo de recorrencias
 - criar/editar/apagar regra recorrente
@@ -80,9 +89,33 @@ Dialogs:
 - erro de API com mensagem + retry
 - sem dados suficientes:
   - componentes mostram valores zero de forma consistente
-  - sem crash
+- sem crash
 
-## 5) Tutorial por pagina
+## 5) Profile page (`/profile`)
+
+Secoes:
+- Conta:
+  - nome e moeda
+  - atualizacao de email com password atual
+- Seguranca:
+  - alterar password
+  - listar sessoes
+  - revogar sessao individual
+  - revogar todas as sessoes
+- Preferencias:
+  - paleta de tema (`brisa|calma|aurora|terra`)
+  - ocultar valores por defeito
+  - reset tutorial
+- Dados e privacidade:
+  - export JSON
+  - desativar conta (confirmacao forte + password)
+- Contas partilhadas (hibrido):
+  - lista de contas e role
+  - trocar conta ativa
+  - criar/join/leave
+  - gerir membros (owner)
+
+## 6) Tutorial por pagina
 
 Comportamento:
 - auto somente quando `tutorialSeenAt` for `null`
@@ -92,7 +125,7 @@ Comportamento:
 - nao faz navegacao forcada
 - marca visto em skip ou done
 
-## 6) Troca de conta ativa
+## 7) Troca de conta ativa
 
 1. user troca no dropdown
 2. `AccountContext` atualiza header local + storage
@@ -102,4 +135,3 @@ Comportamento:
 Fallback:
 - se conta guardada localmente ficar invalida,
   - contexto cai para conta pessoal automaticamente
-

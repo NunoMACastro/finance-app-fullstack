@@ -11,6 +11,7 @@ import type {
   BudgetTemplate,
   CreateRecurringRuleDto,
   CreateTransactionDto,
+  ExportUserData,
   InviteCodeResponse,
   IncomeCategory,
   MonthBudget,
@@ -18,10 +19,12 @@ import type {
   RecurringRule,
   SaveBudgetDto,
   StatsSnapshot,
+  ThemePalette,
   Transaction,
   UpdateRecurringRuleDto,
   UpdateTransactionDto,
   UserProfile,
+  UserSession,
 } from "./types";
 import {
   PERSONAL_ACCOUNT_ID,
@@ -80,6 +83,9 @@ let _mockRecurringRules: RecurringRule[] = clone(mockRecurringRules);
 let _mockNextTxId = 100;
 let _mockNextRuleId = 100;
 let _mockNextCatId = 100;
+let _mockSessionCounter = 1;
+let _mockPassword = "123456";
+let _mockSessions: UserSession[] = [];
 
 let _mockAccounts: AccountSummary[] = [
   {
@@ -218,14 +224,29 @@ function requireMockOwner(accountId: string): void {
   }
 }
 
+function createMockSession(deviceInfo: string | null = "Mock Device"): UserSession {
+  const session: UserSession = {
+    jti: `mock-session-${_mockSessionCounter++}`,
+    deviceInfo,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    revokedAt: null,
+  };
+  _mockSessions.unshift(session);
+  return session;
+}
+
 export const authApi = {
   async login(email: string, password: string): Promise<AuthResponse> {
     if (config.useMock) {
       await delay();
-      void password;
+      if (password !== _mockPassword) {
+        throw { code: "INVALID_CREDENTIALS", message: "Credenciais inválidas" };
+      }
       _mockUser = { ..._mockUser, email };
+      const session = createMockSession();
       return {
-        tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
+        tokens: { accessToken: "mock-access-token", refreshToken: `mock-refresh-token-${session.jti}` },
         user: { ..._mockUser },
       };
     }
@@ -236,13 +257,17 @@ export const authApi = {
   async register(name: string, email: string, password: string): Promise<AuthResponse> {
     if (config.useMock) {
       await delay();
-      void password;
+      _mockPassword = password;
       _mockUser = {
         ..._mockUser,
         name,
         email,
         tutorialSeenAt: null,
         personalAccountId: PERSONAL_ACCOUNT_ID,
+        preferences: {
+          themePalette: "brisa",
+          hideAmountsByDefault: false,
+        },
       };
       _mockAccounts = [
         {
@@ -270,8 +295,10 @@ export const authApi = {
         delete _mockIncomeCategoriesByAccount[accountId];
       }
       _mockIncomeCategoriesByAccount[PERSONAL_ACCOUNT_ID] = buildDefaultIncomeCategories(PERSONAL_ACCOUNT_ID);
+      _mockSessions = [];
+      const session = createMockSession();
       return {
-        tokens: { accessToken: "mock-access-token", refreshToken: "mock-refresh-token" },
+        tokens: { accessToken: "mock-access-token", refreshToken: `mock-refresh-token-${session.jti}` },
         user: { ..._mockUser },
       };
     }
@@ -282,6 +309,8 @@ export const authApi = {
   async logout(refreshToken?: string): Promise<void> {
     if (config.useMock) {
       await delay(100);
+      void refreshToken;
+      _mockSessions = _mockSessions.map((item) => (item.revokedAt ? item : { ...item, revokedAt: new Date().toISOString() }));
       return;
     }
     await httpClient.post("/auth/logout", { refreshToken });
@@ -307,6 +336,147 @@ export const authApi = {
     }
     const { data } = await httpClient.post<UserProfile>("/auth/tutorial/complete", {});
     return data;
+  },
+
+  async resetTutorial(): Promise<UserProfile> {
+    if (config.useMock) {
+      await delay(120);
+      _mockUser = { ..._mockUser, tutorialSeenAt: null };
+      return { ..._mockUser };
+    }
+    const { data } = await httpClient.post<UserProfile>("/auth/tutorial/reset", {});
+    return data;
+  },
+
+  async updateProfile(payload: {
+    name?: string;
+    currency?: string;
+    preferences?: {
+      themePalette?: ThemePalette;
+      hideAmountsByDefault?: boolean;
+    };
+  }): Promise<UserProfile> {
+    if (config.useMock) {
+      await delay(120);
+      _mockUser = {
+        ..._mockUser,
+        name: payload.name ?? _mockUser.name,
+        currency: payload.currency?.toUpperCase() ?? _mockUser.currency,
+        preferences: {
+          ..._mockUser.preferences,
+          ...(payload.preferences ?? {}),
+        },
+      };
+      return { ..._mockUser };
+    }
+    const { data } = await httpClient.patch<UserProfile>("/auth/me/profile", payload);
+    return data;
+  },
+
+  async updateEmail(currentPassword: string, newEmail: string): Promise<UserProfile> {
+    if (config.useMock) {
+      await delay(120);
+      if (currentPassword !== _mockPassword) {
+        throw { code: "CURRENT_PASSWORD_INVALID", message: "Password atual inválida" };
+      }
+      _mockUser = { ..._mockUser, email: newEmail.trim().toLowerCase() };
+      return { ..._mockUser };
+    }
+    const { data } = await httpClient.patch<UserProfile>("/auth/me/email", { currentPassword, newEmail });
+    return data;
+  },
+
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    if (config.useMock) {
+      await delay(120);
+      if (currentPassword !== _mockPassword) {
+        throw { code: "CURRENT_PASSWORD_INVALID", message: "Password atual inválida" };
+      }
+      _mockPassword = newPassword;
+      return;
+    }
+    await httpClient.patch("/auth/me/password", { currentPassword, newPassword });
+  },
+
+  async listSessions(): Promise<UserSession[]> {
+    if (config.useMock) {
+      await delay(100);
+      return clone(_mockSessions);
+    }
+    const { data } = await httpClient.get<UserSession[]>("/auth/sessions");
+    return data;
+  },
+
+  async revokeSession(jti: string): Promise<void> {
+    if (config.useMock) {
+      await delay(100);
+      const target = _mockSessions.find((item) => item.jti === jti);
+      if (!target) {
+        throw { code: "SESSION_NOT_FOUND", message: "Sessão não encontrada" };
+      }
+      if (!target.revokedAt) {
+        target.revokedAt = new Date().toISOString();
+      }
+      return;
+    }
+    await httpClient.delete(`/auth/sessions/${jti}`);
+  },
+
+  async revokeAllSessions(): Promise<void> {
+    if (config.useMock) {
+      await delay(100);
+      _mockSessions = _mockSessions.map((item) => (item.revokedAt ? item : { ...item, revokedAt: new Date().toISOString() }));
+      return;
+    }
+    await httpClient.post("/auth/sessions/revoke-all", {});
+  },
+
+  async exportData(): Promise<ExportUserData> {
+    if (config.useMock) {
+      await delay(120);
+      return {
+        exportedAt: new Date().toISOString(),
+        user: { ..._mockUser },
+        personalAccount: {
+          accountId: PERSONAL_ACCOUNT_ID,
+          budgets: clone(Object.values(_mockBudgetsByAccount[PERSONAL_ACCOUNT_ID] ?? {})),
+          transactions: clone(_mockTransactions.filter((item) => item.accountId === PERSONAL_ACCOUNT_ID)),
+          recurringRules: clone(_mockRecurringRules.filter((item) => item.accountId === PERSONAL_ACCOUNT_ID)),
+          incomeCategories: clone(_mockIncomeCategoriesByAccount[PERSONAL_ACCOUNT_ID] ?? []),
+          statsSnapshots: [],
+        },
+        sharedMemberships: clone(
+          _mockAccounts
+            .filter((item) => item.type === "shared")
+            .map((item) => ({
+              accountId: item.id,
+              accountName: item.name,
+              accountType: item.type,
+              role: item.role,
+              status: "active" as const,
+            })),
+        ),
+      };
+    }
+    const { data } = await httpClient.get<ExportUserData>("/auth/export");
+    return data;
+  },
+
+  async deleteMe(currentPassword: string): Promise<void> {
+    if (config.useMock) {
+      await delay(120);
+      if (currentPassword !== _mockPassword) {
+        throw { code: "CURRENT_PASSWORD_INVALID", message: "Password atual inválida" };
+      }
+      _mockUser = {
+        ..._mockUser,
+        email: `deleted_${_mockUser.id}@deleted.local`,
+        name: "Conta removida",
+      };
+      _mockSessions = _mockSessions.map((item) => (item.revokedAt ? item : { ...item, revokedAt: new Date().toISOString() }));
+      return;
+    }
+    await httpClient.delete("/auth/me", { data: { currentPassword } });
   },
 };
 

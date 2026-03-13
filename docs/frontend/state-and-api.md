@@ -8,6 +8,7 @@ Contem contratos espelho do backend para:
 - auth
 - accounts/memberships
 - budgets/templates
+- income categories
 - transactions
 - recurring rules
 - stats (`categorySeries` incluido)
@@ -19,6 +20,7 @@ Arquivo: `app/lib/api.ts`
 Modulos:
 - `authApi`
 - `accountsApi`
+- `incomeCategoriesApi`
 - `transactionsApi`
 - `recurringApi`
 - `budgetApi`
@@ -71,10 +73,36 @@ Acoes:
 - `logout`
 - `refreshUser`
 - `completeTutorial`
+- `resetTutorial`
+- `updateProfile`
+- `updateEmail`
+- `updatePassword`
+- `listSessions`
+- `revokeSession`
+- `revokeAllSessions`
+- `exportData`
+- `deleteMe`
+- `toggleAmountVisibility`
 
 Comportamentos:
 - reidratacao inicial com tokens locais
 - forced logout via evento global
+- preferencia de ocultar valores por defeito com override de sessao
+
+## Theme preferences context
+
+Arquivo: `app/lib/theme-preferences.tsx`
+
+Estado:
+- `palette`
+- `isSaving`
+
+Acoes:
+- `setPalette`
+
+Comportamentos:
+- aplica `data-theme-palette` no `documentElement`
+- persiste fallback local quando user nao autenticado
 
 ## Account context
 
@@ -123,3 +151,11 @@ Arquivo: `app/lib/account-store.ts`
 - `useApi` hook usa `callId` para ignorar respostas obsoletas.
 - Stats/Month usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
 
+## Formatacao (datas e moeda)
+
+Arquivo: `app/lib/formatting.ts`
+
+- moeda usa `currency` do perfil
+- locale e timezone da formatacao sao fixos:
+  - locale: `pt-PT`
+  - timezone: `Europe/Lisbon`

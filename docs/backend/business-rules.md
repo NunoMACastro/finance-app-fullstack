@@ -78,7 +78,16 @@ Sincronizacao:
 - em create/update/delete de transacao income: sincroniza budget do(s) mes(es) afetado(s),
 - em `saveBudget` e `copyBudgetFromMonth`: total e calculado server-side.
 
-## 8) Recorrencias
+## 8) Categorias de receita
+
+- Cada conta tem uma categoria default (`Outras receitas`) garantida pelo backend.
+- Nomes ativos de categoria sao unicos por conta (normalizados em lowercase).
+- A categoria default nao pode ser removida nem desativada.
+- Transacoes `income` exigem categoria de receita ativa da conta:
+  - erro `INCOME_CATEGORY_REQUIRED` quando ausente
+  - erro `INCOME_CATEGORY_NOT_FOUND`/`INCOME_CATEGORY_INACTIVE` quando invalida
+
+## 9) Recorrencias
 
 - Regra ativa para mes quando:
   - `active=true`
@@ -87,7 +96,7 @@ Sincronizacao:
 - Geracao usa upsert por `(accountId, recurringRuleId, month)` para idempotencia.
 - `dayOfMonth` e ajustado ao ultimo dia real do mes.
 
-## 9) Stats
+## 10) Stats
 
 - Nao usam dados random no backend.
 - Dados calculados em tempo real sobre transactions + budgets do periodo.
@@ -95,14 +104,13 @@ Sincronizacao:
   - `% da categoria` x `income real do mes`.
 - Retorna `categorySeries` para detalhe mensal por categoria.
 
-## 10) Tutorial
+## 11) Tutorial
 
 - `tutorialSeenAt` em `User`.
 - Se `null`, frontend pode iniciar tutorial automaticamente.
 - `POST /auth/tutorial/complete` marca conclusao (skip/done).
 
-## 11) Semantica temporal
+## 12) Semantica temporal
 
 - Chave mensal `YYYY-MM`.
 - Backend usa UTC para derivacao de mes e datas de recorrencia.
-

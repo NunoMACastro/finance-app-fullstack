@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { router } from "./routes";
 import { AuthProvider, useAuth } from "./lib/auth-context";
 import { AccountProvider } from "./lib/account-context";
+import { ThemePreferencesProvider } from "./lib/theme-preferences";
 import { config } from "./lib/config";
 import { AuthPage } from "./components/auth-page";
 import { MaintenancePage } from "./components/maintenance-page";
@@ -123,10 +124,12 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <AccountProvider>
-        <AppContent />
-        <Toaster position="top-center" richColors />
-      </AccountProvider>
+      <ThemePreferencesProvider>
+        <AccountProvider>
+          <AppContent />
+          <Toaster position="top-center" richColors />
+        </AccountProvider>
+      </ThemePreferencesProvider>
     </AuthProvider>
   );
 }

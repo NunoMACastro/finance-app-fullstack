@@ -37,6 +37,10 @@ npm run test
   - create account, invite, join, roles, leave/remocao
 - `budget-transactions-flow.test.ts`
   - gating de lancamentos manuais por budget, sincronizacao de totalBudget
+- `income-categories-flow.test.ts`
+  - categorias default, regras de inativacao e validacao em incomes
+- `profile-flow.test.ts`
+  - profile/self-service (perfil, seguranca, sessoes, export, delete account)
 - `stats-category-series.test.ts`
   - consistencia de `categorySeries`
 
@@ -75,4 +79,3 @@ A pipeline (`.github/workflows/ci.yml`) corre:
 - integration tests
 
 Qualquer falha bloqueia merge.
-

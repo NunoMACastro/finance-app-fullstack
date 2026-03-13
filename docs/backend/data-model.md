@@ -8,6 +8,7 @@
 - `accountinvitecodes`
 - `budgets`
 - `transactions`
+- `incomecategories`
 - `recurringrules`
 - `statssnapshots`
 - `refreshtokens`
@@ -19,8 +20,11 @@ Campos chave:
 - `passwordHash`
 - `profile.name`
 - `profile.currency` (default `EUR`)
-- `profile.locale` (default `pt-PT`)
+- `preferences.themePalette` (enum: `brisa|calma|aurora|terra`, default `brisa`)
+- `preferences.hideAmountsByDefault` (default `false`)
 - `tutorialSeenAt` (nullable)
+- `status` (`active|deleted`, default `active`, index)
+- `deletedAt` (nullable)
 - `personalAccountId` (required, index)
 
 ## accounts
@@ -91,6 +95,19 @@ Indices:
 - `{ accountId: 1, month: 1 }`
 - unico parcial `{ accountId: 1, recurringRuleId: 1, month: 1 }` quando `recurringRuleId` existe
 
+## incomecategories
+
+Campos chave:
+- `accountId` (index)
+- `name`
+- `nameNormalized` (index)
+- `active` (default `true`, index)
+- `isDefault` (default `false`, index)
+
+Indices:
+- unico parcial `{ accountId: 1, nameNormalized: 1 }` com `active=true`
+- unico parcial `{ accountId: 1, isDefault: 1 }` com `isDefault=true`
+
 ## recurringrules
 
 Campos chave:
@@ -137,4 +154,3 @@ Campos chave:
 - Toda conta pessoal deve ter membership ativa owner do proprio user.
 - Dados financeiros sao lidos/escritos por `accountId`.
 - `userId` em dados financeiros nao e criterio de autorizacao.
-

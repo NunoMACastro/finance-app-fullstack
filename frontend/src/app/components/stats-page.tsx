@@ -25,25 +25,32 @@ import {
 } from "lucide-react";
 import { statsApi } from "../lib/api";
 import { useAccount } from "../lib/account-context";
+import { useAuth } from "../lib/auth-context";
 import { getErrorMessage } from "../lib/api-error";
-import type { StatsSnapshot, BudgetVsActualItem, CategorySeriesMonthlyItem } from "../lib/types";
+import { formatCurrency as formatCurrencyValue, formatMonthLong, formatMonthShort } from "../lib/formatting";
+import type { StatsSnapshot, BudgetVsActualItem, CategorySeriesMonthlyItem, UserProfile } from "../lib/types";
 
-/* ── Helpers ───────────────────────────────────────── */
+let runtimeFormattingUser: Pick<UserProfile, "currency"> | null = null;
+let runtimeFormattingHidden = false;
+
+function applyRuntimeFormatting(
+  user: Pick<UserProfile, "currency"> | null | undefined,
+  hidden: boolean,
+) {
+  runtimeFormattingUser = user ?? null;
+  runtimeFormattingHidden = hidden;
+}
 
 function formatCurrency(val: number) {
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
+  return formatCurrencyValue(val, runtimeFormattingUser, runtimeFormattingHidden);
 }
 
 function formatShortMonth(monthKey: string) {
-  const [y, m] = monthKey.split("-");
-  const d = new Date(parseInt(y), parseInt(m) - 1, 1);
-  return d.toLocaleDateString("pt-PT", { month: "short" }).replace(".", "");
+  return formatMonthShort(monthKey, runtimeFormattingUser);
 }
 
 function formatFullMonth(monthKey: string) {
-  const [y, m] = monthKey.split("-");
-  const d = new Date(parseInt(y), parseInt(m) - 1, 1);
-  return d.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
+  return formatMonthLong(monthKey, runtimeFormattingUser);
 }
 
 const PIE_COLORS = [
@@ -499,6 +506,7 @@ function CategoryDetailCard({
    ══════════════════════════════════════════════════════ */
 
 export function StatsPage() {
+  const { user, isAmountsHidden } = useAuth();
   const { activeAccountId } = useAccount();
   const [period, setPeriod] = useState<"semester" | "year">("semester");
   const [stats, setStats] = useState<StatsSnapshot | null>(null);
@@ -511,6 +519,7 @@ export function StatsPage() {
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
+  applyRuntimeFormatting(user, isAmountsHidden);
 
   // Refs for scroll-to
   const detailSectionRef = useRef<HTMLDivElement>(null);

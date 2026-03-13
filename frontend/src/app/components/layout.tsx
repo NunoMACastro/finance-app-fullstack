@@ -22,6 +22,8 @@ import { ConfirmActionDialog } from "./confirm-action-dialog";
 import {
   BarChart3,
   CircleHelp,
+  Eye,
+  EyeOff,
   LayoutDashboard,
   LogOut,
   Plus,
@@ -36,7 +38,7 @@ const navItems = [
 ];
 
 export function AppLayout() {
-  const { user, logout, completeTutorial } = useAuth();
+  const { user, logout, completeTutorial, isAmountsHidden, toggleAmountVisibility } = useAuth();
   const {
     accounts,
     activeAccountId,
@@ -228,9 +230,24 @@ export function AppLayout() {
               >
                 <UserPlus className="w-4 h-4" />
               </Button>
-              <div className="w-9 h-9 rounded-full bg-brand-gradient-soft flex items-center justify-center text-xs text-foreground" data-tour="header-profile-badge">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleAmountVisibility}
+                title={isAmountsHidden ? "Mostrar valores" : "Ocultar valores"}
+                className="rounded-xl h-9 w-9"
+              >
+                {isAmountsHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+              <button
+                type="button"
+                onClick={() => navigate("/profile")}
+                className="w-9 h-9 rounded-full bg-brand-gradient-soft flex items-center justify-center text-xs text-foreground"
+                data-tour="header-profile-badge"
+                aria-label="Abrir perfil"
+              >
                 {initials}
-              </div>
+              </button>
               <Button
                 variant="ghost"
                 size="icon"

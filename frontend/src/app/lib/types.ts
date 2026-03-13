@@ -34,9 +34,44 @@ export interface UserProfile {
   email: string;
   name: string;
   currency: string;
-  locale: string;
+  preferences: UserPreferences;
   tutorialSeenAt: string | null;
   personalAccountId: string;
+}
+
+export type ThemePalette = "brisa" | "calma" | "aurora" | "terra";
+
+export interface UserPreferences {
+  themePalette: ThemePalette;
+  hideAmountsByDefault: boolean;
+}
+
+export interface UserSession {
+  jti: string;
+  deviceInfo: string | null;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+}
+
+export interface ExportUserData {
+  exportedAt: string;
+  user: UserProfile;
+  personalAccount: {
+    accountId: string;
+    budgets: unknown[];
+    transactions: unknown[];
+    recurringRules: unknown[];
+    incomeCategories: unknown[];
+    statsSnapshots: unknown[];
+  };
+  sharedMemberships: Array<{
+    accountId: string;
+    accountName: string;
+    accountType: "personal" | "shared";
+    role: AccountRole;
+    status: "active" | "inactive";
+  }>;
 }
 
 // ── Budget ────────────────────────────────────────────────

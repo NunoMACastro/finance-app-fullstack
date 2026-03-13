@@ -21,7 +21,10 @@ export const mockUser: UserProfile = {
   email: "joao@exemplo.pt",
   name: "Joao Silva",
   currency: "EUR",
-  locale: "pt-PT",
+  preferences: {
+    themePalette: "brisa",
+    hideAmountsByDefault: false,
+  },
   tutorialSeenAt: null,
   personalAccountId: PERSONAL_ACCOUNT_ID,
 };

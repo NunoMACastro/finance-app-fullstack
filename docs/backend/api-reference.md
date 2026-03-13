@@ -38,7 +38,10 @@ Response `201`:
     "email": "nuno@example.com",
     "name": "Nuno",
     "currency": "EUR",
-    "locale": "pt-PT",
+    "preferences": {
+      "themePalette": "brisa",
+      "hideAmountsByDefault": false
+    },
     "tutorialSeenAt": null,
     "personalAccountId": "..."
   }
@@ -91,6 +94,114 @@ Response `200`: `UserProfile`.
 Auth obrigatoria. Marca tutorial como concluido.
 
 Response `200`: `UserProfile` atualizado.
+
+### POST `/auth/tutorial/reset`
+Auth obrigatoria. Repõe tutorial como não visto.
+
+Response `200`: `UserProfile` atualizado (`tutorialSeenAt = null`).
+
+### PATCH `/auth/me/profile`
+Auth obrigatoria. Atualiza perfil e preferências.
+
+Request (campos parciais):
+```json
+{
+  "name": "Nuno",
+  "currency": "USD",
+  "preferences": {
+    "themePalette": "calma",
+    "hideAmountsByDefault": true
+  }
+}
+```
+
+Response `200`: `UserProfile` atualizado.
+
+### PATCH `/auth/me/email`
+Auth obrigatoria.
+
+Request:
+```json
+{
+  "currentPassword": "secret123",
+  "newEmail": "novo@example.com"
+}
+```
+
+Response `200`: `UserProfile` atualizado.
+
+### PATCH `/auth/me/password`
+Auth obrigatoria.
+
+Request:
+```json
+{
+  "currentPassword": "secret123",
+  "newPassword": "newsecret123"
+}
+```
+
+Response `204`.
+
+### GET `/auth/sessions`
+Auth obrigatoria. Lista sessões baseadas em refresh tokens.
+
+Response `200`:
+```json
+[
+  {
+    "jti": "...",
+    "deviceInfo": "Mozilla/5.0 ...",
+    "createdAt": "2026-03-12T10:00:00.000Z",
+    "expiresAt": "2026-03-19T10:00:00.000Z",
+    "revokedAt": null
+  }
+]
+```
+
+### DELETE `/auth/sessions/:jti`
+Auth obrigatoria. Revoga uma sessão ativa.
+
+Se a sessão já estiver revogada, o mesmo endpoint remove-a do histórico (cleanup).
+
+Response `204`.
+
+### POST `/auth/sessions/revoke-all`
+Auth obrigatoria. Revoga todas as sessões do user.
+
+Response `204`.
+
+### GET `/auth/export`
+Auth obrigatoria. Exporta dados em JSON.
+
+Response `200`:
+```json
+{
+  "exportedAt": "2026-03-12T10:00:00.000Z",
+  "user": {},
+  "personalAccount": {
+    "accountId": "...",
+    "budgets": [],
+    "transactions": [],
+    "recurringRules": [],
+    "incomeCategories": [],
+    "statsSnapshots": []
+  },
+  "sharedMemberships": []
+}
+```
+
+### DELETE `/auth/me`
+Auth obrigatoria. Desativa conta e limpa PII.
+
+Request:
+```json
+{
+  "currentPassword": "secret123"
+}
+```
+
+Response `204`.
 
 ## Accounts
 
@@ -182,6 +293,64 @@ Response `200`: `AccountMember` atualizado.
 
 ### DELETE `/accounts/:accountId/members/:userId`
 Owner apenas. Remove membro (status inativo).
+
+Response `204`.
+
+## Income Categories
+
+Requer auth + account context.
+
+### GET `/income-categories`
+Lista categorias de receita da conta ativa.
+
+Response `200`:
+```json
+[
+  {
+    "id": "...",
+    "accountId": "...",
+    "name": "Outras receitas",
+    "active": true,
+    "isDefault": true,
+    "createdAt": "2026-03-12T10:00:00.000Z",
+    "updatedAt": "2026-03-12T10:00:00.000Z"
+  }
+]
+```
+
+### POST `/income-categories`
+Cria nova categoria de receita.
+
+Request:
+```json
+{
+  "name": "Freelance"
+}
+```
+
+Response `201`: `IncomeCategory`.
+
+### PATCH `/income-categories/:id`
+Atualiza nome e/ou estado ativo.
+
+Request:
+```json
+{
+  "name": "Bónus",
+  "active": true
+}
+```
+
+Notas:
+- `active=false` nao e permitido para categoria default.
+- nomes ativos duplicados por conta sao rejeitados.
+
+Response `200`: `IncomeCategory`.
+
+### DELETE `/income-categories/:id`
+Soft-delete da categoria (marca `active=false`).
+
+Nota: categoria default nao pode ser removida.
 
 Response `204`.
 
@@ -391,15 +560,24 @@ Compara budgeted vs actual no intervalo.
 - `INVALID_CREDENTIALS`
 - `REFRESH_TOKEN_INVALID`
 - `REFRESH_TOKEN_REVOKED`
+- `ACCOUNT_DELETED`
+- `CURRENT_PASSWORD_INVALID`
+- `SESSION_NOT_FOUND`
 - `ACCOUNT_ACCESS_DENIED`
 - `ACCOUNT_ROLE_FORBIDDEN`
 - `ACCOUNT_OWNER_REQUIRED`
 - `LAST_OWNER_PROTECTION`
 - `LAST_OWNER_CANNOT_LEAVE`
+- `LAST_OWNER_CANNOT_DELETE_ACCOUNT`
 - `PERSONAL_ACCOUNT_CANNOT_LEAVE`
 - `INVITE_CODE_INVALID_OR_EXPIRED`
+- `INCOME_CATEGORY_REQUIRED`
+- `INCOME_CATEGORY_NOT_FOUND`
+- `INCOME_CATEGORY_INACTIVE`
+- `INCOME_CATEGORY_DEFAULT_PROTECTED`
+- `INCOME_CATEGORY_NAME_ALREADY_USED`
 - `BUDGET_PERCENT_INVALID`
 - `BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS`
+- `SOURCE_BUDGET_NOT_FOUND`
 - `TRANSACTION_NOT_FOUND`
 - `RECURRING_RULE_NOT_FOUND`
-

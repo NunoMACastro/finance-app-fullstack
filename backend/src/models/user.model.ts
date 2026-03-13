@@ -17,9 +17,29 @@ const userSchema = new Schema(
     profile: {
       name: { type: String, required: true, trim: true },
       currency: { type: String, default: "EUR" },
-      locale: { type: String, default: "pt-PT" },
+    },
+    preferences: {
+      themePalette: {
+        type: String,
+        enum: ["brisa", "calma", "aurora", "terra"],
+        default: "brisa",
+      },
+      hideAmountsByDefault: {
+        type: Boolean,
+        default: false,
+      },
     },
     tutorialSeenAt: {
+      type: Date,
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: ["active", "deleted"],
+      default: "active",
+      index: true,
+    },
+    deletedAt: {
       type: Date,
       default: null,
     },

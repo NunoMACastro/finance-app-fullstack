@@ -61,6 +61,8 @@ import { getErrorMessage } from "../lib/api-error";
 import { isApiError } from "../lib/http-client";
 import { getAccountRoleLabel } from "../lib/account-role-label";
 import { useAccount } from "../lib/account-context";
+import { useAuth } from "../lib/auth-context";
+import { formatCurrency as formatCurrencyValue, formatDateShort, formatMonthLong } from "../lib/formatting";
 import type {
   MonthSummary,
   MonthBudget,
@@ -69,21 +71,6 @@ import type {
 } from "../lib/types";
 import { toast } from "sonner";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
-
-function formatCurrency(val: number) {
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
-}
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
-}
-
-function getMonthLabel(monthKey: string) {
-  const [y, m] = monthKey.split("-");
-  const d = new Date(parseInt(y), parseInt(m) - 1, 1);
-  return d.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
-}
 
 function getDaysRemainingInMonth(monthKey: string): number {
   const [y, m] = monthKey.split("-");
@@ -125,6 +112,7 @@ function catEur(cat: BudgetCategory, totalBudget: number): number {
 // ============================================================
 export function MonthPage() {
   const { activeAccountId, activeAccountRole, canWriteFinancial } = useAccount();
+  const { user, isAmountsHidden } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const now = new Date();
@@ -145,6 +133,13 @@ export function MonthPage() {
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([]);
   const [showIncomeCategoriesDialog, setShowIncomeCategoriesDialog] = useState(false);
   const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
+
+  const formatCurrency = useCallback(
+    (val: number) => formatCurrencyValue(val, user, isAmountsHidden),
+    [isAmountsHidden, user],
+  );
+  const formatDate = useCallback((value: string) => formatDateShort(value, user), [user]);
+  const getMonthLabel = useCallback((value: string) => formatMonthLong(value, user), [user]);
 
   const currentMonth = (() => {
     const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);

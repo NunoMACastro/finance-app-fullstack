@@ -7,8 +7,11 @@ Representa identidade/autenticacao.
 Campos chave:
 - `email` (unico)
 - `passwordHash`
-- `profile` (`name`, `currency`, `locale`)
+- `profile` (`name`, `currency`)
+- `preferences` (`themePalette`, `hideAmountsByDefault`)
 - `tutorialSeenAt`
+- `status` (`active|deleted`)
+- `deletedAt` (nullable)
 - `personalAccountId` (obrigatorio)
 
 ### Account
@@ -85,6 +88,19 @@ Campos chave:
 - `type`, `name`, `amount`, `dayOfMonth`, `categoryId`
 - `startMonth`, `endMonth`, `active`
 
+### IncomeCategory
+Categoria de classificacao de receitas.
+Campos chave:
+- `accountId`
+- `name`, `nameNormalized`
+- `active`
+- `isDefault`
+
+Regras:
+- existe 1 categoria default por conta
+- default nao pode ser removida nem desativada
+- nomes ativos sao unicos por conta
+
 ### StatsSnapshot
 Materializacao de stats agregadas.
 Campos chave:
@@ -99,7 +115,7 @@ Indice unico: `(accountId, periodType, periodKey)`
 
 - `User 1 -> 1 personal Account`
 - `User N <-> N Account` via `AccountMembership`
-- `Account 1 -> N Budget/Transaction/RecurringRule/StatsSnapshot`
+- `Account 1 -> N Budget/Transaction/RecurringRule/IncomeCategory/StatsSnapshot`
 - `RecurringRule 1 -> N Transaction (origin=recurring)`
 
 ## Scoping funcional
@@ -117,4 +133,4 @@ Todos os dados financeiros usam `accountId` como fronteira de autorizacao.
 - `SaveBudgetDto.totalBudget` existe por compatibilidade, mas e ignorado no backend.
 - `MonthBudget.totalBudget` e sempre recalculado por soma de receitas do mes.
 - Stats calculam budgeted por categoria com base em income real do mes.
-
+- Transacoes `income` exigem `IncomeCategory` ativa da conta.

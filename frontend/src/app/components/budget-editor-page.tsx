@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { budgetApi } from "../lib/api";
 import { getErrorMessage } from "../lib/api-error";
 import { useAccount } from "../lib/account-context";
+import { useAuth } from "../lib/auth-context";
+import { formatCurrency as formatCurrencyValue, formatMonthLong } from "../lib/formatting";
 import type { BudgetCategory, BudgetTemplate, MonthBudget } from "../lib/types";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -28,16 +30,6 @@ function getCatColor(index: number) {
   return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
 }
 
-function formatCurrency(val: number) {
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(val);
-}
-
-function getMonthLabel(monthKey: string) {
-  const [y, m] = monthKey.split("-");
-  const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
-  return d.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
-}
-
 function catEur(cat: BudgetCategory, totalBudget: number): number {
   return (cat.percent / 100) * totalBudget;
 }
@@ -50,6 +42,7 @@ export function BudgetEditorPage() {
   const navigate = useNavigate();
   const { month: routeMonth } = useParams();
   const { canWriteFinancial } = useAccount();
+  const { user, isAmountsHidden } = useAuth();
   const month = isMonthKey(routeMonth) ? routeMonth : new Date().toISOString().slice(0, 7);
 
   const [budget, setBudget] = useState<MonthBudget | null>(null);
@@ -60,6 +53,9 @@ export function BudgetEditorPage() {
   const [newCatName, setNewCatName] = useState("");
   const [newCatPercent, setNewCatPercent] = useState("");
   const [pendingRemoveCategoryId, setPendingRemoveCategoryId] = useState<string | null>(null);
+
+  const formatCurrency = (value: number) => formatCurrencyValue(value, user, isAmountsHidden);
+  const getMonthLabel = (monthKey: string) => formatMonthLong(monthKey, user);
 
   useEffect(() => {
     let cancelled = false;

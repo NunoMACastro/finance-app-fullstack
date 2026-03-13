@@ -31,6 +31,12 @@ Arquivo: `vitest.config.ts`
   - valida render de titulo/mensagem do ecran de manutencao
 - `mobile-only-screen.test.tsx`
   - valida copy de aviso mobile
+- `confirm-action-dialog.test.tsx`
+  - valida confirmacao forte para acoes destrutivas
+- `responsive-overlay.test.tsx`
+  - valida comportamento de overlay responsivo
+- `login-patch-notes.test.ts`
+  - valida parsing/enablement das patch notes de login
 
 ## CI
 

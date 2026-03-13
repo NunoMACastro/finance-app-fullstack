@@ -13,7 +13,7 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
 ## Blocos principais
 
 - Frontend: React + Vite + TypeScript
-  - Renderiza Month e Stats
+  - Renderiza Month, Stats, Profile e Budget Editor
   - Gerencia autenticacao e conta ativa
   - Injeta `X-Account-Id` em pedidos autenticados
 - Backend: Node.js + Express + TypeScript + Mongoose
@@ -21,7 +21,7 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - Autorizacao por membership e role
   - Regras de negocio de orcamento/transacoes/stats
 - MongoDB
-  - Persistencia de users, accounts, memberships, budgets, transactions, recurring_rules, stats_snapshots, refresh_tokens
+  - Persistencia de users, accounts, memberships, income categories, budgets, transactions, recurring rules, stats snapshots e refresh tokens
 
 ## Arquitetura funcional
 
@@ -45,7 +45,7 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - resolve conta via `X-Account-Id` ou fallback para `personalAccountId`
   - valida membership ativa
 - Modulos de dominio:
-  - `auth`, `accounts`, `budgets`, `transactions`, `recurring`, `stats`
+  - `auth`, `accounts`, `income-categories`, `budgets`, `transactions`, `recurring`, `stats`
 - Scheduler:
   - job diario gera recorrencias e materializa snapshots de stats
 
@@ -54,7 +54,12 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
 - `AuthProvider`:
   - reidratacao de sessao
   - login/register/logout
-  - `completeTutorial`
+  - update profile/email/password
+  - tutorial (`complete`/`reset`)
+  - sessions/export/delete account
+- `ThemePreferencesProvider`:
+  - aplica paleta visual
+  - persiste preferencia de tema
 - `AccountProvider`:
   - lista de contas
   - conta ativa por utilizador (persistida em localStorage)
@@ -66,11 +71,14 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
 - Rotas lazy:
   - `/` (Month)
   - `/stats` (Stats)
+  - `/budget/:month/edit` (Budget editor)
+  - `/profile` (Profile)
 
 ## Decisoes estruturais importantes
 
 - `totalBudget` e derivado de receitas do mes (backend como fonte de verdade).
 - Lancamentos manuais exigem orcamento valido no mes alvo.
+- Receitas exigem categoria de receita ativa e existe default protegida por conta.
 - Conta pessoal e invariante forte: cada user deve ter 1 conta pessoal + membership owner.
 - Multi-conta e role-based access control aplicados em todo o scoping financeiro.
 
@@ -90,4 +98,3 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - build + unit + integration
 - Frontend CI:
   - typecheck + lint + tests + build
-

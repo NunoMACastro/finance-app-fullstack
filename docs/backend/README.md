@@ -26,10 +26,16 @@ Pasta fonte: `backend/src`
 
 - `auth`
   - register/login/refresh/logout/me/tutorial
+  - update profile/email/password
+  - sessions (list/revoke/revoke-all)
+  - export user data
+  - delete/deactivate account
 - `accounts`
   - contas partilhadas, convites, membros, roles, leave
 - `budgets`
   - templates, leitura/edicao de budget mensal, copy
+- `income-categories`
+  - CRUD de categorias de receita (default protegida)
 - `transactions`
   - CRUD de lancamentos e resumo mensal
 - `recurring`
@@ -78,4 +84,3 @@ Guards de role:
 - leitura financeira: `owner|editor|viewer`
 - escrita financeira: `owner|editor`
 - gestao de membros/convites: `owner` (validados no service de accounts)
-

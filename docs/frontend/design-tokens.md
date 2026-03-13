@@ -14,6 +14,16 @@ Não é permitido usar paletas diretas (`sky-*`, `red-*`, `slate-*`, etc.) nem c
   - **Dimension tokens**: radius, spacing, shadows (`--dim-*`)
   - **Utilities semânticas**: gradientes e estados (`.bg-brand-gradient`, `.text-status-success`, etc.)
 
+## Paletas de tema
+
+- A paleta ativa e aplicada com `data-theme-palette` no `documentElement`.
+- Opcoes suportadas:
+  - `brisa` (default)
+  - `calma`
+  - `aurora`
+  - `terra`
+- Cada paleta altera apenas `--core-brand-1..4`; os tokens semanticos continuam a ser a API publica de estilo.
+
 ## Convenções
 
 - Preferir classes semânticas Tailwind:

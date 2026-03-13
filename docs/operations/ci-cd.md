@@ -29,8 +29,9 @@ Passos:
 3. `npm ci`
 4. `npm run typecheck`
 5. `npm run lint`
-6. `npm run test`
-7. `npm run build`
+6. `npm run check:tokens`
+7. `npm run test`
+8. `npm run build`
 
 ## Politica recomendada de branch
 
@@ -44,4 +45,3 @@ Passos:
 - adicionar changelog automatizado
 - adicionar deploy preview por PR
 - adicionar scan de dependencias/supply chain
-
