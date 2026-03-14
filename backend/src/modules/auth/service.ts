@@ -556,6 +556,15 @@ export async function revokeAllSessions(userId: string): Promise<void> {
   );
 }
 
+export async function removeRevokedSessions(userId: string): Promise<void> {
+  await getActiveUserOrThrow(userId);
+
+  await RefreshTokenModel.deleteMany({
+    userId,
+    revokedAt: { $ne: null },
+  });
+}
+
 export async function exportUserData(userId: string): Promise<ExportUserDataDto> {
   const user = await getActiveUserOrThrow(userId);
 

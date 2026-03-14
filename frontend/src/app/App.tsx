@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { RouterProvider } from "react-router";
 import { Toaster } from "sonner";
-import { router } from "./routes";
+import { createAppRouter } from "./routes";
 import { AuthProvider, useAuth } from "./lib/auth-context";
 import { AccountProvider } from "./lib/account-context";
 import { ThemePreferencesProvider } from "./lib/theme-preferences";
 import { config } from "./lib/config";
 import { AuthPage } from "./components/auth-page";
+import { AuthPage as AuthPageV1 } from "./components/auth-page-v1";
 import { MaintenancePage } from "./components/maintenance-page";
 import { Loader2, Smartphone, X } from "lucide-react";
+import type { UiVersion } from "./lib/ui-version";
+import { resolveUiVersionFromRuntime } from "./lib/ui-version";
 
 const DESKTOP_NOTICE_STORAGE_KEY = "finance_v2.desktop_notice_dismissed";
 
@@ -32,9 +35,16 @@ function useWideViewport(minWidth = 768): boolean {
   return isWide;
 }
 
-function AppContent() {
+function getInitialUiVersion(defaultVersion: UiVersion): UiVersion {
+  if (typeof window === "undefined") return defaultVersion;
+  return resolveUiVersionFromRuntime(defaultVersion, new URLSearchParams(window.location.search), window.sessionStorage);
+}
+
+function AppContent({ uiVersion }: { uiVersion: UiVersion }) {
   const { isAuthenticated, isInitialising } = useAuth();
   const isWideViewport = useWideViewport();
+  const router = useMemo(() => createAppRouter(uiVersion), [uiVersion]);
+  const AuthComponent = uiVersion === "v2" ? AuthPage : AuthPageV1;
   const [noticeDismissed, setNoticeDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(DESKTOP_NOTICE_STORAGE_KEY) === "1";
@@ -87,7 +97,7 @@ function AppContent() {
             </div>
           </div>
         )}
-        <AuthPage />
+        <AuthComponent />
       </>
     );
   }
@@ -118,6 +128,16 @@ function AppContent() {
 }
 
 export default function App() {
+  const [uiVersion, setUiVersion] = useState<UiVersion>(() => getInitialUiVersion(config.uiVersion));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncUiVersion = () => setUiVersion(getInitialUiVersion(config.uiVersion));
+    syncUiVersion();
+    window.addEventListener("popstate", syncUiVersion);
+    return () => window.removeEventListener("popstate", syncUiVersion);
+  }, []);
+
   if (config.maintenanceMode) {
     return <MaintenancePage />;
   }
@@ -126,7 +146,7 @@ export default function App() {
     <AuthProvider>
       <ThemePreferencesProvider>
         <AccountProvider>
-          <AppContent />
+          <AppContent uiVersion={uiVersion} />
           <Toaster position="top-center" richColors />
         </AccountProvider>
       </ThemePreferencesProvider>

@@ -431,6 +431,15 @@ export const authApi = {
     await httpClient.post("/auth/sessions/revoke-all", {});
   },
 
+  async removeRevokedSessions(): Promise<void> {
+    if (config.useMock) {
+      await delay(100);
+      _mockSessions = _mockSessions.filter((item) => !item.revokedAt);
+      return;
+    }
+    await httpClient.delete("/auth/sessions/revoked");
+  },
+
   async exportData(): Promise<ExportUserData> {
     if (config.useMock) {
       await delay(120);

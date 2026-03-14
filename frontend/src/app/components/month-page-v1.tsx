@@ -71,9 +71,6 @@ import type {
 } from "../lib/types";
 import { toast } from "sonner";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
-import { ActionRailV2 } from "./v2/action-rail-v2";
-import { EmptyStateV2 } from "./v2/empty-state-v2";
-import { SectionCardV2 } from "./v2/section-card-v2";
 
 function getDaysRemainingInMonth(monthKey: string): number {
   const [y, m] = monthKey.split("-");
@@ -234,47 +231,43 @@ export function MonthPage() {
         </div>
       </div>
 
-      <ActionRailV2
-        className="mb-1"
-        primary={(
-          <Button
-            data-tour="month-add-transaction"
-            className="h-10 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground shadow-card"
-            onClick={() => {
-              if (!canWriteFinancial) return;
-              if (isBudgetReady) {
-                setShowAddDialog(true);
-                return;
-              }
-              navigate(`/budget/${currentMonth}/edit`);
-            }}
-            disabled={!isBudgetReady || !canWriteFinancial}
-          >
-            <Plus className="w-4 h-4" />
-            Novo lançamento
-          </Button>
-        )}
-        secondary={(
-          <Button
-            data-tour="month-budget-button"
-            variant="outline"
-            className="h-10 rounded-xl border-border px-4 text-primary hover:bg-accent"
-            onClick={() => navigate(`/budget/${currentMonth}/edit`)}
-            disabled={!canWriteFinancial}
-          >
-            <Settings2 className="w-4 h-4" />
-            {isBudgetReady ? "Orçamento" : "Criar orçamento"}
-          </Button>
-        )}
-      />
+      {/* Action buttons row */}
+      <div className="flex items-center gap-2">
+        <Button
+          data-tour="month-add-transaction"
+          className="flex-1 rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card h-10"
+          onClick={() => {
+            if (!canWriteFinancial) return;
+            if (isBudgetReady) {
+              setShowAddDialog(true);
+              return;
+            }
+            navigate(`/budget/${currentMonth}/edit`);
+          }}
+          disabled={!isBudgetReady || !canWriteFinancial}
+        >
+          <Plus className="w-4 h-4" />
+          Novo lançamento
+        </Button>
+        <Button
+          data-tour="month-budget-button"
+          variant="outline"
+          className="rounded-xl border-border text-primary hover:bg-accent h-10 px-4"
+          onClick={() => navigate(`/budget/${currentMonth}/edit`)}
+          disabled={!canWriteFinancial}
+        >
+          <Settings2 className="w-4 h-4" />
+          {isBudgetReady ? "Orçamento" : "Criar orçamento"}
+        </Button>
+      </div>
 
       {!canWriteFinancial && (
-          <SectionCardV2 tone="control" className="bg-info-soft">
+          <Card className="border-border bg-info-soft shadow-sm">
             <div className="p-3 text-xs text-info-foreground">
               Modo leitura ({getAccountRoleLabel(activeAccountRole)}): não tens permissão para criar ou editar
               lançamentos/orçamento.
             </div>
-          </SectionCardV2>
+          </Card>
         )}
 
       {loading ? (
@@ -331,7 +324,7 @@ export function MonthPage() {
 
           {/* Budget Hero Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <SectionCardV2 tone="hero" className="relative overflow-hidden border-0 shadow-xl shadow-card">
+            <Card className="relative overflow-hidden border-0 shadow-xl shadow-card">
               <div className="absolute inset-0 bg-info-gradient" />
               <div className="absolute inset-0 bg-brand-gradient-soft opacity-30" />
               <div className="relative p-5">
@@ -389,12 +382,12 @@ export function MonthPage() {
                   </div>
                 </div>
               </div>
-            </SectionCardV2>
+            </Card>
           </motion.div>
 
           {/* Income / Expense summary pills */}
           <motion.div className="grid grid-cols-2 gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <SectionCardV2 tone="section" className="flex flex-row items-center gap-3 p-3.5 shadow-md">
+            <Card className="p-3.5 border-0 shadow-md flex-row items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-success-soft flex items-center justify-center shrink-0">
                 <ArrowUpRight className="w-4 h-4 text-status-success" />
               </div>
@@ -402,8 +395,8 @@ export function MonthPage() {
                 <p className="text-[11px] text-muted-foreground">Receitas</p>
                 <p className="text-status-success tabular-nums tracking-tight">{formatCurrency(summary.totalIncome)}</p>
               </div>
-            </SectionCardV2>
-            <SectionCardV2 tone="section" className="flex flex-row items-center gap-3 p-3.5 shadow-md">
+            </Card>
+            <Card className="p-3.5 border-0 shadow-md flex-row items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-danger-soft flex items-center justify-center shrink-0">
                 <ArrowDownRight className="w-4 h-4 text-status-danger" />
               </div>
@@ -411,7 +404,7 @@ export function MonthPage() {
                 <p className="text-[11px] text-muted-foreground">Despesas</p>
                 <p className="text-status-danger tabular-nums tracking-tight">{formatCurrency(summary.totalExpense)}</p>
               </div>
-            </SectionCardV2>
+            </Card>
           </motion.div>
 
           {/* ========== Unified Movements Section ========== */}
@@ -455,16 +448,20 @@ export function MonthPage() {
                   className="flex flex-col gap-2"
                 >
                   {budget.categories.length === 0 ? (
-                    <EmptyStateV2
-                      icon={<ShoppingCart className="w-5 h-5" />}
-                      title="Sem categorias de despesas neste mês"
-                      description="Cria um orçamento para começares a registar despesas."
-                    />
+                    <div className="flex flex-col items-center py-12 text-muted-foreground">
+                      <ShoppingCart className="w-10 h-10 mb-3 text-muted-foreground/20" />
+                      <p className="text-sm text-center">Sem categorias de despesas neste mês</p>
+                      <p className="text-xs text-muted-foreground/70 text-center mt-1">
+                        Cria um orçamento para começares a registar despesas.
+                      </p>
+                    </div>
                   ) : summary.expenseTransactions.length === 0 ? (
-                    <EmptyStateV2
-                      title="Sem despesas neste periodo"
-                      description="Ainda não tens movimentos de despesa neste mês."
-                    />
+                    <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-center">
+                      <p className="text-sm text-foreground">Sem despesas neste periodo</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ainda não tens movimentos de despesa neste mês.
+                      </p>
+                    </div>
                   ) : null}
 
                   {/* Distribution bar */}
@@ -613,11 +610,10 @@ export function MonthPage() {
                   className="flex flex-col gap-2"
                 >
                   {summary.incomeTransactions.length === 0 ? (
-                    <EmptyStateV2
-                      icon={<ShoppingCart className="w-5 h-5" />}
-                      title="Sem receitas neste periodo"
-                      description="Ainda não tens movimentos de receita neste mês."
-                    />
+                    <div className="flex flex-col items-center py-12 text-muted-foreground">
+                      <ShoppingCart className="w-10 h-10 mb-3 text-muted-foreground/20" />
+                      <p className="text-sm">Sem receitas neste periodo</p>
+                    </div>
                   ) : (
                     [...summary.incomeTransactions]
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())

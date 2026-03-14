@@ -54,6 +54,8 @@ interface AuthState {
   revokeSession: (jti: string) => Promise<void>;
   /** Revoke all sessions */
   revokeAllSessions: () => Promise<void>;
+  /** Remove all revoked sessions from history */
+  removeRevokedSessions: () => Promise<void>;
   /** Export user data payload */
   exportData: () => Promise<ExportUserData>;
   /** Delete/deactivate the current user account */
@@ -220,6 +222,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authApi.revokeAllSessions();
   }, []);
 
+  const removeRevokedSessions = useCallback(async () => {
+    await authApi.removeRevokedSessions();
+  }, []);
+
   const exportData = useCallback(async () => {
     return authApi.exportData();
   }, []);
@@ -262,6 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         listSessions,
         revokeSession,
         revokeAllSessions,
+        removeRevokedSessions,
         exportData,
         deleteMe,
         isAmountsHidden,

@@ -13,8 +13,6 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
-import { ActionRailV2 } from "./v2/action-rail-v2";
-import { SectionCardV2 } from "./v2/section-card-v2";
 
 const CATEGORY_COLORS = [
   { gradient: "bg-category-gradient-1" },
@@ -180,11 +178,11 @@ export function BudgetEditorPage() {
       </div>
 
       {loading ? (
-        <SectionCardV2 tone="section" className="flex items-center justify-center p-8 shadow-md">
+        <Card className="p-8 border-0 shadow-md flex items-center justify-center">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        </SectionCardV2>
+        </Card>
       ) : loadError ? (
-        <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft shadow-sm">
+        <Card className="border-warning/40 bg-warning-soft shadow-sm">
           <div className="p-4 flex flex-col gap-3">
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
@@ -198,19 +196,19 @@ export function BudgetEditorPage() {
               Tentar novamente
             </Button>
           </div>
-        </SectionCardV2>
+        </Card>
       ) : budget ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
           {!canWriteFinancial && (
-            <SectionCardV2 tone="control" className="border-border bg-info-soft shadow-sm">
+            <Card className="border-border bg-info-soft shadow-sm">
               <div className="p-3 text-xs text-info-foreground">
                 Modo leitura: sem permissão para editar o orçamento.
               </div>
-            </SectionCardV2>
+            </Card>
           )}
 
           {templates.length > 0 && (
-            <SectionCardV2 tone="section" className="p-4 flex flex-col gap-2 border-0 shadow-md">
+            <Card className="border-0 shadow-md p-4 flex flex-col gap-2">
               <label className="text-sm text-muted-foreground">Templates</label>
               <div className="grid grid-cols-1 gap-2">
                 {templates.map((template) => (
@@ -239,10 +237,10 @@ export function BudgetEditorPage() {
                   <p className="text-[10px] text-muted-foreground mt-0.5">Começar com categorias vazias</p>
                 </button>
               </div>
-            </SectionCardV2>
+            </Card>
           )}
 
-          <SectionCardV2 tone="section" className="p-4 flex flex-col gap-4 border-0 shadow-md">
+          <Card className="border-0 shadow-md p-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-muted-foreground">Orçamento Total (EUR)</label>
               <div className="relative opacity-80">
@@ -386,31 +384,27 @@ export function BudgetEditorPage() {
                 </div>
               </div>
             </div>
-          </SectionCardV2>
+          </Card>
 
           <div className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-border/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <ActionRailV2
-              primary={(
-                <Button variant="outline" className="w-full rounded-xl" onClick={handleBack}>
-                  Cancelar
-                </Button>
-              )}
-              secondary={(
-                <Button
-                  className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
-                  onClick={handleSave}
-                  disabled={
-                    saving
-                    || !canWriteFinancial
-                    || budget.categories.length === 0
-                    || Math.abs(pctDiff) > 0.01
-                  }
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  Guardar
-                </Button>
-              )}
-            />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="rounded-xl flex-1" onClick={handleBack}>
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-xl flex-1 bg-brand-gradient text-primary-foreground border-0 shadow-card"
+                onClick={handleSave}
+                disabled={
+                  saving
+                  || !canWriteFinancial
+                  || budget.categories.length === 0
+                  || Math.abs(pctDiff) > 0.01
+                }
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Guardar
+              </Button>
+            </div>
           </div>
         </motion.div>
       ) : null}

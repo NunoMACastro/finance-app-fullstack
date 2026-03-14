@@ -11,7 +11,6 @@ import type { AccountRole, ThemePalette, UserSession } from "../lib/types";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
 const THEME_OPTIONS: Array<{ value: ThemePalette; label: string }> = [
   { value: "brisa", label: "Brisa" },
@@ -101,7 +100,6 @@ export function ProfilePage() {
 
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [activeTab, setActiveTab] = useState<"account" | "security" | "preferences" | "privacy" | "shared">("account");
 
   useEffect(() => {
     if (!user) return;
@@ -165,8 +163,6 @@ export function ProfilePage() {
     return null;
   }
 
-  const visibleClass = (tab: typeof activeTab) => (activeTab === tab ? "" : "hidden");
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -177,17 +173,7 @@ export function ProfilePage() {
         <span className="text-xs text-muted-foreground">Perfil e configurações</span>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-        <TabsList className="h-10 w-full rounded-xl bg-muted p-1">
-          <TabsTrigger value="account" className="rounded-lg">Conta</TabsTrigger>
-          <TabsTrigger value="security" className="rounded-lg">Seg.</TabsTrigger>
-          <TabsTrigger value="preferences" className="rounded-lg">Prefs</TabsTrigger>
-          <TabsTrigger value="privacy" className="rounded-lg">Dados</TabsTrigger>
-          <TabsTrigger value="shared" className="rounded-lg">Part.</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <Card className={`border-border shadow-sm ${visibleClass("account")}`}>
+      <Card className="border-border shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <UserCog className="w-4 h-4" />
@@ -267,7 +253,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("security")}`}>
+      <Card className="border-border shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Shield className="w-4 h-4" />
@@ -406,7 +392,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("preferences")}`}>
+      <Card className="border-border shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Palette className="w-4 h-4" />
@@ -478,7 +464,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("privacy")}`}>
+      <Card className="border-border shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Download className="w-4 h-4" />
@@ -548,7 +534,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("shared")}`}>
+      <Card className="border-border shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="w-4 h-4" />

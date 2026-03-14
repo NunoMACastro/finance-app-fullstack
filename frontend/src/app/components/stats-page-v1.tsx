@@ -29,7 +29,6 @@ import { useAuth } from "../lib/auth-context";
 import { getErrorMessage } from "../lib/api-error";
 import { formatCurrency as formatCurrencyValue, formatMonthLong, formatMonthShort } from "../lib/formatting";
 import type { StatsSnapshot, BudgetVsActualItem, CategorySeriesMonthlyItem, UserProfile } from "../lib/types";
-import { SectionCardV2 } from "./v2/section-card-v2";
 
 let runtimeFormattingUser: Pick<UserProfile, "currency"> | null = null;
 let runtimeFormattingHidden = false;
@@ -702,7 +701,7 @@ export function StatsPage() {
 
   if (loadError) {
     return (
-      <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft shadow-sm">
+      <Card className="border-warning/40 bg-warning-soft shadow-sm">
         <div className="p-4 flex flex-col gap-3">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
@@ -718,7 +717,7 @@ export function StatsPage() {
             Tentar novamente
           </Button>
         </div>
-      </SectionCardV2>
+      </Card>
     );
   }
 
@@ -787,7 +786,7 @@ export function StatsPage() {
 
       {/* Savings Rate Hero */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <SectionCardV2 tone="hero" className="relative overflow-hidden border-0 shadow-xl shadow-card">
+        <Card className="relative overflow-hidden border-0 shadow-xl shadow-card">
           <div className="absolute inset-0 bg-info-gradient" />
           <div className="absolute inset-0 bg-brand-gradient-soft opacity-30" />
           <div className="relative p-5">
@@ -839,7 +838,7 @@ export function StatsPage() {
               </div>
             </div>
           </div>
-        </SectionCardV2>
+        </Card>
       </motion.div>
 
       {/* Totals Row with MoM */}

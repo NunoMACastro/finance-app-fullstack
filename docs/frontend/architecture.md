@@ -7,8 +7,9 @@
 `App` (`app/App.tsx`):
 1. verifica maintenance mode
 2. envolve app com `AuthProvider`, `ThemePreferencesProvider` e `AccountProvider`
-3. renderiza `RouterProvider`
-4. injeta `Toaster` global
+3. resolve versao de UI (`v1|v2`) via `VITE_UI_VERSION` + override `?ui=`
+4. renderiza `RouterProvider` correspondente (`createAppRouter(uiVersion)`)
+5. injeta `Toaster` global
 
 ## Routing
 

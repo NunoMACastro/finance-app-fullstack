@@ -17,29 +17,20 @@ import {
   OverlayTitle,
   ResponsiveOverlay,
 } from "./ui/responsive-overlay";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
 import { TutorialTour, type TourScope } from "./tutorial-tour";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
 import {
-  BadgePlus,
   BarChart3,
   CircleHelp,
-  Ellipsis,
   Eye,
   EyeOff,
   LayoutDashboard,
   LogOut,
+  Plus,
   Users,
   UserPlus,
   Wallet,
 } from "lucide-react";
-import { PageShellV2 } from "./v2/page-shell-v2";
-import { OverlayFormV2 } from "./v2/overlay-form-v2";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Mês" },
@@ -207,152 +198,124 @@ export function AppLayout() {
   };
 
   return (
-    <PageShellV2>
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-card/70 pt-[max(env(safe-area-inset-top),0px)] backdrop-blur-xl">
-        <div className="px-4 py-3">
-          <div className="rounded-3xl border border-border/70 bg-card/95 p-2.5 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => navigate("/")}
-                className="flex min-w-0 items-center gap-2 rounded-2xl px-2 py-1 hover:bg-accent/60"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient shadow-card">
-                  <Wallet className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <span className="truncate text-sm text-foreground">Poupérrimo</span>
-              </button>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleAmountVisibility}
-                  title={isAmountsHidden ? "Mostrar valores" : "Ocultar valores"}
-                  className="h-9 w-9 rounded-xl"
-                  data-tour="header-visibility-toggle"
-                >
-                  {isAmountsHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-xl"
-                      title="Ações rápidas"
-                      data-tour="header-actions-menu"
-                    >
-                      <Ellipsis className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-xl border-border bg-card/95 backdrop-blur-xl">
-                    <DropdownMenuItem
-                      onClick={() => setCreateDialogOpen(true)}
-                      className="gap-2"
-                      data-tour="header-create-shared"
-                    >
-                      <BadgePlus className="w-4 h-4" />
-                      Criar conta partilhada
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setJoinDialogOpen(true)}
-                      className="gap-2"
-                      data-tour="header-join-shared"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      Entrar por código
-                    </DropdownMenuItem>
-                    {activeAccount?.type === "shared" && activeAccountRole === "owner" ? (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          void openMembersManager();
-                        }}
-                        className="gap-2"
-                      >
-                        <Users className="w-4 h-4" />
-                        Gerir membros
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setTutorialScope(scopeFromPath(location.pathname));
-                        setTutorialOpen(true);
-                      }}
-                      className="gap-2"
-                    >
-                      <CircleHelp className="w-4 h-4" />
-                      Tutorial
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/profile")}
-                  className="h-9 w-9 rounded-full bg-brand-gradient-soft text-xs text-foreground ring-1 ring-border/60"
-                  data-tour="header-profile-badge"
-                  aria-label="Abrir perfil"
-                >
-                  {initials}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleLogout}
-                  title="Sair"
-                  className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive"
-                  data-tour="header-logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                </Button>
+    <div className="min-h-screen bg-background flex flex-col max-w-[430px] mx-auto w-full">
+      <header className="sticky top-0 z-40 border-b bg-card/70 backdrop-blur-xl pt-[max(env(safe-area-inset-top),0px)]">
+        <div className="max-w-[430px] mx-auto px-4 py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-card shrink-0">
+                <Wallet className="w-4 h-4 text-primary-foreground" />
               </div>
+              <span className="text-foreground text-sm truncate">Poupérrimo</span>
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
-              <select
-                value={activeAccountId ?? ""}
-                onChange={(event) => setActiveAccount(event.target.value)}
-                className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-input-background px-3 text-sm"
-                data-tour="header-account-select"
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCreateDialogOpen(true)}
+                title="Criar orçamento partilhado"
+                className="rounded-xl h-9 w-9"
+                data-tour="header-actions-menu"
               >
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} · {getAccountRoleLabel(account.role)}
-                  </option>
-                ))}
-              </select>
+                <Plus className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setJoinDialogOpen(true)}
+                title="Entrar por código de partilha"
+                className="rounded-xl h-9 w-9"
+                data-tour="header-join-shared"
+              >
+                <UserPlus className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleAmountVisibility}
+                title={isAmountsHidden ? "Mostrar valores" : "Ocultar valores"}
+                className="rounded-xl h-9 w-9"
+                data-tour="header-visibility-toggle"
+              >
+                {isAmountsHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+              <button
+                type="button"
+                onClick={() => navigate("/profile")}
+                className="w-9 h-9 rounded-full bg-brand-gradient-soft flex items-center justify-center text-xs text-foreground"
+                data-tour="header-profile-badge"
+                aria-label="Abrir perfil"
+              >
+                {initials}
+              </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                title="Sair"
+                className="text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
+                data-tour="header-logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
 
+          <div className="flex items-center gap-2">
+            <select
+              value={activeAccountId ?? ""}
+              onChange={(event) => setActiveAccount(event.target.value)}
+              className="flex-1 h-10 rounded-xl border border-input bg-input-background px-3 text-sm min-w-0"
+              data-tour="header-account-select"
+            >
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} · {getAccountRoleLabel(account.role)}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setTutorialScope(scopeFromPath(location.pathname));
+                setTutorialOpen(true);
+              }}
+              title="Tutorial"
+              className="text-muted-foreground hover:text-primary rounded-xl h-9 w-9 shrink-0"
+            >
+              <CircleHelp className="w-4 h-4" />
+            </Button>
+            {activeAccount?.type === "shared" && activeAccountRole === "owner" && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => {
-                  setTutorialScope(scopeFromPath(location.pathname));
-                  setTutorialOpen(true);
+                  void openMembersManager();
                 }}
-                title="Tutorial"
-                className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground hover:text-primary"
+                title="Gerir membros"
+                className="rounded-xl h-9 w-9 shrink-0"
               >
-                <CircleHelp className="w-4 h-4" />
+                <Users className="w-4 h-4" />
               </Button>
-            </div>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="flex-1 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 px-4 pt-5 pb-[calc(6rem+env(safe-area-inset-bottom))] max-w-[430px] w-full mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.3 }}
         >
           <Outlet />
         </motion.div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-card/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[430px] items-center justify-around px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-xl border-t">
+        <div className="max-w-[430px] mx-auto flex items-center justify-around pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-2">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -368,13 +331,13 @@ export function AppLayout() {
                 <>
                   {isActive && (
                     <motion.div
-                      layoutId="nav-active-v2"
-                      className="absolute inset-0 rounded-2xl bg-accent"
-                      transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
+                      layoutId="nav-active"
+                      className="absolute inset-0 bg-accent rounded-2xl"
+                      transition={{ type: "spring", duration: 0.5, bounce: 0.2 }}
                     />
                   )}
-                  <item.icon className="relative z-10 w-5 h-5" />
-                  <span className="relative z-10 text-xs">{item.label}</span>
+                  <item.icon className="w-5 h-5 relative z-10" />
+                  <span className="text-xs relative z-10">{item.label}</span>
                 </>
               )}
             </NavLink>
@@ -382,89 +345,87 @@ export function AppLayout() {
         </div>
       </nav>
 
-      <OverlayFormV2
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        title="Criar orçamento partilhado"
-        footer={(
-          <>
-            <Button
-              variant="outline"
-              className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
-              onClick={() => setCreateDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
-              onClick={async () => {
-                try {
-                  await createSharedAccount(newAccountName);
-                  setNewAccountName("");
-                  setCreateDialogOpen(false);
-                  toast.success("Orçamento partilhado criado");
-                } catch (error) {
-                  toast.error(getErrorMessage(error, "Não foi possível criar conta partilhada"));
-                }
-              }}
-              disabled={!newAccountName.trim()}
-            >
-              Criar
-            </Button>
-          </>
-        )}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            value={newAccountName}
-            onChange={(event) => setNewAccountName(event.target.value)}
-            placeholder="Ex: Família Silva"
-            className="h-11 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
-          />
-        </div>
-      </OverlayFormV2>
+      <ResponsiveOverlay open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <OverlayContent density="compact">
+          <OverlayHeader>
+            <OverlayTitle>Criar orçamento partilhado</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-0 flex flex-col gap-4">
+            <Input
+              value={newAccountName}
+              onChange={(event) => setNewAccountName(event.target.value)}
+              placeholder="Ex: Família Silva"
+              className="h-11 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
+            />
+            <OverlayFooter sticky className="px-0 sm:px-0">
+              <Button
+                variant="outline"
+                className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
+                onClick={() => setCreateDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+                onClick={async () => {
+                  try {
+                    await createSharedAccount(newAccountName);
+                    setNewAccountName("");
+                    setCreateDialogOpen(false);
+                    toast.success("Orçamento partilhado criado");
+                  } catch (error) {
+                    toast.error(getErrorMessage(error, "Não foi possível criar conta partilhada"));
+                  }
+                }}
+                disabled={!newAccountName.trim()}
+              >
+                Criar
+              </Button>
+            </OverlayFooter>
+          </OverlayBody>
+        </OverlayContent>
+      </ResponsiveOverlay>
 
-      <OverlayFormV2
-        open={joinDialogOpen}
-        onOpenChange={setJoinDialogOpen}
-        title="Entrar em orçamento partilhado"
-        footer={(
-          <>
-            <Button
-              variant="outline"
-              className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
-              onClick={() => setJoinDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
-              onClick={async () => {
-                try {
-                  await joinByCode(joinCode);
-                  setJoinCode("");
-                  setJoinDialogOpen(false);
-                  toast.success("Entrou no orçamento partilhado");
-                } catch (error) {
-                  toast.error(getErrorMessage(error, "Não foi possível entrar com esse código"));
-                }
-              }}
-              disabled={!joinCode.trim()}
-            >
-              Entrar
-            </Button>
-          </>
-        )}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            value={joinCode}
-            onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-            placeholder="CODIGO123"
-            className="h-11 rounded-xl uppercase border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
-          />
-        </div>
-      </OverlayFormV2>
+      <ResponsiveOverlay open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <OverlayContent density="compact">
+          <OverlayHeader>
+            <OverlayTitle>Entrar em orçamento partilhado</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-0 flex flex-col gap-4">
+            <Input
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+              placeholder="CODIGO123"
+              className="h-11 rounded-xl uppercase border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
+            />
+            <OverlayFooter sticky className="px-0 sm:px-0">
+              <Button
+                variant="outline"
+                className="rounded-xl border-border bg-input-background text-foreground hover:bg-accent"
+                onClick={() => setJoinDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+                onClick={async () => {
+                  try {
+                    await joinByCode(joinCode);
+                    setJoinCode("");
+                    setJoinDialogOpen(false);
+                    toast.success("Entrou no orçamento partilhado");
+                  } catch (error) {
+                    toast.error(getErrorMessage(error, "Não foi possível entrar com esse código"));
+                  }
+                }}
+                disabled={!joinCode.trim()}
+              >
+                Entrar
+              </Button>
+            </OverlayFooter>
+          </OverlayBody>
+        </OverlayContent>
+      </ResponsiveOverlay>
 
       <ResponsiveOverlay open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
         <OverlayContent density="manager">
@@ -585,6 +546,6 @@ export function AppLayout() {
           void closeTutorial(reason);
         }}
       />
-    </PageShellV2>
+    </div>
   );
 }

@@ -136,6 +136,17 @@ describe("profile flow integration", () => {
       .send({});
     expect(revokeAllRes.status).toBe(204);
 
+    const removeRevokedRes = await request(app)
+      .delete("/api/v1/auth/sessions/revoked")
+      .set("Authorization", `Bearer ${secondToken}`);
+    expect(removeRevokedRes.status).toBe(204);
+
+    const sessionsAfterCleanupRes = await request(app)
+      .get("/api/v1/auth/sessions")
+      .set("Authorization", `Bearer ${secondToken}`);
+    expect(sessionsAfterCleanupRes.status).toBe(200);
+    expect(sessionsAfterCleanupRes.body).toEqual([]);
+
     const resetTutorialRes = await request(app)
       .post("/api/v1/auth/tutorial/reset")
       .set("Authorization", `Bearer ${secondToken}`)

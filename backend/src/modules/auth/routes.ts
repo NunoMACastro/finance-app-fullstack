@@ -122,6 +122,15 @@ authRouter.get(
 );
 
 authRouter.delete(
+  "/sessions/revoked",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await authService.removeRevokedSessions(req.auth!.userId);
+    res.status(204).send();
+  }),
+);
+
+authRouter.delete(
   "/sessions/:jti",
   requireAuth,
   asyncHandler(async (req, res) => {
