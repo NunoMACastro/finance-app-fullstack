@@ -18,16 +18,26 @@ Rotas lazy:
 - `/` -> `MonthPage`
 - `/stats` -> `StatsPage`
 - `/budget/:month/edit` -> `BudgetEditorPage`
-- `/profile` -> `ProfilePage`
+- `/profile` -> `ProfilePage` (hub)
+- `/profile/account` -> `ProfileAccountPage`
+- `/profile/security` -> `ProfileSecurityPage`
+- `/profile/preferences` -> `ProfilePreferencesPage`
+- `/profile/shared` -> `ProfileSharedPage` (hub)
+- `/profile/shared/accounts` -> `ProfileSharedAccountsPage`
+- `/profile/shared/create` -> `ProfileSharedCreatePage`
+- `/profile/shared/join` -> `ProfileSharedJoinPage`
+- `/profile/shared/members` -> `ProfileSharedMembersPage`
+- `/month/:month/category/:categoryId/movements` -> `CategoryMovementsPage`
 
 Layout comum:
 - `AppLayout`
   - `AppShellV3`: shell mobile-first sem ornamentacao pesada
-  - `TopBarV3`: 2 linhas (acoes globais + contexto de conta)
+  - `TopBarV3`: marca + ações globais (privacidade, tutorial, logout) com separador curvo
+  - seletor de conta ativa renderizado no layout abaixo do header apenas quando:
+    - existe conta `shared`
+    - rota é `/` ou `/stats`
   - `BottomNavV3`: tabs compactas com estado ativo discreto
-  - `OverflowActionsSheetV3`: acoes rapidas em mobile para o botao `...`
   - area de conteudo
-  - dialogs de contas/membros
   - tutorial overlay
 
 ## Componentes de pagina
@@ -46,14 +56,19 @@ Pontos chave:
 - CTA para criar/editar budget navega para `/budget/:month/edit`
 - feedback visual para roles sem escrita (`viewer`)
 - secao intermédia usa `MonthFinancialRuler` para resumir receitas/despesas/restante + `€/dia` com estados semanticos
-- categorias de despesa usam linhas flat (`MonthExpenseCategoryRow`) ordenadas por urgência
-- detalhe de saídas por categoria abre em `CategoryExpensesSheet` (bottom sheet em mobile)
+- categorias de despesa usam linhas flat (`MonthExpenseCategoryRow`) com ordenacao hibrida:
+  - `expense` primeiro (urgencia)
+  - `reserve` no fim (ordem do orçamento)
+- detalhe de saídas por categoria usa 2 níveis:
+  - `CategoryExpensesSheet` para preview (ultimas 8)
+  - `CategoryMovementsPage` para histórico completo com filtros avançados client-side
 - receitas surgem num bloco compacto separado abaixo das categorias
 - cores de categorias sao estaveis por `colorSlot` (1..9) vindo do budget, evitando variacao por ordenacao da lista
 
 ### StatsPage
 Responsabilidades:
 - carregar stats (`statsApi.getSemester`/`getYear`)
+- manter escopo account-scoped via conta ativa (sem agregação global no v1)
 - renderizar tendencia, categorias, budget vs actual e forecast
 - suportar detalhe por categoria com `categorySeries`
 - tratar erros com retry
@@ -61,17 +76,55 @@ Responsabilidades:
 ### BudgetEditorPage
 Responsabilidades:
 - editar categorias/percentagens do budget mensal
+- editar tipo de categoria (`kind`: `Despesa`/`Reserva`) por linha
 - aplicar templates predefinidos
 - guardar com `budgetApi.save`
 - manter `colorSlot` por categoria para coerencia visual entre editor e vista mensal
 
 ### ProfilePage
 Responsabilidades:
-- gerir perfil (`nome`, `moeda`, `email`, password)
-- gerir sessoes e seguranca
-- gerir preferencias (tema/ocultar valores/tutorial)
-- exportar dados e desativar conta
-- gerir contas partilhadas no modo hub
+- atuar como hub de configurações (`settings list`) e navegar para secções dedicadas
+
+### ProfileAccountPage
+Responsabilidades:
+- gerir perfil base (`nome`, `moeda`)
+- atualizar email com password atual
+- exportar dados
+- desativar conta com confirmação forte
+
+### ProfileSecurityPage
+Responsabilidades:
+- alterar password
+- listar/revogar sessões
+
+### ProfilePreferencesPage
+Responsabilidades:
+- gerir tema e preferências de ocultação de valores
+- reset tutorial
+
+### ProfileSharedPage
+Responsabilidades:
+- atuar como hub de navegação para as operações de conta partilhada
+
+### ProfileSharedAccountsPage
+Responsabilidades:
+- trocar conta ativa
+- sair da conta partilhada ativa
+
+### ProfileSharedCreatePage
+Responsabilidades:
+- criar conta partilhada
+
+### ProfileSharedJoinPage
+Responsabilidades:
+- entrar por código de convite
+
+### ProfileSharedMembersPage
+Responsabilidades:
+- gerar código de convite (owner)
+- listar membros
+- atualizar role de membro
+- remover membro com confirmação
 
 ## TutorialTour
 

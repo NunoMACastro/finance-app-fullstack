@@ -22,20 +22,19 @@ Acoes:
 ## 2) Header global
 
 Elementos:
-- dropdown de conta ativa
+- marca (logo + nome app)
 - toggle para mostrar/ocultar valores (session override)
-- badge de perfil
-- botao de overflow `...` (acoes rapidas)
 - botao tutorial
-- menu de perfil (perfil + logout)
+- botao sair
 
 Comportamento:
-- em mobile, o overflow abre `bottom sheet` com:
-  - criar conta partilhada
-  - entrar por codigo
-  - gerir membros (owner)
-  - tutorial
-- em desktop/tablet, o overflow usa dropdown com as mesmas acoes.
+- seletor de conta ativa aparece abaixo do header apenas quando:
+  - existem contas partilhadas disponíveis para troca
+  - a rota atual é `/` (Mês) ou `/stats`
+- o seletor fica oculto em ecrãs não contextuais:
+  - `/profile` e subpáginas
+  - `/budget/:month/edit`
+  - ecrã de movimentos por categoria (`/month/:month/category/:categoryId/movements`)
 
 ## 3) Month page
 
@@ -73,9 +72,16 @@ Comportamento:
 
 ### Fluxo de categorias de despesa (Month Financial Stack)
 1. utilizador toca numa linha de categoria
-2. app abre `bottom sheet` com saídas da categoria (ordem cronológica)
-3. se `canWriteFinancial=true`, lançamentos manuais podem ser removidos
-4. fechar sheet regressa ao mesmo ponto da MonthPage
+2. app abre `bottom sheet` em modo preview (ultimas 8 saídas + resumo)
+3. utilizador pode tocar `Ver todas` para abrir ecrã completo de movimentos da categoria
+4. no ecrã completo, aplica pesquisa direta e filtros avançados via botão `Filtros` (sheet)
+5. se `canWriteFinancial=true`, lançamentos manuais podem ser removidos (preview e ecrã completo)
+6. `Voltar` no ecrã completo regressa a `/?month=YYYY-MM` sem perder contexto mensal
+
+Ordenacao hibrida da lista:
+- categorias `expense`: urgencia (`over > warning > normal`), depois `% usado`, depois nome
+- categorias `reserve`: ficam no fim e mantem ordem do orçamento (fallback alfabético)
+- `reserve` a 100% nao sobe ao topo por pressao; apenas excesso real pode receber tom de alerta
 
 ### Empty states e estados de erro
 - loading state com skeletons (inclui a regua financeira para reduzir layout shift)
@@ -94,6 +100,10 @@ Comportamento:
 2. chamar endpoint correspondente
 3. renderizar KPIs, trend, pie, budget vs actual, detalhe categorias, forecast
 
+Escopo funcional v1:
+- stats são sempre da conta ativa (`account-scoped`), sem agregação global entre contas nesta vaga
+- troca de conta no seletor (quando visível) recarrega os dados de stats dessa conta
+
 ### Interacoes
 - selecao de ponto no grafico de tendencia
 - destaque por categoria (pie + listas)
@@ -108,27 +118,44 @@ Comportamento:
 
 ## 5) Profile page (`/profile`)
 
-Secoes:
-- Conta:
+Arquitetura de navegacao:
+- `/profile` (hub): lista flat de secções
+- `/profile/account`
+- `/profile/security`
+- `/profile/preferences`
+- `/profile/shared` (hub de partilha)
+- `/profile/shared/accounts`
+- `/profile/shared/create`
+- `/profile/shared/join`
+- `/profile/shared/members`
+
+Fluxos:
+- Hub -> secção (tap numa linha)
+- Em cada secção, `Voltar` regressa sempre a `/profile`
+- Em subrotas de partilha (`/profile/shared/*`), `Voltar` regressa sempre a `/profile/shared`
+- `create/join` de conta partilhada existe apenas no hub de perfil/subrotas de partilha (sem duplicação no header/shell)
+
+Conteúdo por secção:
+- Account:
   - nome e moeda
   - atualizacao de email com password atual
-- Seguranca:
+  - export JSON
+  - desativar conta (confirmacao forte + password)
+- Security:
   - alterar password
   - listar sessoes
   - revogar sessao individual
   - revogar todas as sessoes
-- Preferencias:
+- Preferences:
   - tema (`brisa|calma|aurora|terra`)
   - ocultar valores por defeito
   - reset tutorial
-- Dados e privacidade:
-  - export JSON
-  - desativar conta (confirmacao forte + password)
-- Contas partilhadas (hibrido):
-  - lista de contas e role
-  - trocar conta ativa
-  - criar/join/leave
-  - gerir membros (owner)
+- Shared:
+  - hub com entradas para contas, criar, join e membros
+  - accounts: trocar conta ativa + sair da conta ativa
+  - create: criar conta partilhada
+  - join: entrar por código
+  - members (owner): gerar convite + gerir membros
 
 ## 6) Tutorial por pagina
 
@@ -137,6 +164,8 @@ Comportamento:
 - escopo dinamico por rota atual:
   - em `/` mostra tour month
   - em `/stats` mostra tour stats
+- passo do seletor de conta é omitido automaticamente quando o seletor não está visível
+- passos cujo alvo não existe no estado atual do ecrã são omitidos automaticamente
 - nao faz navegacao forcada
 - marca visto em skip ou done
 

@@ -19,7 +19,10 @@ type CategoryExpensesSheetProps = {
   formatCurrency: (value: number) => string;
   formatDate: (value: string) => string;
   onDeleteTransaction: (transactionId: string) => void;
+  onViewAll: () => void;
 };
+
+const PREVIEW_LIMIT = 8;
 
 export function CategoryExpensesSheet({
   open,
@@ -30,7 +33,11 @@ export function CategoryExpensesSheet({
   formatCurrency,
   formatDate,
   onDeleteTransaction,
+  onViewAll,
 }: CategoryExpensesSheetProps) {
+  const previewTransactions = transactions.slice(0, PREVIEW_LIMIT);
+  const totalSpent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+
   return (
     <ResponsiveOverlay open={open} onOpenChange={onOpenChange}>
       <OverlayContent density="compact">
@@ -38,13 +45,16 @@ export function CategoryExpensesSheet({
           <OverlayTitle>Despesas · {categoryName}</OverlayTitle>
         </OverlayHeader>
         <OverlayBody className="pt-0">
+          <p className="pb-2 text-xs text-muted-foreground">
+            {transactions.length} mov. · {formatCurrency(totalSpent)} gasto
+          </p>
           {transactions.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">
               Ainda sem despesas nesta categoria.
             </p>
           ) : (
             <div className="max-h-[56vh] divide-y divide-border/60 overflow-y-auto">
-              {transactions.map((tx) => (
+              {previewTransactions.map((tx) => (
                 <div key={tx.id} className="flex items-center gap-2 py-2.5">
                   {tx.origin === "recurring" ? (
                     <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
@@ -72,6 +82,13 @@ export function CategoryExpensesSheet({
           )}
         </OverlayBody>
         <OverlayFooter sticky>
+          <Button
+            type="button"
+            className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
+            onClick={onViewAll}
+          >
+            Ver todas
+          </Button>
           <Button
             type="button"
             variant="outline"

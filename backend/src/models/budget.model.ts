@@ -6,6 +6,7 @@ const budgetCategorySchema = new Schema(
     name: { type: String, required: true, trim: true },
     percent: { type: Number, required: true, min: 0, max: 100 },
     colorSlot: { type: Number, min: 1, max: 9 },
+    kind: { type: String, enum: ["expense", "reserve"] },
   },
   { _id: false },
 );

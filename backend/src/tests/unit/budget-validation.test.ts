@@ -3,6 +3,7 @@ import {
   assignCategoryColorSlots,
   getBudgetTemplates,
   isBudgetReady,
+  normalizeCategoryKind,
   validateBudgetPercentages,
 } from "../../modules/budgets/service.js";
 
@@ -71,6 +72,7 @@ describe("validateBudgetPercentages", () => {
       for (const category of template.categories) {
         expect(category.colorSlot).toBeGreaterThanOrEqual(1);
         expect(category.colorSlot).toBeLessThanOrEqual(9);
+        expect(["expense", "reserve"]).toContain(category.kind);
       }
     }
   });
@@ -84,5 +86,33 @@ describe("validateBudgetPercentages", () => {
     expect(categories).toHaveLength(3);
     expect(categories[0]?.colorSlot).toBe(1);
     expect(new Set(categories.map((item) => item.colorSlot)).size).toBe(3);
+  });
+
+  test("normaliza kind de forma compatível para categorias antigas", () => {
+    const categories = assignCategoryColorSlots([
+      { id: "c1", name: "Poupança", percent: 20 },
+      { id: "c2", name: "Investimento", percent: 20 },
+      { id: "c3", name: "Despesas", percent: 60 },
+    ]);
+
+    expect(categories[0]?.kind).toBe("reserve");
+    expect(categories[1]?.kind).toBe("reserve");
+    expect(categories[2]?.kind).toBe("expense");
+  });
+
+  test("preserva kind explícito quando enviado", () => {
+    const categories = assignCategoryColorSlots([
+      { id: "c1", name: "Poupança", percent: 50, kind: "expense" },
+      { id: "c2", name: "Lazer", percent: 50, kind: "reserve" },
+    ]);
+
+    expect(categories[0]?.kind).toBe("expense");
+    expect(categories[1]?.kind).toBe("reserve");
+  });
+
+  test("normalizeCategoryKind aceita kind válido e faz fallback por nome", () => {
+    expect(normalizeCategoryKind("reserve", "Despesas")).toBe("reserve");
+    expect(normalizeCategoryKind(undefined, "Poupanca")).toBe("reserve");
+    expect(normalizeCategoryKind(undefined, "Habitação")).toBe("expense");
   });
 });

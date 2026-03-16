@@ -251,6 +251,22 @@
     color: var(--info);
   }
 
+  .bg-primary-shade-1 {
+    background-color: color-mix(in srgb, var(--primary) 34%, var(--background));
+  }
+
+  .bg-primary-shade-2 {
+    background-color: color-mix(in srgb, var(--primary) 52%, var(--background));
+  }
+
+  .bg-primary-shade-3 {
+    background-color: color-mix(in srgb, var(--primary) 72%, var(--background));
+  }
+
+  .bg-primary-shade-4 {
+    background-color: color-mix(in srgb, var(--primary) 88%, var(--background));
+  }
+
   .shadow-card {
     box-shadow: var(--shadow-card);
   }

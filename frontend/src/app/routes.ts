@@ -37,6 +37,69 @@ export function createAppRouter() {
             return { Component: mod.ProfilePage };
           },
         },
+        {
+          path: "profile/account",
+          lazy: async () => {
+            const mod = await import("./components/profile-account-page");
+            return { Component: mod.ProfileAccountPage };
+          },
+        },
+        {
+          path: "profile/security",
+          lazy: async () => {
+            const mod = await import("./components/profile-security-page");
+            return { Component: mod.ProfileSecurityPage };
+          },
+        },
+        {
+          path: "profile/preferences",
+          lazy: async () => {
+            const mod = await import("./components/profile-preferences-page");
+            return { Component: mod.ProfilePreferencesPage };
+          },
+        },
+        {
+          path: "profile/shared",
+          lazy: async () => {
+            const mod = await import("./components/profile-shared-page");
+            return { Component: mod.ProfileSharedPage };
+          },
+        },
+        {
+          path: "profile/shared/accounts",
+          lazy: async () => {
+            const mod = await import("./components/profile-shared-accounts-page");
+            return { Component: mod.ProfileSharedAccountsPage };
+          },
+        },
+        {
+          path: "profile/shared/create",
+          lazy: async () => {
+            const mod = await import("./components/profile-shared-create-page");
+            return { Component: mod.ProfileSharedCreatePage };
+          },
+        },
+        {
+          path: "profile/shared/join",
+          lazy: async () => {
+            const mod = await import("./components/profile-shared-join-page");
+            return { Component: mod.ProfileSharedJoinPage };
+          },
+        },
+        {
+          path: "profile/shared/members",
+          lazy: async () => {
+            const mod = await import("./components/profile-shared-members-page");
+            return { Component: mod.ProfileSharedMembersPage };
+          },
+        },
+        {
+          path: "month/:month/category/:categoryId/movements",
+          lazy: async () => {
+            const mod = await import("./components/category-movements-page");
+            return { Component: mod.CategoryMovementsPage };
+          },
+        },
       ],
     },
   ]);

@@ -853,6 +853,7 @@ export function StatsPage() {
           <p className="text-sm text-muted-foreground">
             {period === "semester" ? "Últimos 6 meses" : "Últimos 12 meses"}
           </p>
+          <p className="text-xs text-muted-foreground">A mostrar dados da conta ativa</p>
         </div>
         <Tabs value={period} onValueChange={(v) => setPeriod(v as "semester" | "year")}>
           <TabsList className="h-10 bg-muted/60 p-1" data-tour="stats-period-tabs">

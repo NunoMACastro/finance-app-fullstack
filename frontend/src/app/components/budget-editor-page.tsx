@@ -9,6 +9,7 @@ import { useAccount } from "../lib/account-context";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency as formatCurrencyValue, formatMonthLong } from "../lib/formatting";
 import { nextCategoryColorSlot, resolveCategoryColorSlot } from "../lib/category-color-slot";
+import { normalizeBudgetCategoriesKind, normalizeBudgetCategoryKind } from "../lib/category-kind";
 import type { BudgetCategory, BudgetTemplate, MonthBudget } from "../lib/types";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -28,6 +29,11 @@ const CATEGORY_COLORS = [
   { gradient: "bg-category-gradient-8" },
   { gradient: "bg-category-gradient-9" },
 ];
+
+const CATEGORY_KIND_OPTIONS = [
+  { value: "expense", label: "Despesa" },
+  { value: "reserve", label: "Reserva" },
+] as const;
 
 function getCatColor(colorSlot?: number, fallbackIndex = 0) {
   const resolvedSlot = colorSlot ?? ((fallbackIndex % CATEGORY_COLORS.length) + 1);
@@ -72,7 +78,10 @@ export function BudgetEditorPage() {
           budgetApi.getTemplates(),
         ]);
         if (cancelled) return;
-        setBudget(loadedBudget);
+        setBudget({
+          ...loadedBudget,
+          categories: normalizeBudgetCategoriesKind(loadedBudget.categories),
+        });
         setTemplates(loadedTemplates);
       } catch (error) {
         if (cancelled) return;
@@ -99,7 +108,11 @@ export function BudgetEditorPage() {
     navigate(`/?month=${month}`);
   };
 
-  const updateCategory = (id: string, field: "name" | "percent", value: string | number) => {
+  const updateCategory = (
+    id: string,
+    field: "name" | "percent" | "kind",
+    value: string | number,
+  ) => {
     setBudget((prev) => {
       if (!prev) return prev;
       return {
@@ -131,6 +144,7 @@ export function BudgetEditorPage() {
             name: cleanName,
             percent: parseFloat(newCatPercent) || 0,
             colorSlot: nextCategoryColorSlot(prev.categories, categoryId),
+            kind: "expense",
           },
         ],
       };
@@ -149,6 +163,7 @@ export function BudgetEditorPage() {
           name: category.name,
           percent: category.percent,
           colorSlot: category.colorSlot,
+          kind: normalizeBudgetCategoryKind(category.kind, category.name),
         })),
       };
     });
@@ -160,9 +175,12 @@ export function BudgetEditorPage() {
     try {
       const saved = await budgetApi.save(budget.month, {
         totalBudget: budget.totalBudget,
-        categories: budget.categories,
+        categories: normalizeBudgetCategoriesKind(budget.categories),
       });
-      setBudget(saved);
+      setBudget({
+        ...saved,
+        categories: normalizeBudgetCategoriesKind(saved.categories),
+      });
       toast.success("Orçamento guardado");
       navigate(`/?month=${saved.month}`);
     } catch (error) {
@@ -327,6 +345,33 @@ export function BudgetEditorPage() {
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <div
+                      className="inline-flex rounded-full bg-muted p-0.5"
+                      role="group"
+                      aria-label={`Tipo da categoria ${category.name}`}
+                    >
+                      {CATEGORY_KIND_OPTIONS.map((option) => {
+                        const isActive = (category.kind ?? "expense") === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`h-7 rounded-full px-2.5 text-[11px] transition-colors ${
+                              isActive
+                                ? "bg-background text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                            onClick={() => updateCategory(category.id, "kind", option.value)}
+                            disabled={!canWriteFinancial}
+                            aria-pressed={isActive}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className="grid grid-cols-[1fr_auto] items-center gap-2">
                     <div className="relative">

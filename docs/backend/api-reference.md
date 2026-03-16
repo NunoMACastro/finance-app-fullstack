@@ -371,7 +371,7 @@ Response `200` (`MonthBudget`):
   "month": "2026-03",
   "totalBudget": 2500,
   "categories": [
-    { "id": "cat1", "name": "Despesas", "percent": 60 }
+    { "id": "cat1", "name": "Despesas", "percent": 60, "colorSlot": 1, "kind": "expense" }
   ],
   "isReady": true
 }
@@ -385,13 +385,18 @@ Request:
 {
   "totalBudget": 999999,
   "categories": [
-    { "id": "cat1", "name": "Despesas", "percent": 60 },
-    { "id": "cat2", "name": "Lazer", "percent": 40 }
+    { "id": "cat1", "name": "Despesas", "percent": 60, "kind": "expense" },
+    { "id": "cat2", "name": "Lazer", "percent": 40, "kind": "expense" }
   ]
 }
 ```
 
-Nota: `totalBudget` e ignorado no backend (compatibilidade).
+Notas:
+- `totalBudget` e ignorado no backend (compatibilidade).
+- `kind` e opcional na escrita; quando ausente o backend normaliza:
+  - `Poupança/Poupanca/Investimento` => `reserve`
+  - restantes => `expense`
+- respostas devolvem `kind` e `colorSlot` normalizados.
 
 ### POST `/budgets/:month/categories`
 Adiciona categoria.
@@ -400,7 +405,8 @@ Request:
 ```json
 {
   "name": "Poupanca",
-  "percent": 20
+  "percent": 20,
+  "kind": "reserve"
 }
 ```
 

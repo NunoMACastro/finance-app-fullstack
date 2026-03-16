@@ -2,3 +2,4 @@
 - Compor e organizar o header
 - Organizar e uniformizar os modals/drawers
 - Perfil (opção de cores, temas, etc)
+- Remover drop down de escolha de orçamento se não existir partilha de orçamentos (ou seja se o user só tiver um orçamento)

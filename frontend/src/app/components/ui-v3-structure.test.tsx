@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -82,6 +82,9 @@ vi.mock("../lib/theme-preferences", () => ({
 import { MonthPage } from "./month-page";
 import { BudgetEditorPage } from "./budget-editor-page";
 import { ProfilePage } from "./profile-page";
+import { ProfilePreferencesPage } from "./profile-preferences-page";
+import { ProfileSharedPage } from "./profile-shared-page";
+import { ProfileSharedCreatePage } from "./profile-shared-create-page";
 
 describe("UI v3 structure smoke", () => {
   beforeEach(() => {
@@ -136,6 +139,43 @@ describe("UI v3 structure smoke", () => {
     expect(await screen.findByText("Orçamento Total (EUR)")).toBeInTheDocument();
   });
 
+  test("budget editor permite alterar kind da categoria e guarda no payload", async () => {
+    apiMocks.getBudget.mockResolvedValueOnce({
+      accountId: "acc1",
+      month: "2026-03",
+      totalBudget: 1000,
+      categories: [{ id: "c1", name: "Despesas", percent: 100, kind: "expense" }],
+      isReady: true,
+    });
+    apiMocks.getTemplates.mockResolvedValueOnce([]);
+    apiMocks.saveBudget.mockResolvedValueOnce({
+      accountId: "acc1",
+      month: "2026-03",
+      totalBudget: 1000,
+      categories: [{ id: "c1", name: "Despesas", percent: 100, kind: "reserve" }],
+      isReady: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/budget/2026-03/edit"]}>
+        <Routes>
+          <Route path="/budget/:month/edit" element={<BudgetEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByDisplayValue("Despesas");
+    const kindGroup = screen.getByRole("group", { name: /Tipo da categoria Despesas/i });
+    fireEvent.click(within(kindGroup).getByRole("button", { name: "Reserva" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(apiMocks.saveBudget).toHaveBeenCalled();
+    });
+    const savePayload = apiMocks.saveBudget.mock.calls[apiMocks.saveBudget.mock.calls.length - 1]?.[1];
+    expect(savePayload.categories[0].kind).toBe("reserve");
+  });
+
   test("profile page exposes v3 root", () => {
     const { container } = render(
       <MemoryRouter initialEntries={["/profile"]}>
@@ -146,15 +186,15 @@ describe("UI v3 structure smoke", () => {
     );
 
     expect(container.querySelector('[data-ui-v3-page="profile"]')).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Conta" })).toBeInTheDocument();
-    expect(screen.getByText("Tema")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Conta Perfil, email, exportação e privacidade/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Preferências Tema, privacidade visual e tutorial/i })).toBeInTheDocument();
   });
 
   test("profile page changes theme via theme selector", () => {
     render(
-      <MemoryRouter initialEntries={["/profile"]}>
+      <MemoryRouter initialEntries={["/profile/preferences"]}>
         <Routes>
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/preferences" element={<ProfilePreferencesPage />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -165,5 +205,52 @@ describe("UI v3 structure smoke", () => {
 
     fireEvent.change(themeSelect as HTMLSelectElement, { target: { value: "terra" } });
     expect(themeMocks.setTheme).toHaveBeenCalledWith("terra");
+  });
+
+  test("profile hub navigates to preferences and back to hub", () => {
+    render(
+      <MemoryRouter initialEntries={["/profile"]}>
+        <Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/preferences" element={<ProfilePreferencesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Preferências/ }));
+    expect(screen.getByText("Reset tutorial")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Voltar/ }));
+    expect(screen.getByText("Perfil e configurações")).toBeInTheDocument();
+  });
+
+  test("profile shared hub navigates to create page and back to shared hub", () => {
+    render(
+      <MemoryRouter initialEntries={["/profile/shared"]}>
+        <Routes>
+          <Route path="/profile/shared" element={<ProfileSharedPage />} />
+          <Route path="/profile/shared/create" element={<ProfileSharedCreatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Criar conta partilhada/i }));
+    expect(screen.getByRole("button", { name: "Criar" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(screen.getByText("Gestão de colaboração em subpáginas dedicadas.")).toBeInTheDocument();
+  });
+
+  test("profile preferences uses switch for hide amounts default", () => {
+    render(
+      <MemoryRouter initialEntries={["/profile/preferences"]}>
+        <Routes>
+          <Route path="/profile/preferences" element={<ProfilePreferencesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const switchControl = screen.getByRole("switch", { name: "Ocultar valores por defeito" });
+    expect(switchControl).toBeInTheDocument();
   });
 });

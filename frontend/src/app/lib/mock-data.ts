@@ -31,15 +31,15 @@ export const mockUser: UserProfile = {
 
 // Default budget categories
 export const defaultCategories: BudgetCategory[] = [
-  { id: "cat1", name: "Habitação", percent: 32, colorSlot: 1 },
-  { id: "cat2", name: "Transportes", percent: 7, colorSlot: 2 },
-  { id: "cat3", name: "Alimentação", percent: 14, colorSlot: 3 },
-  { id: "cat4", name: "Lazer", percent: 9, colorSlot: 4 },
-  { id: "cat5", name: "Saúde", percent: 3, colorSlot: 5 },
-  { id: "cat6", name: "Investimento", percent: 17, colorSlot: 6 },
-  { id: "cat7", name: "Poupança", percent: 11, colorSlot: 7 },
-  { id: "cat8", name: "Educação", percent: 5, colorSlot: 8 },
-  { id: "cat9", name: "Outros", percent: 2, colorSlot: 9 },
+  { id: "cat1", name: "Habitação", percent: 32, colorSlot: 1, kind: "expense" },
+  { id: "cat2", name: "Transportes", percent: 7, colorSlot: 2, kind: "expense" },
+  { id: "cat3", name: "Alimentação", percent: 14, colorSlot: 3, kind: "expense" },
+  { id: "cat4", name: "Lazer", percent: 9, colorSlot: 4, kind: "expense" },
+  { id: "cat5", name: "Saúde", percent: 3, colorSlot: 5, kind: "expense" },
+  { id: "cat6", name: "Investimento", percent: 17, colorSlot: 6, kind: "reserve" },
+  { id: "cat7", name: "Poupança", percent: 11, colorSlot: 7, kind: "reserve" },
+  { id: "cat8", name: "Educação", percent: 5, colorSlot: 8, kind: "expense" },
+  { id: "cat9", name: "Outros", percent: 2, colorSlot: 9, kind: "expense" },
 ];
 
 export const mockMonthBudget: MonthBudget = {

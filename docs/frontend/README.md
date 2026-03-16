@@ -24,7 +24,7 @@ UI mobile-first para:
 
 - `main.tsx`: bootstrap
 - `app/App.tsx`: providers, gating de auth, maintenance mode, aviso desktop
-- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/budget/:month/edit`, `/profile`)
+- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/budget/:month/edit`, `/profile`, `/profile/*`, `/month/:month/category/:categoryId/movements`)
 - `app/components/*`: ecras e layout
 - `app/lib/*`: API client, stores locais, contextos e tipos
 - `styles/*`: tema, tailwind, fontes
@@ -40,6 +40,20 @@ UI mobile-first para:
 Padrao auth v3:
 - login/registo sem tabs, com hero de gradiente + separador curvo
 - corpo flat sem card (ver regras em [`./ui-v3-spec.md`](./ui-v3-spec.md))
+
+Padrao de detalhe por categoria (Month):
+- `bottom sheet` apenas para preview rapido (ultimas entradas).
+- historico longo em ecrã full-screen dedicado com filtros.
+
+Escopo de stats v1:
+- `/stats` usa sempre a conta ativa (`X-Account-Id`), sem agregação global.
+
+Padrao de perfil v3:
+- `/profile` funciona como hub (`settings list`).
+- cada secção abre em subpágina dedicada (`/profile/*`).
+- fluxos de conta partilhada (`criar/join`) ficam centralizados em `/profile/shared`.
+- `Conta partilhada` usa `hub + subrotas` (`accounts/create/join/members`) com back contextual para `/profile/shared`.
+- no perfil, controlos interativos seguem target mínimo `44px` e política de 1 CTA primária por subpágina.
 
 ## Theming architecture
 

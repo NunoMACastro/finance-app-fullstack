@@ -33,12 +33,13 @@ Normativa:
   - `AppShellV3`
   - `TopBarV3`
   - `BottomNavV3`
-  - `OverflowActionsSheetV3`
-- `TopBarV3` `MUST` ter 2 linhas:
-  - Linha principal: produto + privacidade + overflow.
-  - Linha contexto: conta + tutorial + perfil.
-- Overflow `...` em mobile `MUST` abrir `bottom sheet`.
-- Desktop/tablet `MAY` usar dropdown para overflow, com as mesmas labels/ações do mobile.
+- `TopBarV3` `MUST` ser compacto com:
+  - marca (logo + nome)
+  - ações globais de ícone (privacidade, tutorial, sair)
+- O seletor de conta ativa `MUST` ser contextual:
+  - aparece apenas quando existe conta `shared`
+  - aparece apenas em `/` e `/stats`
+  - fica oculto nas restantes rotas
 
 ## 4. Regras por Componente
 
@@ -56,6 +57,8 @@ Normativa:
 ### Lists e Movimentos
 - `MUST` priorizar lista full-width para conteúdo principal.
 - `SHOULD` usar linhas compactas antes de novos cartões.
+- `MUST` usar overlays apenas para preview/contexto rápido.
+- históricos longos (`MUST`) abrir em ecrã full-screen dedicado (não em sheet expandido).
 
 ### Forms
 - `MUST` manter ritmo vertical consistente.
@@ -78,11 +81,13 @@ Normativa:
 - `MUST` ter um bloco único contínuo (`Month Financial Stack`) para leitura macro + categorias.
 - `MUST` usar apenas uma barra global de progresso no topo do stack (sem duplicação).
 - `MUST` listar categorias de despesa em linhas flat full-width, sem cards aninhados.
-- `MUST` abrir detalhe de despesas por categoria em `bottom sheet` (tap na linha).
+- `MUST` abrir detalhe de despesas por categoria em `bottom sheet` de preview.
+- `MUST` oferecer navegação `Ver todas` para ecrã completo da categoria quando necessário.
 - `MUST` mostrar receitas num bloco compacto separado abaixo das categorias.
 
 ### Stats
 - `MUST` ter filtros de período compactos.
+- `MUST` manter escopo por conta ativa no v1 (sem modo global implícito).
 - `SHOULD` usar blocos analíticos full-width com baixa ornamentação.
 - `MUST` manter projeção com seletor `3M/6M` e nota de confiança.
 
@@ -91,7 +96,20 @@ Normativa:
 - `MUST` manter fluxo contínuo de edição (menos cartões intermédios).
 
 ### Profile
-- `MUST` seguir padrão “settings list” por secções.
+- `MUST` usar `hub + subpáginas`:
+  - `/profile` como índice de secções (settings list flat)
+  - `/profile/*` para detalhe dedicado de cada secção
+- `MUST` evitar tabs na página de perfil.
+- `MUST` manter ações de conta partilhada (`criar/join`) centralizadas em `/profile/shared`.
+- `MUST` garantir touch targets mínimos de `44px` (`h-11`) em botões, selects e linhas acionáveis.
+- `MUST` usar `Switch` para toggles de preferências (evitar checkbox raw).
+- `MUST` aplicar política de CTA:
+  - no máximo 1 CTA primária por subpágina
+  - ações restantes em `outline`/`ghost`
+- `MUST` estruturar `Conta partilhada` como:
+  - hub: `/profile/shared`
+  - subrotas: `/profile/shared/accounts`, `/profile/shared/create`, `/profile/shared/join`, `/profile/shared/members`
+  - comportamento de voltar em `shared/*`: regressa para `/profile/shared`
 - `SHOULD` reduzir padding e wrappers decorativos.
 
 ## 6. Clutter Budget (mensurável)

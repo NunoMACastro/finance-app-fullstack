@@ -21,6 +21,7 @@ export const budgetCategorySchema = z.object({
   name: z.string().trim().min(1).max(120),
   percent: z.number().min(0).max(100),
   colorSlot: z.number().int().min(1).max(9).optional(),
+  kind: z.enum(["expense", "reserve"]).optional(),
 });
 
 export const saveBudgetSchema = z.object({
@@ -31,4 +32,5 @@ export const saveBudgetSchema = z.object({
 export const addCategorySchema = z.object({
   name: z.string().trim().min(1).max(120),
   percent: z.number().min(0).max(100),
+  kind: z.enum(["expense", "reserve"]).optional(),
 });

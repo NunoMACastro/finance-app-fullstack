@@ -1,98 +1,59 @@
-import { BarChart3, LayoutDashboard, UserRound, UsersRound } from "lucide-react";
-import { NavLink } from "react-router";
+import { BarChart3, LayoutDashboard, UserRound } from "lucide-react";
+import { Link, useLocation } from "react-router";
 
 const monthTab = { to: "/", label: "Mês" } as const;
 const statsTab = { to: "/stats", label: "Stats" } as const;
 const profileTab = { to: "/profile", label: "Perfil" } as const;
 
-interface BottomNavV3Props {
-  onOpenSharedActions: () => void;
-}
+export function BottomNavV3() {
+  const location = useLocation();
+  const pathname = location.pathname;
+  const isMonthActive = pathname === "/";
+  const isStatsActive = pathname.startsWith("/stats");
+  const isProfileActive = pathname.startsWith("/profile");
 
-export function BottomNavV3({ onOpenSharedActions }: BottomNavV3Props) {
+  const tabClass = (isActive: boolean) =>
+    `relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-colors ${
+      isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+    }`;
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-card/95"
       aria-label="Navegação principal"
       data-ui-v3-shell="bottom-nav"
     >
-      <div className="mx-auto grid max-w-[430px] grid-cols-4 items-center gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
-        <NavLink
-          to={monthTab.to}
-          end
-          className={({ isActive }) =>
-            `relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-colors ${
-              isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <LayoutDashboard className="h-5 w-5" />
-              <span>{monthTab.label}</span>
-              <span
-                className={`h-0.5 w-5 rounded-full transition-opacity ${isActive ? "bg-primary opacity-100" : "opacity-0"}`}
-                aria-hidden
-              />
-            </>
-          )}
-        </NavLink>
+      <div className="mx-auto grid max-w-[430px] grid-cols-3 items-center gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+        <Link to={monthTab.to} className={tabClass(isMonthActive)}>
+          <LayoutDashboard className="h-5 w-5" />
+          <span>{monthTab.label}</span>
+          <span
+            className={`h-0.5 w-5 rounded-full transition-opacity ${isMonthActive ? "bg-primary opacity-100" : "opacity-0"}`}
+            aria-hidden
+          />
+        </Link>
 
-        <button
-          type="button"
-          onClick={onOpenSharedActions}
-          className="relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Abrir ações partilhadas"
-          title="Ações partilhadas"
-          data-tour="bottom-shared-actions"
-        >
-          <UsersRound className="h-5 w-5" />
-          <span>Partilhar</span>
-          <span className="h-0.5 w-5 rounded-full opacity-0" aria-hidden />
-        </button>
+        <Link to={statsTab.to} className={tabClass(isStatsActive)}>
+          <BarChart3 className="h-5 w-5" />
+          <span>{statsTab.label}</span>
+          <span
+            className={`h-0.5 w-5 rounded-full transition-opacity ${isStatsActive ? "bg-primary opacity-100" : "opacity-0"}`}
+            aria-hidden
+          />
+        </Link>
 
-        <NavLink
-          to={statsTab.to}
-          end={false}
-          className={({ isActive }) =>
-            `relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-colors ${
-              isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <BarChart3 className="h-5 w-5" />
-              <span>{statsTab.label}</span>
-              <span
-                className={`h-0.5 w-5 rounded-full transition-opacity ${isActive ? "bg-primary opacity-100" : "opacity-0"}`}
-                aria-hidden
-              />
-            </>
-          )}
-        </NavLink>
-
-        <NavLink
+        <Link
           to={profileTab.to}
-          end={false}
-          className={({ isActive }) =>
-            `relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-colors ${
-              isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            }`
-          }
+          className={tabClass(isProfileActive)}
           data-tour="bottom-profile-nav"
         >
-          {({ isActive }) => (
-            <>
-              <UserRound className="h-5 w-5" />
-              <span>{profileTab.label}</span>
-              <span
-                className={`h-0.5 w-5 rounded-full transition-opacity ${isActive ? "bg-primary opacity-100" : "opacity-0"}`}
-                aria-hidden
-              />
-            </>
-          )}
-        </NavLink>
+          <UserRound className="h-5 w-5" />
+          <span>{profileTab.label}</span>
+          <span
+            className={`h-0.5 w-5 rounded-full transition-opacity ${isProfileActive ? "bg-primary opacity-100" : "opacity-0"}`}
+            aria-hidden
+          />
+        </Link>
       </div>
     </nav>
   );

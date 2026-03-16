@@ -57,6 +57,7 @@ import { useAccount } from "../lib/account-context";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency as formatCurrencyValue, formatDateShort, formatMonthLong } from "../lib/formatting";
 import { resolveCategoryColorSlot } from "../lib/category-color-slot";
+import { normalizeBudgetCategoryKind } from "../lib/category-kind";
 import type {
   MonthSummary,
   MonthBudget,
@@ -445,12 +446,16 @@ export function MonthPage() {
   const expenseCategoryRows = (budget?.categories ?? [])
     .map((cat, index) => {
       const colorSlot = resolveCategoryColorSlot(cat, index);
+      const kind = normalizeBudgetCategoryKind(cat.kind, cat.name);
       const allocated = catEur(cat, totalBudget);
       const spent = spentByCategory[cat.id] || 0;
       const catRemaining = allocated - spent;
       const usedPct = allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0;
       const over = spent > allocated + 0.009;
       const warning = !over && usedPct >= 80;
+      const tone: "normal" | "warning" | "danger" = kind === "reserve"
+        ? (over ? "danger" : "normal")
+        : over ? "danger" : warning ? "warning" : "normal";
       const catTransactions = (summary?.expenseTransactions ?? [])
         .filter((tx) => tx.categoryId === cat.id)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -464,11 +469,19 @@ export function MonthPage() {
         transactions: catTransactions,
         movementsCount: catTransactions.length,
         urgencyRank: over ? 2 : warning ? 1 : 0,
+        kind,
+        initialOrder: index,
+        tone,
       };
     })
     .sort((left, right) => {
-      if (right.urgencyRank !== left.urgencyRank) return right.urgencyRank - left.urgencyRank;
-      if (Math.abs(right.usedPct - left.usedPct) > 0.01) return right.usedPct - left.usedPct;
+      if (left.kind !== right.kind) return left.kind === "expense" ? -1 : 1;
+      if (left.kind === "expense" && right.kind === "expense") {
+        if (right.urgencyRank !== left.urgencyRank) return right.urgencyRank - left.urgencyRank;
+        if (Math.abs(right.usedPct - left.usedPct) > 0.01) return right.usedPct - left.usedPct;
+        return left.category.name.localeCompare(right.category.name, "pt-PT");
+      }
+      if (left.initialOrder !== right.initialOrder) return left.initialOrder - right.initialOrder;
       return left.category.name.localeCompare(right.category.name, "pt-PT");
     });
   const activeExpenseCategory = expenseCategoryRows.find((row) => row.category.id === activeExpenseCategoryId) ?? null;
@@ -727,7 +740,7 @@ export function MonthPage() {
                           remainingLabel={formatCurrency(row.remaining)}
                           movementsLabel={`${row.movementsCount} mov.`}
                           progressPercent={row.usedPct}
-                          tone={row.urgencyRank === 2 ? "danger" : row.urgencyRank === 1 ? "warning" : "normal"}
+                          tone={row.tone}
                           dotClassName={row.color.solid}
                           onOpen={() => setActiveExpenseCategoryId(row.category.id)}
                         />
@@ -856,6 +869,11 @@ export function MonthPage() {
         formatCurrency={formatCurrency}
         formatDate={formatDate}
         onDeleteTransaction={(transactionId) => setPendingDeleteTransactionId(transactionId)}
+        onViewAll={() => {
+          if (!activeExpenseCategory) return;
+          setActiveExpenseCategoryId(null);
+          navigate(`/month/${currentMonth}/category/${activeExpenseCategory.category.id}/movements`);
+        }}
       />
 
       <AddTransactionDialog

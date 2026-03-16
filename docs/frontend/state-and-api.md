@@ -15,8 +15,13 @@ Contem contratos espelho do backend para:
 
 Notas de budget:
 - `BudgetCategory` inclui `colorSlot` (1..9) para mapear categorias para slots de cor do tema.
+- `BudgetCategory` inclui `kind` (`expense | reserve`) para separar categorias de despesa corrente vs reserva.
 - o backend devolve `colorSlot` em `GET /budgets/:month` e templates; o frontend preserva esse campo em `budgetApi.save`.
+- o backend devolve `kind` normalizado; payloads antigos sem `kind` continuam aceites.
 - compatibilidade: categorias antigas sem `colorSlot` recebem slot deterministico no backend (sem migracao manual obrigatoria).
+- compatibilidade de `kind` (normalizacao lazy):
+  - `Poupança/Poupanca/Investimento` => `reserve`
+  - restantes => `expense`
 
 ## API layer
 
@@ -43,6 +48,7 @@ Arquivo: `app/lib/http-client.ts`
 
 - anexa `Authorization` com access token
 - anexa `X-Account-Id` se conta ativa existir
+- `Stats` v1 usa o mesmo `X-Account-Id` (escopo por conta ativa, sem modo global)
 
 ### Response interceptor
 
@@ -133,6 +139,11 @@ Acoes:
 - `updateMemberRole`
 - `removeMember`
 - `leaveAccount`
+
+Comportamento de UI (seletor de conta):
+- aparece apenas quando existe pelo menos uma conta `shared`
+- aparece apenas nas rotas contextuais: `/` e `/stats`
+- fica oculto nas restantes rotas para reduzir clutter e evitar troca acidental de contexto
 
 Politica de selecao da conta ativa:
 1. conta guardada em localStorage (por user)

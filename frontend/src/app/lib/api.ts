@@ -41,6 +41,10 @@ import {
   assignCategoryColorSlots,
   nextCategoryColorSlot,
 } from "./category-color-slot";
+import {
+  normalizeBudgetCategoriesKind,
+  normalizeBudgetCategoryKind,
+} from "./category-kind";
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
@@ -49,30 +53,30 @@ const MOCK_BUDGET_TEMPLATES: BudgetTemplate[] = [
     id: "conservador",
     name: "Conservador",
     categories: [
-      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50, colorSlot: 1 },
-      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
-      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20, colorSlot: 3 },
-      { id: "tpl_conservador_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
+      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50, colorSlot: 1, kind: "expense" },
+      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10, colorSlot: 2, kind: "expense" },
+      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20, colorSlot: 3, kind: "reserve" },
+      { id: "tpl_conservador_poupanca", name: "Poupança", percent: 20, colorSlot: 4, kind: "reserve" },
     ],
   },
   {
     id: "equilibrado",
     name: "Equilibrado",
     categories: [
-      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60, colorSlot: 1 },
-      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5, colorSlot: 2 },
-      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
-      { id: "tpl_equilibrado_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
+      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60, colorSlot: 1, kind: "expense" },
+      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5, colorSlot: 2, kind: "expense" },
+      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15, colorSlot: 3, kind: "reserve" },
+      { id: "tpl_equilibrado_poupanca", name: "Poupança", percent: 20, colorSlot: 4, kind: "reserve" },
     ],
   },
   {
     id: "agressivo",
     name: "Agressivo",
     categories: [
-      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70, colorSlot: 1 },
-      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
-      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
-      { id: "tpl_agressivo_poupanca", name: "Poupança", percent: 5, colorSlot: 4 },
+      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70, colorSlot: 1, kind: "expense" },
+      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10, colorSlot: 2, kind: "expense" },
+      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15, colorSlot: 3, kind: "reserve" },
+      { id: "tpl_agressivo_poupanca", name: "Poupança", percent: 5, colorSlot: 4, kind: "reserve" },
     ],
   },
 ];
@@ -141,6 +145,24 @@ function isMockBudgetReady(categories: BudgetCategory[]): boolean {
   return Math.abs(total - 100) <= 0.01;
 }
 
+function normalizeBudgetCategoriesForClient(categories: BudgetCategory[]): BudgetCategory[] {
+  return assignCategoryColorSlots(normalizeBudgetCategoriesKind(clone(categories)));
+}
+
+function normalizeBudgetForClient(budget: MonthBudget): MonthBudget {
+  return {
+    ...budget,
+    categories: normalizeBudgetCategoriesForClient(budget.categories),
+  };
+}
+
+function normalizeTemplatesForClient(templates: BudgetTemplate[]): BudgetTemplate[] {
+  return templates.map((template) => ({
+    ...template,
+    categories: normalizeBudgetCategoriesForClient(template.categories),
+  }));
+}
+
 function ensureBudgetStore(accountId: string): Record<string, MonthBudget> {
   if (!_mockBudgetsByAccount[accountId]) {
     _mockBudgetsByAccount[accountId] = {};
@@ -190,7 +212,7 @@ function sumMockIncomeForMonth(accountId: string, month: string): number {
 }
 
 function normaliseMockBudget(accountId: string, month: string, budget?: MonthBudget): MonthBudget {
-  const categories = assignCategoryColorSlots(clone(budget?.categories ?? []));
+  const categories = normalizeBudgetCategoriesForClient(budget?.categories ?? []);
   return {
     accountId,
     month,
@@ -902,10 +924,10 @@ export const budgetApi = {
   async getTemplates(): Promise<BudgetTemplate[]> {
     if (config.useMock) {
       await delay(120);
-      return clone(MOCK_BUDGET_TEMPLATES);
+      return normalizeTemplatesForClient(clone(MOCK_BUDGET_TEMPLATES));
     }
     const { data } = await httpClient.get<BudgetTemplate[]>("/budgets/templates");
-    return data;
+    return normalizeTemplatesForClient(data);
   },
 
   async get(month: string): Promise<MonthBudget> {
@@ -920,7 +942,7 @@ export const budgetApi = {
       return normaliseMockBudget(accountId, month);
     }
     const { data } = await httpClient.get<MonthBudget>(`/budgets/${month}`);
-    return data;
+    return normalizeBudgetForClient(data);
   },
 
   async save(month: string, dto: SaveBudgetDto): Promise<MonthBudget> {
@@ -932,14 +954,14 @@ export const budgetApi = {
         accountId,
         month,
         totalBudget: dto.totalBudget,
-        categories: assignCategoryColorSlots(dto.categories),
+        categories: normalizeBudgetCategoriesForClient(dto.categories),
         isReady: false,
       });
       store[month] = clone(budget);
       return clone(budget);
     }
     const { data } = await httpClient.put<MonthBudget>(`/budgets/${month}`, dto);
-    return data;
+    return normalizeBudgetForClient(data);
   },
 
   async addCategory(month: string, dto: AddCategoryDto): Promise<MonthBudget> {
@@ -952,13 +974,14 @@ export const budgetApi = {
       budget.categories.push({
         ...dto,
         id: categoryId,
+        kind: normalizeBudgetCategoryKind(dto.kind, dto.name),
         colorSlot: nextCategoryColorSlot(budget.categories, categoryId),
       });
       store[month] = normaliseMockBudget(accountId, month, budget);
       return clone(store[month]);
     }
     const { data } = await httpClient.post<MonthBudget>(`/budgets/${month}/categories`, dto);
-    return data;
+    return normalizeBudgetForClient(data);
   },
 
   async removeCategory(month: string, categoryId: string): Promise<MonthBudget> {
@@ -972,7 +995,7 @@ export const budgetApi = {
       return clone(store[month]);
     }
     const { data } = await httpClient.delete<MonthBudget>(`/budgets/${month}/categories/${categoryId}`);
-    return data;
+    return normalizeBudgetForClient(data);
   },
 
   async copyFrom(targetMonth: string, sourceMonth: string): Promise<MonthBudget> {
@@ -995,7 +1018,7 @@ export const budgetApi = {
       return clone(copy);
     }
     const { data } = await httpClient.post<MonthBudget>(`/budgets/${targetMonth}/copy-from/${sourceMonth}`);
-    return data;
+    return normalizeBudgetForClient(data);
   },
 };
 

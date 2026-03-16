@@ -77,11 +77,14 @@ export interface ExportUserData {
 // ── Budget ────────────────────────────────────────────────
 
 /** Budget category — flat structure (one level) */
+export type BudgetCategoryKind = "expense" | "reserve";
+
 export interface BudgetCategory {
   id: string;
   name: string;
   percent: number; // percentage of totalBudget (0-100)
   colorSlot?: number; // theme slot (1-9)
+  kind?: BudgetCategoryKind;
 }
 
 export interface IncomeCategory {
@@ -117,6 +120,7 @@ export interface SaveBudgetDto {
 export interface AddCategoryDto {
   name: string;
   percent: number;
+  kind?: BudgetCategoryKind;
 }
 
 // ── Transactions ──────────────────────────────────────────

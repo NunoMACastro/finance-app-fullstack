@@ -4,11 +4,14 @@ import { newCategoryId } from "../../lib/hash.js";
 import { notFound, unprocessable } from "../../lib/api-error.js";
 import { Types } from "mongoose";
 
+export type BudgetCategoryKind = "expense" | "reserve";
+
 interface BudgetCategoryInput {
   id: string;
   name: string;
   percent: number;
   colorSlot?: number | null;
+  kind?: BudgetCategoryKind | null;
 }
 
 interface BudgetCategoryDto {
@@ -16,6 +19,7 @@ interface BudgetCategoryDto {
   name: string;
   percent: number;
   colorSlot: number;
+  kind: BudgetCategoryKind;
 }
 
 interface MonthBudgetDto {
@@ -36,36 +40,37 @@ const BUDGET_TOLERANCE = 0.01;
 const CATEGORY_COLOR_MIN = 1;
 const CATEGORY_COLOR_MAX = 9;
 const CATEGORY_COLOR_COUNT = CATEGORY_COLOR_MAX - CATEGORY_COLOR_MIN + 1;
+const RESERVE_CATEGORY_NAME_KEYS = new Set(["poupanca", "investimento"]);
 
 const BUDGET_TEMPLATES: BudgetTemplateDto[] = [
   {
     id: "conservador",
     name: "Conservador",
     categories: [
-      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50, colorSlot: 1 },
-      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
-      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20, colorSlot: 3 },
-      { id: "tpl_conservador_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
+      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50, colorSlot: 1, kind: "expense" },
+      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10, colorSlot: 2, kind: "expense" },
+      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20, colorSlot: 3, kind: "reserve" },
+      { id: "tpl_conservador_poupanca", name: "Poupança", percent: 20, colorSlot: 4, kind: "reserve" },
     ],
   },
   {
     id: "equilibrado",
     name: "Equilibrado",
     categories: [
-      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60, colorSlot: 1 },
-      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5, colorSlot: 2 },
-      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
-      { id: "tpl_equilibrado_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
+      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60, colorSlot: 1, kind: "expense" },
+      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5, colorSlot: 2, kind: "expense" },
+      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15, colorSlot: 3, kind: "reserve" },
+      { id: "tpl_equilibrado_poupanca", name: "Poupança", percent: 20, colorSlot: 4, kind: "reserve" },
     ],
   },
   {
     id: "agressivo",
     name: "Agressivo",
     categories: [
-      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70, colorSlot: 1 },
-      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
-      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
-      { id: "tpl_agressivo_poupanca", name: "Poupança", percent: 5, colorSlot: 4 },
+      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70, colorSlot: 1, kind: "expense" },
+      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10, colorSlot: 2, kind: "expense" },
+      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15, colorSlot: 3, kind: "reserve" },
+      { id: "tpl_agressivo_poupanca", name: "Poupança", percent: 5, colorSlot: 4, kind: "reserve" },
     ],
   },
 ];
@@ -78,6 +83,27 @@ function normalizeColorSlot(colorSlot?: number | null): number | null {
   if (!Number.isInteger(colorSlot)) return null;
   if ((colorSlot as number) < CATEGORY_COLOR_MIN || (colorSlot as number) > CATEGORY_COLOR_MAX) return null;
   return colorSlot as number;
+}
+
+function normalizeCategoryNameKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isBudgetCategoryKind(value?: string | null): value is BudgetCategoryKind {
+  return value === "expense" || value === "reserve";
+}
+
+function inferCategoryKindByName(name: string): BudgetCategoryKind {
+  return RESERVE_CATEGORY_NAME_KEYS.has(normalizeCategoryNameKey(name)) ? "reserve" : "expense";
+}
+
+export function normalizeCategoryKind(kind: string | null | undefined, name: string): BudgetCategoryKind {
+  if (isBudgetCategoryKind(kind)) return kind;
+  return inferCategoryKindByName(name);
 }
 
 function hashCategoryIdToColorSlot(categoryId: string): number {
@@ -95,6 +121,7 @@ export function assignCategoryColorSlots(categories: BudgetCategoryInput[]): Bud
     name: category.name,
     percent: category.percent,
     colorSlot: 0,
+    kind: normalizeCategoryKind(category.kind, category.name),
   }));
 
   normalized.forEach((category, index) => {
@@ -119,11 +146,26 @@ export function assignCategoryColorSlots(categories: BudgetCategoryInput[]): Bud
   return normalized;
 }
 
+function hasCategoryMetadataDrift(
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null; kind?: string | null }>,
+  normalized: BudgetCategoryDto[],
+): boolean {
+  if (categories.length !== normalized.length) return true;
+  return categories.some((category, index) => {
+    const next = normalized[index];
+    if (!next) return true;
+    if (category.id !== next.id || category.name !== next.name || category.percent !== next.percent) return true;
+    const colorSlot = normalizeColorSlot(category.colorSlot);
+    if (!colorSlot || colorSlot !== next.colorSlot) return true;
+    return !isBudgetCategoryKind(category.kind);
+  });
+}
+
 function toBudgetDto(budget: {
   accountId: { toString(): string };
   month: string;
   totalBudget: number;
-  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null }>;
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null; kind?: string | null }>;
 }): MonthBudgetDto {
   const categories = assignCategoryColorSlots(
     budget.categories.map((c) => ({
@@ -131,6 +173,7 @@ function toBudgetDto(budget: {
       name: c.name,
       percent: c.percent,
       colorSlot: c.colorSlot,
+      kind: normalizeCategoryKind(c.kind, c.name),
     })),
   );
 
@@ -144,7 +187,7 @@ function toBudgetDto(budget: {
 }
 
 export function validateBudgetPercentages(
-  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null }>,
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null; kind?: string | null }>,
   tolerance = BUDGET_TOLERANCE,
 ): void {
   const total = categories.reduce((sum, c) => sum + c.percent, 0);
@@ -167,7 +210,7 @@ export function validateBudgetPercentages(
 }
 
 export function isBudgetReady(
-  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null }>,
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null; kind?: string | null }>,
   tolerance = BUDGET_TOLERANCE,
 ): boolean {
   if (categories.length === 0) {
@@ -225,6 +268,7 @@ export function getBudgetTemplates(): BudgetTemplateDto[] {
       name: category.name,
       percent: category.percent,
       colorSlot: category.colorSlot,
+      kind: normalizeCategoryKind(category.kind, category.name),
     })),
   }));
 }
@@ -237,12 +281,35 @@ export async function getBudget(accountId: string, month: string): Promise<Month
     return emptyBudget(accountId, month, totalBudget);
   }
 
-  if (Math.abs(budget.totalBudget - totalBudget) > BUDGET_TOLERANCE) {
+  const normalizedCategories = assignCategoryColorSlots(
+    budget.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      percent: category.percent,
+      colorSlot: category.colorSlot,
+      kind: normalizeCategoryKind(category.kind, category.name),
+    })),
+  );
+  const shouldPersistCategoryMetadata = hasCategoryMetadataDrift(budget.categories, normalizedCategories);
+  const shouldSyncTotal = Math.abs(budget.totalBudget - totalBudget) > BUDGET_TOLERANCE;
+
+  if (shouldSyncTotal) {
     budget.totalBudget = totalBudget;
+  }
+  if (shouldPersistCategoryMetadata) {
+    budget.set("categories", normalizedCategories);
+  }
+  if (shouldSyncTotal || shouldPersistCategoryMetadata) {
     await budget.save();
   }
 
-  return toBudgetDto(budget);
+  return {
+    accountId: budget.accountId.toString(),
+    month: budget.month,
+    totalBudget: budget.totalBudget,
+    categories: normalizedCategories,
+    isReady: isBudgetReady(normalizedCategories),
+  };
 }
 
 export async function saveBudget(
@@ -278,7 +345,7 @@ export async function saveBudget(
 export async function addCategory(
   accountId: string,
   month: string,
-  input: { name: string; percent: number },
+  input: { name: string; percent: number; kind?: BudgetCategoryKind | null },
   actorUserId: string,
 ): Promise<MonthBudgetDto> {
   const categoryId = newCategoryId();
@@ -296,6 +363,7 @@ export async function addCategory(
     name: category.name,
     percent: category.percent,
     colorSlot: category.colorSlot,
+    kind: normalizeCategoryKind(category.kind, category.name),
   }));
   const categoriesWithSlots = assignCategoryColorSlots([
     ...existingCategories,
@@ -303,6 +371,7 @@ export async function addCategory(
       id: categoryId,
       name: input.name,
       percent: input.percent,
+      kind: input.kind,
     },
   ]);
   budget.set("categories", categoriesWithSlots);
@@ -325,10 +394,18 @@ export async function removeCategory(
     return emptyBudget(accountId, month, totalBudget);
   }
 
-  budget.set(
-    "categories",
-    budget.categories.filter((c) => c.id !== categoryId),
+  const categoriesWithSlots = assignCategoryColorSlots(
+    budget.categories
+      .filter((c) => c.id !== categoryId)
+      .map((category) => ({
+        id: category.id,
+        name: category.name,
+        percent: category.percent,
+        colorSlot: category.colorSlot,
+        kind: normalizeCategoryKind(category.kind, category.name),
+      })),
   );
+  budget.set("categories", categoriesWithSlots);
   budget.userId = new Types.ObjectId(actorUserId);
   budget.totalBudget = await sumIncomeForMonth(accountId, month);
   await budget.save();
@@ -355,12 +432,15 @@ export async function copyBudgetFromMonth(
       $set: {
         userId: actorUserId,
         totalBudget,
-        categories: source.categories.map((c) => ({
-          id: c.id,
-          name: c.name,
-          percent: c.percent,
-          colorSlot: c.colorSlot,
-        })),
+        categories: assignCategoryColorSlots(
+          source.categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            percent: c.percent,
+            colorSlot: c.colorSlot,
+            kind: normalizeCategoryKind(c.kind, c.name),
+          })),
+        ),
       },
     },
     {

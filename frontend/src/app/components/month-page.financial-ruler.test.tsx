@@ -199,4 +199,130 @@ describe("MonthPage financial ruler states", () => {
     expect(await screen.findByText("Despesas · Casa")).toBeInTheDocument();
     expect(screen.getByText("Receitas")).toBeInTheDocument();
   });
+
+  test("navega para ecrã completo ao clicar em Ver todas no sheet", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 1200,
+      totalExpense: 120,
+      balance: 1080,
+      expenseTransactions: [
+        {
+          id: "tx1",
+          accountId: "acc1",
+          userId: "u1",
+          month: "2026-03",
+          date: "2026-03-01",
+          type: "expense",
+          origin: "manual",
+          description: "Continente",
+          amount: 120,
+          categoryId: "c1",
+          createdAt: "2026-03-01T00:00:00.000Z",
+          updatedAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+      incomeTransactions: [],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 1200,
+      categories: [{ id: "c1", name: "Casa", percent: 100 }],
+      isReady: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+          <Route path="/month/:month/category/:categoryId/movements" element={<div>Detalhe categoria</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Abrir detalhes de despesas da categoria Casa/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ver todas" }));
+    expect(await screen.findByText("Detalhe categoria")).toBeInTheDocument();
+  });
+
+  test("ordena categorias com expense primeiro e reserve no fim", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 1000,
+      totalExpense: 330,
+      balance: 670,
+      expenseTransactions: [
+        {
+          id: "tx_invest",
+          accountId: "acc1",
+          userId: "u1",
+          month: "2026-03",
+          date: "2026-03-01",
+          type: "expense",
+          origin: "manual",
+          description: "Transferência investimento",
+          amount: 200,
+          categoryId: "c_invest",
+          createdAt: "2026-03-01T00:00:00.000Z",
+          updatedAt: "2026-03-01T00:00:00.000Z",
+        },
+        {
+          id: "tx_desp",
+          accountId: "acc1",
+          userId: "u1",
+          month: "2026-03",
+          date: "2026-03-02",
+          type: "expense",
+          origin: "manual",
+          description: "Supermercado",
+          amount: 120,
+          categoryId: "c_desp",
+          createdAt: "2026-03-02T00:00:00.000Z",
+          updatedAt: "2026-03-02T00:00:00.000Z",
+        },
+        {
+          id: "tx_lazer",
+          accountId: "acc1",
+          userId: "u1",
+          month: "2026-03",
+          date: "2026-03-03",
+          type: "expense",
+          origin: "manual",
+          description: "Cinema",
+          amount: 10,
+          categoryId: "c_lazer",
+          createdAt: "2026-03-03T00:00:00.000Z",
+          updatedAt: "2026-03-03T00:00:00.000Z",
+        },
+      ],
+      incomeTransactions: [],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 1000,
+      categories: [
+        { id: "c_invest", name: "Investimento", percent: 20, kind: "reserve" },
+        { id: "c_desp", name: "Despesas", percent: 40, kind: "expense" },
+        { id: "c_poup", name: "Poupança", percent: 20, kind: "reserve" },
+        { id: "c_lazer", name: "Lazer", percent: 20, kind: "expense" },
+      ],
+      isReady: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const rows = await screen.findAllByRole("button", { name: /Abrir detalhes de despesas da categoria/i });
+    const labels = rows.map((row) => row.getAttribute("aria-label") ?? "");
+
+    expect(labels[0]).toContain("Despesas");
+    expect(labels[1]).toContain("Lazer");
+    expect(labels[2]).toContain("Investimento");
+    expect(labels[3]).toContain("Poupança");
+  });
 });

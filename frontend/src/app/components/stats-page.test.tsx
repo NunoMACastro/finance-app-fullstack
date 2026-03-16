@@ -106,6 +106,7 @@ describe("StatsPage", () => {
 
     await screen.findByText("Projeção Próximo Mês");
     expect(container.querySelector('[data-ui-v3-page="stats"]')).toBeInTheDocument();
+    expect(screen.getByText("A mostrar dados da conta ativa")).toBeInTheDocument();
 
     expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3);
     expect(screen.getByText("Confiança alta: 3 meses de dados usados.")).toBeInTheDocument();

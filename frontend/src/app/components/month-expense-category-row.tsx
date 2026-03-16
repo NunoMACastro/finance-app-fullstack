@@ -21,10 +21,12 @@ function getToneTextClass(tone: ExpenseCategoryTone): string {
   return "text-foreground";
 }
 
-function getToneBarClass(tone: ExpenseCategoryTone): string {
-  if (tone === "danger") return "bg-status-danger";
-  if (tone === "warning") return "bg-status-warning";
-  return "bg-primary";
+function getPrimaryShadeBarClass(progressPercent: number): string {
+  if (progressPercent >= 100) return "bg-brand-gradient";
+  if (progressPercent < 25) return "bg-primary-shade-1";
+  if (progressPercent < 50) return "bg-primary-shade-2";
+  if (progressPercent < 75) return "bg-primary-shade-3";
+  return "bg-primary-shade-4";
 }
 
 export function MonthExpenseCategoryRow({
@@ -39,6 +41,9 @@ export function MonthExpenseCategoryRow({
   dotClassName,
   onOpen,
 }: MonthExpenseCategoryRowProps) {
+  const clampedProgress = Math.max(0, Math.min(progressPercent, 100));
+  const fillClass = getPrimaryShadeBarClass(clampedProgress);
+
   return (
     <button
       type="button"
@@ -69,8 +74,8 @@ export function MonthExpenseCategoryRow({
 
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={`h-full rounded-full transition-[width] duration-500 ${getToneBarClass(tone)}`}
-          style={{ width: `${Math.max(0, Math.min(progressPercent, 100))}%` }}
+          className={`h-full rounded-full transition-[width] duration-500 ${fillClass}`}
+          style={{ width: `${clampedProgress}%` }}
         />
       </div>
     </button>

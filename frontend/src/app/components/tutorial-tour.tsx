@@ -43,16 +43,10 @@ const HEADER_TOUR_STEPS: TourStep[] = [
     description: "Fecha a sessão atual em segurança.",
   },
   {
-    id: "bottom-shared-actions",
-    selector: '[data-tour="bottom-shared-actions"]',
-    title: "Conta partilhada",
-    description: "Aqui encontras criar conta partilhada, entrar por código e gerir membros.",
-  },
-  {
     id: "bottom-profile-nav",
     selector: '[data-tour="bottom-profile-nav"]',
-    title: "Perfil",
-    description: "Acede ao perfil e às preferências através da navegação inferior.",
+    title: "Perfil e partilha",
+    description: "Acede ao perfil e abre a área de conta partilhada dentro de Perfil.",
   },
 ];
 
@@ -62,32 +56,32 @@ const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
     {
       id: "month-nav",
       selector: '[data-tour="month-budget-select"]',
-      title: "Navegação mensal",
-      description: "Usa as setas para avançar/retroceder e toca no mês ao centro para abrir a lista completa.",
+      title: "Mês em foco",
+      description: "Usa as setas para navegar e toca no mês ao centro para abrir a lista de meses.",
     },
     {
       id: "month-add",
       selector: '[data-tour="month-add-transaction"]',
       title: "Novo lançamento",
-      description: "Usa este botão para criar receitas e despesas manuais do mês selecionado.",
+      description: "Regista uma receita ou despesa manual no mês ativo.",
     },
     {
       id: "month-budget",
       selector: '[data-tour="month-budget-button"]',
-      title: "Criação de orçamento",
-      description: "Abre o editor de orçamento, aplica templates e define a distribuição por categorias.",
+      title: "Orçamento do mês",
+      description: "Cria ou edita o orçamento deste mês e ajusta a distribuição por categorias.",
     },
     {
       id: "month-tabs",
       selector: '[data-tour="month-view-tabs"]',
-      title: "Leitura por blocos",
-      description: "Nesta área tens primeiro as categorias de despesa e, logo abaixo, a lista compacta de receitas.",
+      title: "Movimentos do mês",
+      description: "Aqui vês primeiro as categorias de despesa e, abaixo, a lista compacta de receitas.",
     },
     {
       id: "month-categories",
       selector: '[data-tour="month-categories"]',
-      title: "Categorias do orçamento",
-      description: "Cada categoria mostra o valor alocado, gasto atual e o restante disponível.",
+      title: "Categorias de despesa",
+      description: "Cada linha mostra gasto, limite e restante. Toca numa categoria para ver as saídas.",
     },
   ],
   stats: [
@@ -120,20 +114,39 @@ function clamp(value: number, min: number, max: number): number {
 export function TutorialTour({
   open,
   scope,
+  showAccountSelectStep = true,
   onClose,
 }: {
   open: boolean;
   scope: TourScope;
+  showAccountSelectStep?: boolean;
   onClose: (reason: "done" | "skip") => void;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
-  const steps = TOUR_STEPS_BY_SCOPE[scope];
-  const step = steps[stepIndex];
+  const steps = useMemo(
+    () => {
+      const baseSteps = TOUR_STEPS_BY_SCOPE[scope].filter(
+        (candidate) => showAccountSelectStep || candidate.id !== "header-account-select",
+      );
+      if (!open) return baseSteps;
+
+      const availableSteps = baseSteps.filter((candidate) => {
+        const target = document.querySelector(candidate.selector);
+        return target instanceof HTMLElement;
+      });
+
+      // Fallback para evitar lista vazia em edge-cases de timing de render.
+      return availableSteps.length > 0 ? availableSteps : baseSteps;
+    },
+    [scope, showAccountSelectStep, open],
+  );
+  const currentStepIndex = Math.min(stepIndex, Math.max(steps.length - 1, 0));
+  const step = steps[currentStepIndex];
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !step) return;
     setStepIndex(0);
     setTargetRect(null);
   }, [open, scope]);
@@ -141,7 +154,7 @@ export function TutorialTour({
   useEffect(() => {
     if (!open) return;
     setTargetRect(null);
-  }, [open, step.id]);
+  }, [open, step?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -196,7 +209,7 @@ export function TutorialTour({
       const topLimit = 76;
       const bottomLimit = window.innerHeight - 24;
       const isVisible = rect.top >= topLimit && rect.bottom <= bottomLimit;
-      if (!isVisible) {
+      if (!isVisible && typeof targetElement.scrollIntoView === "function") {
         targetElement.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
       }
     };
@@ -229,7 +242,7 @@ export function TutorialTour({
       window.removeEventListener("scroll", scheduleRefresh, true);
       document.removeEventListener("transitionend", scheduleRefresh, true);
     };
-  }, [open, step.selector]);
+  }, [open, step, step?.selector]);
 
   const cardPosition = useMemo(() => {
     if (!targetRect) return null;
@@ -250,9 +263,9 @@ export function TutorialTour({
     return { top, left };
   }, [targetRect]);
 
-  if (!open) return null;
+  if (!open || !step) return null;
 
-  const isLast = stepIndex === steps.length - 1;
+  const isLast = currentStepIndex === steps.length - 1;
 
   return (
     <AnimatePresence>
@@ -306,7 +319,7 @@ export function TutorialTour({
               transition={{ duration: 0.24, ease: "easeOut" }}
             >
               <p className="text-[11px] text-primary mb-1">
-                Passo {stepIndex + 1} de {steps.length}
+                Passo {currentStepIndex + 1} de {steps.length}
               </p>
               <h3 className="text-sm text-foreground mb-1">{step.title}</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">{step.description}</p>
@@ -318,7 +331,7 @@ export function TutorialTour({
                     variant="outline"
                     className="rounded-xl"
                     onClick={() => setStepIndex((i) => Math.max(i - 1, 0))}
-                    disabled={stepIndex === 0}
+                    disabled={currentStepIndex === 0}
                   >
                     Anterior
                   </Button>
