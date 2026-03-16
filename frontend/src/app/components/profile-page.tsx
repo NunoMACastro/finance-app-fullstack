@@ -68,7 +68,7 @@ export function ProfilePage() {
     removeMember,
     leaveAccount,
   } = useAccount();
-  const { palette, setPalette, isSaving: themeSaving } = useThemePreferences();
+  const { theme, setTheme, isSaving: themeSaving } = useThemePreferences();
 
   const [name, setName] = useState(user?.name ?? "");
   const [currency, setCurrency] = useState(user?.currency ?? "EUR");
@@ -168,7 +168,7 @@ export function ProfilePage() {
   const visibleClass = (tab: typeof activeTab) => (activeTab === tab ? "" : "hidden");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 pb-6" data-ui-v3-page="profile">
       <div className="flex items-center justify-between">
         <Button variant="outline" className="rounded-xl" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -187,7 +187,7 @@ export function ProfilePage() {
         </TabsList>
       </Tabs>
 
-      <Card className={`border-border shadow-sm ${visibleClass("account")}`}>
+      <Card className={`border-border ${visibleClass("account")}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <UserCog className="w-4 h-4" />
@@ -267,7 +267,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("security")}`}>
+      <Card className={`border-border ${visibleClass("security")}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Shield className="w-4 h-4" />
@@ -406,7 +406,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("preferences")}`}>
+      <Card className={`border-border ${visibleClass("preferences")}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Palette className="w-4 h-4" />
@@ -416,12 +416,12 @@ export function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Paleta do tema</label>
+            <label className="text-xs text-muted-foreground">Tema</label>
             <select
-              value={palette}
+              value={theme}
               className="h-10 w-full rounded-xl border border-border bg-input-background px-3 text-sm"
               onChange={(event) => {
-                void setPalette(event.target.value as ThemePalette);
+                void setTheme(event.target.value as ThemePalette);
               }}
               disabled={themeSaving}
             >
@@ -478,7 +478,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("privacy")}`}>
+      <Card className={`border-border ${visibleClass("privacy")}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Download className="w-4 h-4" />
@@ -548,7 +548,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className={`border-border shadow-sm ${visibleClass("shared")}`}>
+      <Card className={`border-border ${visibleClass("shared")}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="w-4 h-4" />

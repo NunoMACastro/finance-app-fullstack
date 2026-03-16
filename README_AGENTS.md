@@ -63,7 +63,11 @@ Ao criar/editar/apagar income:
 
 - Nao remover injecao de `X-Account-Id` no `http-client`.
 - Nao regressar para mock por default (`VITE_USE_MOCK` default deve continuar `false`).
-- UI usa tokens semanticos puros (`theme.css`), sem classes de paleta hardcoded.
+- UI usa tokens semanticos puros (`theme.css` base + `styles/themes/*.css`), sem classes de paleta hardcoded.
+- Mudancas de tema exigem contrato `styles/themes/_template.css` consistente em todos os temas.
+- `theme.css` nao pode conter cores literais.
+- `dark:` e proibido no frontend.
+- `npm run check-theme-contract` e obrigatorio antes de PR.
 - `npm run check:tokens` deve permanecer verde (incluido no lint/CI).
 - Tutorial auto apenas quando `tutorialSeenAt === null`.
 - Tutorial por pagina, sem forcar navegacao de rota.
@@ -91,6 +95,7 @@ npm run migrate:accounts
 cd frontend
 npm run dev
 npm run typecheck
+npm run check-theme-contract
 npm run check:tokens
 npm run lint
 npm run test
@@ -99,6 +104,7 @@ npm run test
 ## 9) Boas praticas para mudancas
 
 - Alterar contratos publicos so com update de docs e tipos frontend.
+- Mudancas de UI devem cumprir `docs/frontend/ui-v3-spec.md`; novas regras visuais exigem update da spec + README relevante.
 - Preferir testes de integracao para regras cross-module.
 - Ao mexer em roles/permissoes, validar matrix owner/editor/viewer.
 - Ao mexer em datas/mes, validar fronteiras UTC.

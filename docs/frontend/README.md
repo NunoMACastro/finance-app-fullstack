@@ -16,7 +16,7 @@ UI mobile-first para:
 - autenticacao,
 - gestao mensal (orcamento + lancamentos + recorrencias),
 - gestao de categorias de receita,
-- stats por periodo,
+- stats por periodo (com projecao 3M/6M),
 - contas pessoais e partilhadas,
 - tutorial guiado contextual.
 
@@ -31,8 +31,24 @@ UI mobile-first para:
 
 ## Design System
 
-- Tokens e regras semânticas: [`./design-tokens.md`](./design-tokens.md)
-- Guardrail automático: `npm run check:tokens` (incluído em `npm run lint` e CI)
+- Tokens e regras semanticas: [`./design-tokens.md`](./design-tokens.md)
+- Especificacao de estrutura visual v3: [`./ui-v3-spec.md`](./ui-v3-spec.md)
+- Guardrails:
+  - `npm run check-theme-contract`
+  - `npm run check:tokens`
+
+Padrao auth v3:
+- login/registo sem tabs, com hero de gradiente + separador curvo
+- corpo flat sem card (ver regras em [`./ui-v3-spec.md`](./ui-v3-spec.md))
+
+## Theming architecture
+
+- `theme.css` e apenas base/contrato semantico (sem cores literais).
+- Cada tema runtime vive em `src/styles/themes/<id>.css`.
+- O contrato completo `--t-*` esta em `src/styles/themes/_template.css`.
+- O runtime aplica `data-theme="<id>"` no `documentElement`.
+- IDs de tema oficiais: `brisa`, `calma`, `aurora`, `terra`.
+- Nao existe modo dark/light separado para o utilizador.
 
 ## Providers globais
 
@@ -43,8 +59,9 @@ UI mobile-first para:
   - sessions/export/delete account
   - toggle de visibilidade de valores
 - `ThemePreferencesProvider`
-  - aplica paleta visual (`data-theme-palette`)
+  - aplica tema visual (`data-theme`)
   - persiste preferencia de tema
+  - normaliza aliases legados para IDs atuais
 - `AccountProvider`
   - lista de contas
   - conta ativa e role
@@ -54,9 +71,10 @@ UI mobile-first para:
 
 1. App arranca e verifica maintenance mode.
 2. AuthProvider tenta reidratacao de sessao.
-3. Se autenticado, AccountProvider resolve contas e conta ativa.
-4. Router renderiza `MonthPage`, `StatsPage`, `BudgetEditorPage` ou `ProfilePage`.
-5. Todas as chamadas autenticadas injetam `Authorization` e `X-Account-Id`.
+3. ThemePreferencesProvider aplica o tema ativo no `documentElement`.
+4. Se autenticado, AccountProvider resolve contas e conta ativa.
+5. Router renderiza `MonthPage`, `StatsPage`, `BudgetEditorPage` ou `ProfilePage`.
+6. Todas as chamadas autenticadas injetam `Authorization` e `X-Account-Id`.
 
 ## Comportamentos de UX importantes
 

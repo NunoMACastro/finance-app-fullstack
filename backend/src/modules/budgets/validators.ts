@@ -20,6 +20,7 @@ export const budgetCategorySchema = z.object({
   id: z.string().trim().min(1),
   name: z.string().trim().min(1).max(120),
   percent: z.number().min(0).max(100),
+  colorSlot: z.number().int().min(1).max(9).optional(),
 });
 
 export const saveBudgetSchema = z.object({

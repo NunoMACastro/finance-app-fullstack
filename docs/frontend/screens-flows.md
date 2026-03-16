@@ -5,8 +5,15 @@
 Entrada quando nao autenticado.
 
 Fluxos:
-- login
-- registo
+- login (default)
+- registo via link textual no login
+- retorno para login via link textual no registo
+
+Estrutura visual:
+- topo (hero) com gradiente do tema + logo/nome centrados
+- separador curvo estatico entre hero e corpo
+- corpo flat sem cards/sombras
+- patch notes no fundo da pagina (quando visiveis), em login e registo
 
 Acoes:
 - sucesso -> guarda tokens e profile
@@ -16,25 +23,26 @@ Acoes:
 
 Elementos:
 - dropdown de conta ativa
-- icone `+` para criar orcamento partilhado
-- icone para entrar por codigo
 - toggle para mostrar/ocultar valores (session override)
 - badge de perfil
-- logout
+- botao de overflow `...` (acoes rapidas)
 - botao tutorial
-- botao de membros (apenas owner em conta shared)
+- menu de perfil (perfil + logout)
 
-Dialogs:
-- criar conta partilhada
-- entrar por codigo
-- gerir membros (owner)
+Comportamento:
+- em mobile, o overflow abre `bottom sheet` com:
+  - criar conta partilhada
+  - entrar por codigo
+  - gerir membros (owner)
+  - tutorial
+- em desktop/tablet, o overflow usa dropdown com as mesmas acoes.
 
 ## 3) Month page
 
 ### Fluxo de carregamento
 1. calcula mes ativo
 2. chama em paralelo resumo + budget + categorias de receita
-3. renderiza cards, listas e progresso
+3. renderiza hero de orcamento, regua financeira do mes, categorias flat de despesa e receitas compactas
 
 ### Fluxo de novo lancamento
 1. user toca `Novo lancamento`
@@ -63,11 +71,18 @@ Dialogs:
 - criar/editar/apagar regra recorrente
 - gerar no mes atual
 
+### Fluxo de categorias de despesa (Month Financial Stack)
+1. utilizador toca numa linha de categoria
+2. app abre `bottom sheet` com saídas da categoria (ordem cronológica)
+3. se `canWriteFinancial=true`, lançamentos manuais podem ser removidos
+4. fechar sheet regressa ao mesmo ponto da MonthPage
+
 ### Empty states e estados de erro
-- loading state com spinner
-- erro de fetch com CTA `Tentar novamente`
+- loading state com skeletons (inclui a regua financeira para reduzir layout shift)
+- erro de fetch com mensagem curta + CTA `Tentar novamente`
 - sem budget pronto:
   - card CTA para criar orcamento
+  - regua financeira mostra estado `Orcamento por definir` (sem `€/dia` calculado)
   - bloqueio de acoes de escrita manual
 - viewer mode:
   - aviso de modo leitura
@@ -103,7 +118,7 @@ Secoes:
   - revogar sessao individual
   - revogar todas as sessoes
 - Preferencias:
-  - paleta de tema (`brisa|calma|aurora|terra`)
+  - tema (`brisa|calma|aurora|terra`)
   - ocultar valores por defeito
   - reset tutorial
 - Dados e privacidade:

@@ -506,11 +506,13 @@ Response `200`:
 
 Requer auth + account context.
 
-### GET `/stats/semester?endingMonth=YYYY-MM`
-`endingMonth` opcional.
+### GET `/stats/semester?endingMonth=YYYY-MM&forecastWindow=3|6`
+- `endingMonth` opcional.
+- `forecastWindow` opcional (`3` por default).
 
-### GET `/stats/year?year=YYYY`
-`year` opcional.
+### GET `/stats/year?year=YYYY&forecastWindow=3|6`
+- `year` opcional.
+- `forecastWindow` opcional (`3` por default).
 
 Response `200` (`StatsSnapshot`):
 ```json
@@ -546,7 +548,10 @@ Response `200` (`StatsSnapshot`):
   "forecast": {
     "projectedIncome": 2200,
     "projectedExpense": 1500,
-    "projectedBalance": 700
+    "projectedBalance": 700,
+    "windowMonths": 3,
+    "sampleSize": 3,
+    "confidence": "high"
   }
 }
 ```

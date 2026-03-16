@@ -121,9 +121,14 @@ describe("stats integration", () => {
     const statsResB = await request(app)
       .get("/api/v1/stats/semester")
       .set("Authorization", `Bearer ${accessToken}`);
+    const statsResForecastWindow = await request(app)
+      .get("/api/v1/stats/semester")
+      .query({ forecastWindow: 6 })
+      .set("Authorization", `Bearer ${accessToken}`);
 
     expect(statsResA.status).toBe(200);
     expect(statsResB.status).toBe(200);
+    expect(statsResForecastWindow.status).toBe(200);
 
     expect(statsResA.body.categorySeries).toEqual(statsResB.body.categorySeries);
     expect(statsResA.body.incomeByCategory).toEqual(statsResB.body.incomeByCategory);
@@ -133,6 +138,11 @@ describe("stats integration", () => {
     expect(Array.isArray(statsResA.body.incomeByCategory)).toBe(true);
     expect(Array.isArray(statsResA.body.incomeCategorySeries)).toBe(true);
     expect(statsResA.body.incomeByCategory.length).toBeGreaterThanOrEqual(1);
+    expect(statsResForecastWindow.body.forecast).toMatchObject({
+      windowMonths: 6,
+      sampleSize: 6,
+      confidence: "high",
+    });
 
     for (const series of statsResA.body.categorySeries as Array<{
       categoryId: string;

@@ -1,3 +1,7 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+@import './themes/brisa.css';
+@import './themes/calma.css';
+@import './themes/aurora.css';
+@import './themes/terra.css';

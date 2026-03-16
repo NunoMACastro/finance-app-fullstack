@@ -37,6 +37,10 @@ import {
   mockTransactions,
   mockUser,
 } from "./mock-data";
+import {
+  assignCategoryColorSlots,
+  nextCategoryColorSlot,
+} from "./category-color-slot";
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
@@ -45,30 +49,30 @@ const MOCK_BUDGET_TEMPLATES: BudgetTemplate[] = [
     id: "conservador",
     name: "Conservador",
     categories: [
-      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50 },
-      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10 },
-      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20 },
-      { id: "tpl_conservador_poupanca", name: "Poupanca", percent: 20 },
+      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50, colorSlot: 1 },
+      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
+      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20, colorSlot: 3 },
+      { id: "tpl_conservador_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
     ],
   },
   {
     id: "equilibrado",
     name: "Equilibrado",
     categories: [
-      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60 },
-      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5 },
-      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15 },
-      { id: "tpl_equilibrado_poupanca", name: "Poupanca", percent: 20 },
+      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60, colorSlot: 1 },
+      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5, colorSlot: 2 },
+      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
+      { id: "tpl_equilibrado_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
     ],
   },
   {
     id: "agressivo",
     name: "Agressivo",
     categories: [
-      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70 },
-      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10 },
-      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15 },
-      { id: "tpl_agressivo_poupanca", name: "Poupanca", percent: 5 },
+      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70, colorSlot: 1 },
+      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
+      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
+      { id: "tpl_agressivo_poupanca", name: "Poupança", percent: 5, colorSlot: 4 },
     ],
   },
 ];
@@ -186,7 +190,7 @@ function sumMockIncomeForMonth(accountId: string, month: string): number {
 }
 
 function normaliseMockBudget(accountId: string, month: string, budget?: MonthBudget): MonthBudget {
-  const categories = clone(budget?.categories ?? []);
+  const categories = assignCategoryColorSlots(clone(budget?.categories ?? []));
   return {
     accountId,
     month,
@@ -928,7 +932,7 @@ export const budgetApi = {
         accountId,
         month,
         totalBudget: dto.totalBudget,
-        categories: dto.categories,
+        categories: assignCategoryColorSlots(dto.categories),
         isReady: false,
       });
       store[month] = clone(budget);
@@ -944,7 +948,12 @@ export const budgetApi = {
       const accountId = mockAccountId();
       const store = ensureBudgetStore(accountId);
       const budget = store[month] ?? normaliseMockBudget(accountId, month);
-      budget.categories.push({ ...dto, id: `cat${_mockNextCatId++}` });
+      const categoryId = `cat${_mockNextCatId++}`;
+      budget.categories.push({
+        ...dto,
+        id: categoryId,
+        colorSlot: nextCategoryColorSlot(budget.categories, categoryId),
+      });
       store[month] = normaliseMockBudget(accountId, month, budget);
       return clone(store[month]);
     }
@@ -991,26 +1000,30 @@ export const budgetApi = {
 };
 
 export const statsApi = {
-  async getSemester(endingMonth?: string): Promise<StatsSnapshot> {
+  async getSemester(endingMonth?: string, forecastWindow: 3 | 6 = 3): Promise<StatsSnapshot> {
     if (config.useMock) {
       await delay(350);
-      void endingMonth;
-      return getStatsSnapshot("semester");
+      return getStatsSnapshot("semester", forecastWindow);
     }
     const { data } = await httpClient.get<StatsSnapshot>("/stats/semester", {
-      params: endingMonth ? { endingMonth } : undefined,
+      params: {
+        ...(endingMonth ? { endingMonth } : {}),
+        forecastWindow,
+      },
     });
     return data;
   },
 
-  async getYear(year?: number): Promise<StatsSnapshot> {
+  async getYear(year?: number, forecastWindow: 3 | 6 = 3): Promise<StatsSnapshot> {
     if (config.useMock) {
       await delay(350);
-      void year;
-      return getStatsSnapshot("year");
+      return getStatsSnapshot("year", forecastWindow);
     }
     const { data } = await httpClient.get<StatsSnapshot>("/stats/year", {
-      params: year ? { year } : undefined,
+      params: {
+        ...(year ? { year } : {}),
+        forecastWindow,
+      },
     });
     return data;
   },

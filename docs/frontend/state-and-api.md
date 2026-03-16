@@ -13,6 +13,11 @@ Contem contratos espelho do backend para:
 - recurring rules
 - stats (`categorySeries` incluido)
 
+Notas de budget:
+- `BudgetCategory` inclui `colorSlot` (1..9) para mapear categorias para slots de cor do tema.
+- o backend devolve `colorSlot` em `GET /budgets/:month` e templates; o frontend preserva esse campo em `budgetApi.save`.
+- compatibilidade: categorias antigas sem `colorSlot` recebem slot deterministico no backend (sem migracao manual obrigatoria).
+
 ## API layer
 
 Arquivo: `app/lib/api.ts`
@@ -94,15 +99,18 @@ Comportamentos:
 Arquivo: `app/lib/theme-preferences.tsx`
 
 Estado:
-- `palette`
+- `theme`
 - `isSaving`
 
 Acoes:
-- `setPalette`
+- `setTheme`
 
 Comportamentos:
-- aplica `data-theme-palette` no `documentElement`
+- aplica `data-theme` no `documentElement`
 - persiste fallback local quando user nao autenticado
+- semantica funcional: tema unico (sem estado dark/light separado)
+- normaliza aliases legados (`ocean/forest/sunset/graphite`) para IDs atuais
+- compatibilidade de dados: preferencia continua no campo `preferences.themePalette`
 
 ## Account context
 

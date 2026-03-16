@@ -20,13 +20,12 @@ Dev server default: `http://localhost:5173`
 
 Lidas em `src/app/lib/config.ts`.
 
+Nota: a app corre apenas em `UI v2` (o fallback `v1` foi removido).
+As regras de estrutura visual e coerencia estao em `docs/frontend/ui-v3-spec.md`.
+
 - `VITE_USE_MOCK`
   - `false` por default
   - `true` ativa dados simulados em `app/lib/api.ts`
-- `VITE_UI_VERSION`
-  - `v1` por default
-  - `v2` ativa o layout V2 (shell/paginas migradas)
-  - override para QA: `?ui=v1` ou `?ui=v2` (persistido em `sessionStorage`)
 - `VITE_API_BASE_URL`
   - default `/api/v1`
   - local recomendado: `http://localhost:3001/api/v1`
@@ -41,7 +40,6 @@ Exemplo `.env`:
 
 ```env
 VITE_USE_MOCK=false
-VITE_UI_VERSION=v1
 VITE_API_BASE_URL=http://localhost:3001/api/v1
 VITE_MAINTENANCE_MODE=false
 VITE_MAINTENANCE_TITLE=Estamos em manutencao

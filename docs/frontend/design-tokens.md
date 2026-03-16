@@ -1,70 +1,62 @@
-# Design Tokens (Semântico Puro)
+# Design Tokens (Theme v3)
 
 ## Objetivo
 
-A UI deve usar **apenas tokens semânticos**.  
-Não é permitido usar paletas diretas (`sky-*`, `red-*`, `slate-*`, etc.) nem cores literais (`#`, `rgb`, `hsl`) fora de `theme.css`.
+A UI usa apenas tokens semanticos.
+Nao e permitido usar:
+- paletas diretas (`sky-*`, `red-*`, `slate-*`, etc.),
+- cores literais (`#`, `rgb`, `hsl`) fora de `src/styles/themes/*.css`,
+- variantes `dark:` em `src/`.
 
-## Fonte única de verdade
+## Arquitetura oficial
 
+### 1) Base sem cores
 - Ficheiro: `frontend/src/styles/theme.css`
-- Camadas:
-  - **Core tokens**: palette/base internos (`--core-*`)
-  - **Semantic tokens**: superfície, texto, estado, foco (`--background`, `--success`, etc.)
-  - **Dimension tokens**: radius, spacing, shadows (`--dim-*`)
-  - **Utilities semânticas**: gradientes e estados (`.bg-brand-gradient`, `.text-status-success`, etc.)
+- Papel: contrato semantico + utilitarios semanticos + `@theme inline`.
+- Regra: `theme.css` MUST ter zero cores literais.
 
-## Paletas de tema
+### 2) Um ficheiro por tema
+- Diretoria: `frontend/src/styles/themes/`
+- Ficheiros runtime:
+  - `brisa.css`
+  - `calma.css`
+  - `aurora.css`
+  - `terra.css`
+- Template de contrato:
+  - `_template.css`
+- Regra: cada tema MUST definir exatamente o conjunto `--t-*` do template.
 
-- A paleta ativa e aplicada com `data-theme-palette` no `documentElement`.
-- Opcoes suportadas:
-  - `brisa` (default)
-  - `calma`
-  - `aurora`
-  - `terra`
-- Cada paleta altera apenas `--core-brand-1..4`; os tokens semanticos continuam a ser a API publica de estilo.
+### 3) Ativacao de tema
+- O tema ativo e aplicado com `data-theme="<id>"` no `documentElement`.
+- IDs suportados: `brisa`, `calma`, `aurora`, `terra`.
+- Nao existe estado funcional separado de dark/light.
 
-## Convenções
+## Contrato de tokens
 
-- Preferir classes semânticas Tailwind:
-  - `bg-card`, `text-foreground`, `border-border`, `text-status-success`, `bg-warning-soft`
-- Para gradientes e superfícies especiais:
-  - `bg-page-gradient`, `bg-brand-gradient`, `bg-info-gradient`
-- Para categorias:
-  - `bg-category-gradient-*`, `bg-category-solid-*`, `bg-category-soft-*`, `text-category-*`
+- Prefixo obrigatorio: `--t-*` nos ficheiros de tema.
+- `theme.css` mapeia `--t-*` para tokens semanticos publicos (`--background`, `--foreground`, etc.).
+- Componentes devem consumir apenas tokens semanticos/classes semanticas.
+- Cores de categoria usam slots semanticos `1..9`:
+  - base: `--t-category-1..9`
+  - derivados: `--t-category-gradient-*`, `--t-category-soft-*`, `--t-category-text-*`
+  - binding funcional: `BudgetCategory.colorSlot` (API) -> classes `bg-category-*` / `text-category-*`.
 
-## Estados e feedback
+## Guardrails automaticos
 
-- Sucesso: `text-status-success`, `bg-success-soft`
-- Aviso: `text-status-warning`, `bg-warning-soft`
-- Erro: `text-status-danger`, `bg-danger-soft`
-- Informação: `text-status-info`, `bg-info-soft`
+- `npm run check-theme-contract`
+  - valida contrato do template em todos os temas,
+  - falha se houver tokens em falta ou extra,
+  - falha se existir `dark:` em `src/`.
+- `npm run check:tokens`
+  - falha se existirem cores hardcoded fora dos ficheiros de tema.
 
-## Do / Don’t
+## Do / Don't
 
 - Do:
-  - adicionar novo token em `theme.css` quando faltar uma intenção semântica.
-  - reutilizar utilitários existentes antes de criar novos.
-  - manter paridade visual com o estilo atual.
-- Don’t:
-  - usar classes tipo `text-sky-500`, `bg-rose-50`, `border-slate-200`.
-  - usar `#hex`, `rgb(...)`, `hsl(...)` em componentes.
-  - introduzir estilos inline de cor em JSX.
-
-## Guardrail automático
-
-- Script: `frontend/scripts/check-tokens.mjs`
-- Comando: `npm run check:tokens`
-- CI: executado no workflow de frontend.
-
-O script falha se encontrar:
-- utilitários de cor hardcoded,
-- cores literais fora de `theme.css`.
-
-## Evolução de tokens (playbook)
-
-1. Definir token novo em `theme.css` (core + semantic se necessário).
-2. Expor via `@theme inline` e/ou utilitário semântico.
-3. Migrar uso no componente.
-4. Executar `npm run lint` e `npm run check:tokens`.
-5. Atualizar esta documentação se o padrão mudar.
+  - adicionar novo token primeiro em `_template.css` e em todos os temas,
+  - mapear o novo token em `theme.css` quando for semantico publico,
+  - manter aliases legados normalizados para IDs atuais no provider.
+- Don't:
+  - criar estilos de cor inline em JSX,
+  - introduzir `dark:`,
+  - editar apenas um tema quando o contrato mudar.

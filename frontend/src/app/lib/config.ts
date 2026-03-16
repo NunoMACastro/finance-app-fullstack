@@ -1,5 +1,3 @@
-import { type UiVersion, normalizeUiVersion } from "./ui-version";
-
 /**
  * Application Configuration
  *
@@ -14,13 +12,10 @@ import { type UiVersion, normalizeUiVersion } from "./ui-version";
  * Environment variables (set in .env or .env.local):
  *   VITE_API_BASE_URL   → backend base URL (e.g. "http://localhost:3001/api/v1")
  *   VITE_USE_MOCK        → "true" | "false" (default: "false")
- *   VITE_UI_VERSION      → "v1" | "v2" (default: "v1")
  *   VITE_MAINTENANCE_MODE → "true" | "false" (default: "false")
  *   VITE_MAINTENANCE_TITLE → optional maintenance title
  *   VITE_MAINTENANCE_MESSAGE → optional maintenance message
  */
-
-const uiVersion = normalizeUiVersion(import.meta.env.VITE_UI_VERSION as string | undefined, "v1") as UiVersion;
 
 export const config = {
   /** When true, all API calls return mock data. Set to false to hit the real backend. */
@@ -34,9 +29,6 @@ export const config = {
 
   /** Token refresh: how many ms before expiry to proactively refresh (0 = only on 401) */
   tokenRefreshMargin: 60_000,
-
-  /** UI version used by default at runtime; can be overridden with ?ui=v1|v2. */
-  uiVersion,
 
   /** When true, the app shows maintenance screen instead of normal UI. */
   maintenanceMode: (import.meta.env.VITE_MAINTENANCE_MODE ?? "false") === "true",

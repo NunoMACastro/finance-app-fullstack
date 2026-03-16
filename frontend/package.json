@@ -7,8 +7,9 @@
     "build": "vite build",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
+    "check-theme-contract": "node ./scripts/check-theme-contract.mjs",
     "check:tokens": "node ./scripts/check-tokens.mjs",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" && npm run check:tokens",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" && npm run check-theme-contract && npm run check:tokens",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -54,7 +55,6 @@
     "input-otp": "1.4.2",
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
-    "next-themes": "0.4.6",
     "react-day-picker": "8.10.1",
     "react-dnd": "16.0.1",
     "react-dnd-html5-backend": "16.0.1",
@@ -72,6 +72,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "4.1.12",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.3.0",
@@ -79,7 +80,6 @@
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
     "@typescript-eslint/parser": "^8.41.0",
-    "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^5.2.0",

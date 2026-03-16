@@ -16,13 +16,13 @@ const HEADER_TOUR_STEPS: TourStep[] = [
     id: "header-account-select",
     selector: '[data-tour="header-account-select"]',
     title: "Conta ativa",
-    description: "Este dropdown troca entre o teu espaço pessoal e os orçamentos partilhados.",
+    description: "Este seletor muda entre a conta pessoal e os orçamentos partilhados.",
   },
   {
-    id: "header-actions-menu",
-    selector: '[data-tour="header-actions-menu"]',
-    title: "Ações rápidas",
-    description: "Aqui tens criar conta partilhada, entrar por código, gerir membros e ajuda.",
+    id: "header-icons",
+    selector: '[data-tour="header-icon-actions"]',
+    title: "Ações do topo",
+    description: "No topo tens os atalhos principais: privacidade, tutorial e sair.",
   },
   {
     id: "header-visibility-toggle",
@@ -31,16 +31,28 @@ const HEADER_TOUR_STEPS: TourStep[] = [
     description: "Alterna mostrar/ocultar montantes sem alterar a tua preferência guardada.",
   },
   {
-    id: "header-profile-badge",
-    selector: '[data-tour="header-profile-badge"]',
-    title: "Perfil",
-    description: "Este badge mostra o teu utilizador atual.",
+    id: "header-help",
+    selector: '[data-tour="header-help"]',
+    title: "Ajuda",
+    description: "Abre o tutorial guiado com os pontos essenciais deste ecrã.",
   },
   {
     id: "header-logout",
     selector: '[data-tour="header-logout"]',
-    title: "Sair",
-    description: "Termina a sessão e volta ao ecrã de autenticação.",
+    title: "Terminar sessão",
+    description: "Fecha a sessão atual em segurança.",
+  },
+  {
+    id: "bottom-shared-actions",
+    selector: '[data-tour="bottom-shared-actions"]',
+    title: "Conta partilhada",
+    description: "Aqui encontras criar conta partilhada, entrar por código e gerir membros.",
+  },
+  {
+    id: "bottom-profile-nav",
+    selector: '[data-tour="bottom-profile-nav"]',
+    title: "Perfil",
+    description: "Acede ao perfil e às preferências através da navegação inferior.",
   },
 ];
 
@@ -49,9 +61,9 @@ const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
     ...HEADER_TOUR_STEPS,
     {
       id: "month-nav",
-      selector: '[data-tour="month-nav"]',
+      selector: '[data-tour="month-budget-select"]',
       title: "Navegação mensal",
-      description: "Aqui mudas rapidamente entre meses para veres histórico ou voltares ao mês atual.",
+      description: "Usa as setas para avançar/retroceder e toca no mês ao centro para abrir a lista completa.",
     },
     {
       id: "month-add",
@@ -68,8 +80,8 @@ const TOUR_STEPS_BY_SCOPE: Record<TourScope, TourStep[]> = {
     {
       id: "month-tabs",
       selector: '[data-tour="month-view-tabs"]',
-      title: "Separação por tipo",
-      description: "Alterna entre vista de despesas e receitas para manter o controlo do fluxo mensal.",
+      title: "Leitura por blocos",
+      description: "Nesta área tens primeiro as categorias de despesa e, logo abaixo, a lista compacta de receitas.",
     },
     {
       id: "month-categories",

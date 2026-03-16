@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Progress } from "./ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +29,6 @@ import {
 } from "./ui/sheet";
 import { useIsMobile } from "./ui/use-mobile";
 import {
-  Wallet,
-  CalendarDays,
-  TrendingUp,
-  TrendingDown,
   Plus,
   Trash2,
   ArrowUpRight,
@@ -47,15 +43,12 @@ import {
   AlertTriangle,
   Banknote,
   Settings2,
-  Tag,
-  Percent,
-  Sparkles,
+  Lock,
 } from "lucide-react";
 import {
   transactionsApi,
   budgetApi,
   incomeCategoriesApi,
-  resolveIncomeCategoryName,
 } from "../lib/api";
 import { getErrorMessage } from "../lib/api-error";
 import { isApiError } from "../lib/http-client";
@@ -63,6 +56,7 @@ import { getAccountRoleLabel } from "../lib/account-role-label";
 import { useAccount } from "../lib/account-context";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency as formatCurrencyValue, formatDateShort, formatMonthLong } from "../lib/formatting";
+import { resolveCategoryColorSlot } from "../lib/category-color-slot";
 import type {
   MonthSummary,
   MonthBudget,
@@ -74,6 +68,9 @@ import { ConfirmActionDialog } from "./confirm-action-dialog";
 import { ActionRailV2 } from "./v2/action-rail-v2";
 import { EmptyStateV2 } from "./v2/empty-state-v2";
 import { SectionCardV2 } from "./v2/section-card-v2";
+import { MonthFinancialRuler } from "./month-financial-ruler";
+import { MonthExpenseCategoryRow } from "./month-expense-category-row";
+import { CategoryExpensesSheet } from "./category-expenses-sheet";
 
 function getDaysRemainingInMonth(monthKey: string): number {
   const [y, m] = monthKey.split("-");
@@ -90,24 +87,175 @@ function getDaysRemainingInMonth(monthKey: string): number {
   return 0;
 }
 
+function getDaysInMonth(monthKey: string): number {
+  const [y, m] = monthKey.split("-");
+  const year = Number.parseInt(y, 10);
+  const month = Number.parseInt(m, 10) - 1;
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function isNearZero(value: number): boolean {
+  return Math.abs(value) < 0.009;
+}
+
+function getDaysRemainingLabel(days: number): string {
+  return `${days} ${days === 1 ? "dia" : "dias"} restantes`;
+}
+
+type MonthRulerTone = "neutral" | "success" | "warning" | "danger";
+
+type MonthRulerReadyModel = {
+  tone: MonthRulerTone;
+  progressPercent: number;
+  dailyValue: number | null;
+  daysLabel: string;
+  statusText: string;
+  hint?: string;
+};
+
+function buildMonthRulerReadyModel({
+  monthKey,
+  totalBudget,
+  totalIncome,
+  totalExpense,
+  remaining,
+  daysLeft,
+}: {
+  monthKey: string;
+  totalBudget: number;
+  totalIncome: number;
+  totalExpense: number;
+  remaining: number;
+  daysLeft: number;
+}): MonthRulerReadyModel {
+  const progressPercent = totalBudget > 0
+    ? Math.max(0, Math.min((totalExpense / totalBudget) * 100, 100))
+    : 0;
+  const hasExceededBudget = remaining < -0.009 || (totalBudget > 0 && totalExpense > totalBudget + 0.009);
+
+  if (daysLeft <= 0) {
+    return {
+      tone: hasExceededBudget ? "danger" : "neutral",
+      progressPercent: hasExceededBudget ? 100 : progressPercent,
+      dailyValue: null,
+      daysLabel: "Mês fechado",
+      statusText: hasExceededBudget ? "Acima do orçamento" : "Mês fechado",
+    };
+  }
+
+  const daysLeftLabel = getDaysRemainingLabel(daysLeft);
+
+  if (hasExceededBudget) {
+    return {
+      tone: "danger",
+      progressPercent: 100,
+      dailyValue: 0,
+      daysLabel: daysLeftLabel,
+      statusText: "Acima do orçamento",
+    };
+  }
+
+  if (isNearZero(totalIncome) && isNearZero(totalExpense) && isNearZero(remaining)) {
+    return {
+      tone: "neutral",
+      progressPercent,
+      dailyValue: 0,
+      daysLabel: daysLeftLabel,
+      statusText: "À espera de movimentos",
+      hint: "Ainda sem atividade este mês",
+    };
+  }
+
+  if (totalIncome > 0.009 && isNearZero(totalExpense) && remaining > 0.009) {
+    return {
+      tone: "success",
+      progressPercent,
+      dailyValue: remaining / daysLeft,
+      daysLabel: daysLeftLabel,
+      statusText: "Boa margem neste momento",
+    };
+  }
+
+  const daysInMonth = getDaysInMonth(monthKey);
+  if (totalBudget > 0.009 && daysInMonth > 0) {
+    const expectedRemaining = totalBudget * (daysLeft / daysInMonth);
+    const tightThreshold = expectedRemaining * 0.75;
+    const comfortableThreshold = expectedRemaining * 1.2;
+    if (remaining <= tightThreshold) {
+      return {
+        tone: "warning",
+        progressPercent,
+        dailyValue: remaining / daysLeft,
+        daysLabel: daysLeftLabel,
+        statusText: "Ritmo apertado",
+      };
+    }
+    if (remaining >= comfortableThreshold) {
+      return {
+        tone: "success",
+        progressPercent,
+        dailyValue: remaining / daysLeft,
+        daysLabel: daysLeftLabel,
+        statusText: "Margem confortável",
+      };
+    }
+  }
+
+  return {
+    tone: "success",
+    progressPercent,
+    dailyValue: remaining / daysLeft,
+    daysLabel: daysLeftLabel,
+    statusText: "Dentro do orçamento",
+  };
+}
+
 const CATEGORY_COLORS = [
-  { text: "text-category-1", bar: "[&>div]:bg-category-solid-1", lightBg: "bg-category-soft-1", gradient: "bg-category-gradient-1" },
-  { text: "text-category-2", bar: "[&>div]:bg-category-solid-2", lightBg: "bg-category-soft-2", gradient: "bg-category-gradient-2" },
-  { text: "text-category-3", bar: "[&>div]:bg-category-solid-3", lightBg: "bg-category-soft-3", gradient: "bg-category-gradient-3" },
-  { text: "text-category-4", bar: "[&>div]:bg-category-solid-4", lightBg: "bg-category-soft-4", gradient: "bg-category-gradient-4" },
-  { text: "text-category-5", bar: "[&>div]:bg-category-solid-5", lightBg: "bg-category-soft-5", gradient: "bg-category-gradient-5" },
-  { text: "text-category-6", bar: "[&>div]:bg-category-solid-6", lightBg: "bg-category-soft-6", gradient: "bg-category-gradient-6" },
-  { text: "text-category-7", bar: "[&>div]:bg-category-solid-7", lightBg: "bg-category-soft-7", gradient: "bg-category-gradient-7" },
-  { text: "text-category-8", bar: "[&>div]:bg-category-solid-8", lightBg: "bg-category-soft-8", gradient: "bg-category-gradient-8" },
-  { text: "text-category-9", bar: "[&>div]:bg-category-solid-9", lightBg: "bg-category-soft-9", gradient: "bg-category-gradient-9" },
+  { text: "text-category-1", solid: "bg-category-solid-1", gradient: "bg-category-gradient-1" },
+  { text: "text-category-2", solid: "bg-category-solid-2", gradient: "bg-category-gradient-2" },
+  { text: "text-category-3", solid: "bg-category-solid-3", gradient: "bg-category-gradient-3" },
+  { text: "text-category-4", solid: "bg-category-solid-4", gradient: "bg-category-gradient-4" },
+  { text: "text-category-5", solid: "bg-category-solid-5", gradient: "bg-category-gradient-5" },
+  { text: "text-category-6", solid: "bg-category-solid-6", gradient: "bg-category-gradient-6" },
+  { text: "text-category-7", solid: "bg-category-solid-7", gradient: "bg-category-gradient-7" },
+  { text: "text-category-8", solid: "bg-category-solid-8", gradient: "bg-category-gradient-8" },
+  { text: "text-category-9", solid: "bg-category-solid-9", gradient: "bg-category-gradient-9" },
 ];
 
-function getCatColor(index: number) {
-  return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+function getCatColor(colorSlot?: number, fallbackIndex = 0) {
+  const resolvedSlot = colorSlot ?? ((fallbackIndex % CATEGORY_COLORS.length) + 1);
+  return CATEGORY_COLORS[(resolvedSlot - 1) % CATEGORY_COLORS.length];
 }
 
 function catEur(cat: BudgetCategory, totalBudget: number): number {
   return (cat.percent / 100) * totalBudget;
+}
+
+function hasRegisteredMonthInfo(monthBudget: MonthBudget): boolean {
+  return monthBudget.categories.length > 0 || Math.abs(monthBudget.totalBudget) > 0.009;
+}
+
+const MONTH_NAMES_PT = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+] as const;
+
+function formatMonthCompact(monthKey: string): string {
+  const [yearStr, monthStr] = monthKey.split("-");
+  const monthIndex = Number(monthStr) - 1;
+  const yearShort = yearStr.slice(-2);
+  const monthName = MONTH_NAMES_PT[monthIndex] ?? monthKey;
+  return `${monthName} / ${yearShort}`;
 }
 
 // ============================================================
@@ -119,11 +267,15 @@ export function MonthPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const now = new Date();
+  const minimumOffset = -now.getMonth();
   const initialMonthOffset = (() => {
     const monthParam = searchParams.get("month");
     if (!monthParam || !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) return 0;
     const [year, month] = monthParam.split("-").map(Number);
-    return (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+    const rawOffset = (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+    if (rawOffset > 0) return 0;
+    if (rawOffset < minimumOffset) return minimumOffset;
+    return rawOffset;
   })();
   const [monthOffset, setMonthOffset] = useState(initialMonthOffset);
   const [summary, setSummary] = useState<MonthSummary | null>(null);
@@ -131,11 +283,13 @@ export function MonthPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [expandedCat, setExpandedCat] = useState<string | null>(null);
-  const [viewTab, setViewTab] = useState<"expenses" | "income">("expenses");
+  const [activeExpenseCategoryId, setActiveExpenseCategoryId] = useState<string | null>(null);
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([]);
   const [showIncomeCategoriesDialog, setShowIncomeCategoriesDialog] = useState(false);
   const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [monthPickerLoading, setMonthPickerLoading] = useState(false);
+  const [monthAvailability, setMonthAvailability] = useState<Record<string, boolean>>({});
 
   const formatCurrency = useCallback(
     (val: number) => formatCurrencyValue(val, user, isAmountsHidden),
@@ -148,6 +302,12 @@ export function MonthPage() {
     const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   })();
+  const monthOptions = Array.from({ length: now.getMonth() + 1 }, (_, monthIndex) => {
+    const date = new Date(now.getFullYear(), monthIndex, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    return { value, label: getMonthLabel(value) };
+  });
+  const compactCurrentMonthLabel = formatMonthCompact(currentMonth);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -183,12 +343,72 @@ export function MonthPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
+    setMonthAvailability({});
+  }, [activeAccountId]);
+
+  useEffect(() => {
+    if (!budget) return;
+    setMonthAvailability((prev) => ({
+      ...prev,
+      [currentMonth]: hasRegisteredMonthInfo(budget),
+    }));
+  }, [budget, currentMonth]);
+
+  useEffect(() => {
     const queryMonth = searchParams.get("month");
     if (queryMonth === currentMonth) return;
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("month", currentMonth);
     setSearchParams(nextParams, { replace: true });
   }, [currentMonth, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!activeExpenseCategoryId) return;
+    if (budget?.categories.some((category) => category.id === activeExpenseCategoryId)) return;
+    setActiveExpenseCategoryId(null);
+  }, [activeExpenseCategoryId, budget]);
+
+  const openMonthPicker = async () => {
+    setMonthPickerOpen(true);
+    const hasAllStatuses = monthOptions.every((option) => monthAvailability[option.value] !== undefined);
+    if (hasAllStatuses) return;
+
+    setMonthPickerLoading(true);
+    const checks = await Promise.allSettled(
+      monthOptions.map(async (option) => {
+        const monthBudget = await budgetApi.get(option.value);
+        return [option.value, hasRegisteredMonthInfo(monthBudget)] as const;
+      }),
+    );
+
+    const nextAvailability: Record<string, boolean> = {};
+    for (const result of checks) {
+      if (result.status === "fulfilled") {
+        const [monthKey, hasInfo] = result.value;
+        nextAvailability[monthKey] = hasInfo;
+      }
+    }
+
+    setMonthAvailability((prev) => ({ ...prev, ...nextAvailability }));
+    setMonthPickerLoading(false);
+  };
+
+  const goToPreviousMonth = () => {
+    if (monthOffset <= minimumOffset) return;
+    setMonthOffset((prev) => prev - 1);
+  };
+
+  const goToNextMonth = () => {
+    if (monthOffset >= 0) return;
+    setMonthOffset((prev) => prev + 1);
+  };
+
+  const selectMonth = (monthKey: string) => {
+    const [year, month] = monthKey.split("-").map(Number);
+    const nextOffset = (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+    setMonthOffset(nextOffset);
+    setMonthPickerOpen(false);
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -213,60 +433,156 @@ export function MonthPage() {
   const totalSpent = summary?.totalExpense ?? 0;
   const remaining = totalBudget - totalSpent;
   const daysLeft = getDaysRemainingInMonth(currentMonth);
-  const dailyBudget = daysLeft > 0 ? remaining / daysLeft : 0;
-  const spentPercent = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0;
   const allocatedPct = budget?.categories.reduce((s, c) => s + c.percent, 0) ?? 0;
+  const rulerReadyModel = buildMonthRulerReadyModel({
+    monthKey: currentMonth,
+    totalBudget,
+    totalIncome: summary?.totalIncome ?? 0,
+    totalExpense: totalSpent,
+    remaining,
+    daysLeft,
+  });
+  const expenseCategoryRows = (budget?.categories ?? [])
+    .map((cat, index) => {
+      const colorSlot = resolveCategoryColorSlot(cat, index);
+      const allocated = catEur(cat, totalBudget);
+      const spent = spentByCategory[cat.id] || 0;
+      const catRemaining = allocated - spent;
+      const usedPct = allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0;
+      const over = spent > allocated + 0.009;
+      const warning = !over && usedPct >= 80;
+      const catTransactions = (summary?.expenseTransactions ?? [])
+        .filter((tx) => tx.categoryId === cat.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return {
+        category: cat,
+        color: getCatColor(colorSlot, index),
+        allocated,
+        spent,
+        remaining: catRemaining,
+        usedPct,
+        transactions: catTransactions,
+        movementsCount: catTransactions.length,
+        urgencyRank: over ? 2 : warning ? 1 : 0,
+      };
+    })
+    .sort((left, right) => {
+      if (right.urgencyRank !== left.urgencyRank) return right.urgencyRank - left.urgencyRank;
+      if (Math.abs(right.usedPct - left.usedPct) > 0.01) return right.usedPct - left.usedPct;
+      return left.category.name.localeCompare(right.category.name, "pt-PT");
+    });
+  const activeExpenseCategory = expenseCategoryRows.find((row) => row.category.id === activeExpenseCategoryId) ?? null;
+  const incomeTransactionsSorted = [...(summary?.incomeTransactions ?? [])]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const remainingValueClass = remaining < -0.009 ? "text-status-danger" : "text-status-success";
+  const daysValueClass =
+    rulerReadyModel.tone === "danger"
+      ? "text-status-danger"
+      : rulerReadyModel.tone === "warning"
+        ? "text-status-warning"
+        : "text-primary";
+  const macroLine: ReactNode = (
+    <span>
+      Gasto <span className="font-semibold text-status-danger">{formatCurrency(totalSpent)}</span>
+      <span className="mx-1 text-muted-foreground">·</span>
+      Restante <span className={`font-semibold ${remainingValueClass}`}>{formatCurrency(remaining)}</span>
+      <span className="mx-1 text-muted-foreground">·</span>
+      <span className={`font-semibold ${daysValueClass}`}>{rulerReadyModel.daysLabel}</span>
+    </span>
+  );
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
-      {/* Top bar: Month nav + actions */}
-      <div className="flex items-center justify-between" data-tour="month-nav">
-        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={() => setMonthOffset((p) => p - 1)}>
-          <ChevronLeft className="w-5 h-5" />
+    <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="month">
+      <div className="-mx-4 flex items-center justify-between" data-tour="month-budget-select">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 rounded-none text-muted-foreground hover:bg-accent/60"
+          onClick={goToPreviousMonth}
+          aria-label="Ver mês anterior"
+          disabled={monthOffset <= minimumOffset}
+        >
+          <ChevronLeft className="h-5 w-5" />
         </Button>
-        <motion.h2 key={currentMonth} className="capitalize text-foreground" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          {getMonthLabel(currentMonth)}
-        </motion.h2>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={() => setMonthOffset((p) => p + 1)} disabled={monthOffset >= 0}>
-            <ChevronRight className="w-5 h-5" />
-          </Button>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => void openMonthPicker()}
+          className="min-h-11 px-3 text-center"
+          aria-label="Selecionar mês do orçamento"
+        >
+          <motion.span
+            key={currentMonth}
+            className="inline-flex items-center gap-1 text-[1.45rem] leading-none tracking-tight text-foreground"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {compactCurrentMonthLabel}
+            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          </motion.span>
+        </button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 rounded-none text-muted-foreground hover:bg-accent/60"
+          onClick={goToNextMonth}
+          aria-label="Ver mês seguinte"
+          disabled={monthOffset >= 0}
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
       </div>
 
-      <ActionRailV2
-        className="mb-1"
-        primary={(
-          <Button
-            data-tour="month-add-transaction"
-            className="h-10 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground shadow-card"
-            onClick={() => {
-              if (!canWriteFinancial) return;
-              if (isBudgetReady) {
-                setShowAddDialog(true);
-                return;
-              }
-              navigate(`/budget/${currentMonth}/edit`);
-            }}
-            disabled={!isBudgetReady || !canWriteFinancial}
-          >
-            <Plus className="w-4 h-4" />
-            Novo lançamento
-          </Button>
-        )}
-        secondary={(
+      {canWriteFinancial ? (
+        isBudgetReady ? (
+          <ActionRailV2
+            className="mb-0"
+            primary={(
+              <Button
+                data-tour="month-add-transaction"
+                className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+                onClick={() => {
+                  setShowAddDialog(true);
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                Novo lançamento
+              </Button>
+            )}
+            secondary={(
+              <Button
+                data-tour="month-budget-button"
+                variant="ghost"
+                className="h-11 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => navigate(`/budget/${currentMonth}/edit`)}
+              >
+                Editar orçamento
+              </Button>
+            )}
+          />
+        ) : (
           <Button
             data-tour="month-budget-button"
-            variant="outline"
-            className="h-10 rounded-xl border-border px-4 text-primary hover:bg-accent"
+            className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground transition-transform hover:opacity-95 active:scale-[0.99]"
             onClick={() => navigate(`/budget/${currentMonth}/edit`)}
-            disabled={!canWriteFinancial}
           >
             <Settings2 className="w-4 h-4" />
-            {isBudgetReady ? "Orçamento" : "Criar orçamento"}
+            Criar orçamento
           </Button>
-        )}
-      />
+        )
+      ) : null}
+
+      {!isBudgetReady && canWriteFinancial ? (
+        <SectionCardV2 tone="control" className="border-warning/35 bg-warning-soft/80 px-1 py-1">
+          <div className="px-2 py-1 text-center">
+            <p className="text-xs text-warning-foreground">
+              Ainda sem orçamento para este mês. Cria um orçamento para continuar.
+            </p>
+          </div>
+        </SectionCardV2>
+      ) : null}
 
       {!canWriteFinancial && (
           <SectionCardV2 tone="control" className="bg-info-soft">
@@ -278,409 +594,269 @@ export function MonthPage() {
         )}
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">A carregar...</span>
+        <div className="flex flex-col gap-5 px-1 pt-2">
+          <div className="animate-pulse space-y-5" aria-hidden>
+            <div className="mx-auto h-12 w-44 rounded bg-muted/70" />
+            <div className="space-y-2">
+              <div className="h-2.5 w-full rounded-full bg-muted/70" />
+              <div className="h-3 w-full rounded bg-muted/70" />
+            </div>
           </div>
+          <MonthFinancialRuler state="loading" />
         </div>
       ) : loadError ? (
-        <Card className="border-warning/40 bg-warning-soft shadow-sm">
-          <div className="p-4 flex flex-col gap-3">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
-              <p className="text-sm text-warning-foreground">{loadError}</p>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full rounded-xl border-warning/60 text-status-warning hover:bg-warning/20"
-              onClick={() => {
-                void loadData();
-              }}
-            >
-              Tentar novamente
-            </Button>
-          </div>
-        </Card>
+        <MonthFinancialRuler
+          state="error"
+          message={loadError}
+          onRetry={() => {
+            void loadData();
+          }}
+        />
       ) : summary && budget ? (
-        <motion.div className="flex flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-          {!isBudgetReady && canWriteFinancial && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="border-warning/40 bg-warning-soft shadow-sm">
-                <div className="p-4 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    <Sparkles className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-sm text-warning-foreground">Cria primeiro um orçamento mensal</p>
-                      <p className="text-xs text-warning-foreground/80 mt-0.5">
-                        Os lançamentos manuais ficam desbloqueados quando tiveres categorias a 100%.
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="rounded-xl bg-warning text-warning-foreground hover:bg-warning/90"
-                    onClick={() => navigate(`/budget/${currentMonth}/edit`)}
-                  >
-                    Criar
-                  </Button>
-                </div>
-              </Card>
-            </motion.div>
-          )}
+        <motion.div
+          className="relative flex flex-col gap-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          {/* Budget Hero (flat) */}
+          <motion.div
+            className="px-1"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <div className="mt-5 text-center">
+              <p className="text-xs text-muted-foreground">Total do orçamento</p>
+              <p className="mt-1 text-[1.45rem] leading-none tracking-tight text-foreground">{formatCurrency(totalBudget)}</p>
+            </div>
 
-          {/* Budget Hero Card */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <SectionCardV2 tone="hero" className="relative overflow-hidden border-0 shadow-xl shadow-card">
-              <div className="absolute inset-0 bg-info-gradient" />
-              <div className="absolute inset-0 bg-brand-gradient-soft opacity-30" />
-              <div className="relative p-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Wallet className="w-4 h-4 text-primary-foreground/80" />
-                  <span className="text-sm text-primary-foreground/80">Orçamento do Mês</span>
-                </div>
-                <p className="text-3xl text-primary-foreground tracking-tight">
-                  {formatCurrency(totalBudget)}
-                </p>
-
-                {/* Progress bar */}
-                <div className="mt-4 mb-3">
-                  <div className="h-2.5 w-full bg-primary-foreground/30 rounded-full overflow-hidden">
-                    <motion.div
-                      className={`h-full rounded-full ${remaining >= 0 ? "bg-primary-foreground/80" : "bg-danger-soft"}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${spentPercent}%` }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-1.5">
-                    <span className="text-xs text-primary-foreground/70">Gasto: {formatCurrency(totalSpent)}</span>
-                    <span className="text-xs text-primary-foreground/70">Restante: {formatCurrency(Math.max(remaining, 0))}</span>
-                  </div>
-                </div>
-
-                {/* Daily budget + balance row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-primary-foreground/20 backdrop-blur-sm rounded-2xl p-3 text-center">
-                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <CalendarDays className="w-3.5 h-3.5 text-primary-foreground/70" />
-                      <p className="text-[11px] text-primary-foreground/70">Orçamento/dia</p>
-                    </div>
-                    <p className={`text-primary-foreground tabular-nums ${dailyBudget <= 0 ? "text-danger-soft" : ""}`}>
-                      {daysLeft > 0 ? formatCurrency(dailyBudget) : "--"}
-                    </p>
-                    <p className="text-[10px] text-primary-foreground/50 mt-0.5">{daysLeft} dias restantes</p>
-                  </div>
-                  <div className="bg-primary-foreground/20 backdrop-blur-sm rounded-2xl p-3 text-center">
-                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                      {remaining >= 0 ? (
-                        <TrendingUp className="w-3.5 h-3.5 text-primary-foreground" />
-                      ) : (
-                        <TrendingDown className="w-3.5 h-3.5 text-danger-soft" />
-                      )}
-                      <p className="text-[11px] text-primary-foreground/70">Saldo</p>
-                    </div>
-                    <p className={`tabular-nums ${remaining >= 0 ? "text-primary-foreground" : "text-danger-soft"}`}>
-                      {formatCurrency(remaining)}
-                    </p>
-                    <p className="text-[10px] text-primary-foreground/50 mt-0.5">
-                      {remaining >= 0 ? "Dentro do orçamento" : "Acima do orçamento"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </SectionCardV2>
-          </motion.div>
-
-          {/* Income / Expense summary pills */}
-          <motion.div className="grid grid-cols-2 gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <SectionCardV2 tone="section" className="flex flex-row items-center gap-3 p-3.5 shadow-md">
-              <div className="w-9 h-9 rounded-xl bg-success-soft flex items-center justify-center shrink-0">
-                <ArrowUpRight className="w-4 h-4 text-status-success" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground">Receitas</p>
-                <p className="text-status-success tabular-nums tracking-tight">{formatCurrency(summary.totalIncome)}</p>
-              </div>
-            </SectionCardV2>
-            <SectionCardV2 tone="section" className="flex flex-row items-center gap-3 p-3.5 shadow-md">
-              <div className="w-9 h-9 rounded-xl bg-danger-soft flex items-center justify-center shrink-0">
-                <ArrowDownRight className="w-4 h-4 text-status-danger" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground">Despesas</p>
-                <p className="text-status-danger tabular-nums tracking-tight">{formatCurrency(summary.totalExpense)}</p>
-              </div>
-            </SectionCardV2>
+            {isBudgetReady ? (
+              <MonthFinancialRuler
+                state="ready"
+                progressPercent={rulerReadyModel.progressPercent}
+                tone={rulerReadyModel.tone}
+                dailyLabel="Disponível por dia"
+                dailyValue={
+                  rulerReadyModel.dailyValue === null
+                    ? "—"
+                    : `${formatCurrency(rulerReadyModel.dailyValue)}/dia`
+                }
+                macroLine={macroLine}
+                statusLine={rulerReadyModel.statusText}
+                hint={rulerReadyModel.hint}
+              />
+            ) : (
+              <MonthFinancialRuler
+                state="budget-not-ready"
+                canWriteFinancial={canWriteFinancial}
+                onEditBudget={() => navigate(`/budget/${currentMonth}/edit`)}
+              />
+            )}
           </motion.div>
 
           {/* ========== Unified Movements Section ========== */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            {/* Section header with view toggle */}
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-foreground text-sm">Movimentos</h3>
-              <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-0.5" data-tour="month-view-tabs">
-                <button
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-all ${
-                    viewTab === "expenses"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  onClick={() => setViewTab("expenses")}
-                >
-                  Despesas
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-all ${
-                    viewTab === "income"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  onClick={() => setViewTab("income")}
-                >
-                  Receitas
-                </button>
+          <motion.div
+            className={`mt-6 ${!isBudgetReady ? "pointer-events-none opacity-50 grayscale-[0.35] saturate-0" : ""}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            {!isBudgetReady ? (
+              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1 text-[11px] text-muted-foreground ring-1 ring-border/70">
+                <Lock className="h-3.5 w-3.5" />
+                Movimentos desativados até criares orçamento
               </div>
-            </div>
+            ) : null}
+            <div className="space-y-6">
+              <section className="space-y-3" data-tour="month-view-tabs">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm text-foreground whitespace-nowrap">Categorias de despesa</h3>
+                  <p className="text-[11px] text-muted-foreground whitespace-nowrap">
+                    Toque numa categoria para ver saídas
+                  </p>
+                </div>
 
-            <AnimatePresence mode="wait">
-              {viewTab === "expenses" ? (
-                <motion.div
-                  data-tour="month-categories"
-                  key="expenses-view"
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 12 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col gap-2"
-                >
-                  {budget.categories.length === 0 ? (
-                    <EmptyStateV2
-                      icon={<ShoppingCart className="w-5 h-5" />}
-                      title="Sem categorias de despesas neste mês"
-                      description="Cria um orçamento para começares a registar despesas."
-                    />
-                  ) : summary.expenseTransactions.length === 0 ? (
-                    <EmptyStateV2
-                      title="Sem despesas neste periodo"
-                      description="Ainda não tens movimentos de despesa neste mês."
-                    />
-                  ) : null}
-
-                  {/* Distribution bar */}
-                  {budget.categories.length > 0 && (
-                    <div className="mb-1">
-                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+                {budget.categories.length === 0 ? (
+                  <EmptyStateV2
+                    icon={<ShoppingCart className="w-5 h-5" />}
+                    title="Sem categorias de despesas neste mês"
+                    description="Cria um orçamento para começares a registar despesas."
+                    action={(
+                      <Button
+                        onClick={() => navigate(`/budget/${currentMonth}/edit`)}
+                        disabled={!canWriteFinancial}
+                        className="rounded-xl"
+                      >
+                        Criar orçamento
+                      </Button>
+                    )}
+                  />
+                ) : (
+                  <>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="flex h-full">
                         {budget.categories.map((cat, ci) => (
                           <div
                             key={cat.id}
-                            className={`h-full bg-gradient-to-r ${getCatColor(ci).gradient} first:rounded-l-full last:rounded-r-full`}
+                            className={`h-full bg-gradient-to-r ${getCatColor(resolveCategoryColorSlot(cat, ci), ci).gradient} first:rounded-l-full last:rounded-r-full`}
                             style={{ width: `${cat.percent}%` }}
                             title={`${cat.name}: ${cat.percent}%`}
                           />
                         ))}
                       </div>
-                      {Math.abs(allocatedPct - 100) > 0.01 && (
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <AlertTriangle className="w-3 h-3 text-status-warning" />
-                          <span className="text-[10px] text-status-warning">{allocatedPct.toFixed(0)}% alocado</span>
-                        </div>
-                      )}
                     </div>
-                  )}
+                    {Math.abs(allocatedPct - 100) > 0.01 ? (
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 text-status-warning" />
+                        <span className="text-[10px] text-status-warning">{allocatedPct.toFixed(0)}% alocado</span>
+                      </div>
+                    ) : null}
 
-                  {/* Budget categories with inline transactions */}
-                  {budget.categories.map((cat, ci) => {
-                    const allocated = catEur(cat, totalBudget);
-                    const spent = spentByCategory[cat.id] || 0;
-                    const catRemaining = allocated - spent;
-                    const usedPct = allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0;
-                    const over = spent > allocated;
-                    const color = getCatColor(ci);
-                    const isExpanded = expandedCat === cat.id;
-                    const catTransactions = summary.expenseTransactions
-                      .filter(tx => tx.categoryId === cat.id)
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                    return (
-                      <motion.div
-                        key={cat.id}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: ci * 0.03 }}
-                      >
-                        <Card className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-all">
-                          {/* Category header */}
-                          <button
-                            className="w-full p-3 flex items-center gap-3 text-left"
-                            onClick={() => setExpandedCat(isExpanded ? null : cat.id)}
+                    <div
+                      className="divide-y divide-border/60 border-y border-border/60"
+                      data-tour="month-categories"
+                    >
+                      {expenseCategoryRows.map((row) => (
+                        <MonthExpenseCategoryRow
+                          key={row.category.id}
+                          name={row.category.name}
+                          percentLabel={`${row.category.percent}%`}
+                          spentLabel={formatCurrency(row.spent)}
+                          allocatedLabel={formatCurrency(row.allocated)}
+                          remainingLabel={formatCurrency(row.remaining)}
+                          movementsLabel={`${row.movementsCount} mov.`}
+                          progressPercent={row.usedPct}
+                          tone={row.urgencyRank === 2 ? "danger" : row.urgencyRank === 1 ? "warning" : "normal"}
+                          dotClassName={row.color.solid}
+                          onOpen={() => setActiveExpenseCategoryId(row.category.id)}
+                        />
+                      ))}
+                    </div>
+                    {summary.expenseTransactions.length === 0 ? (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <p className="text-xs text-muted-foreground">Ainda sem despesas neste mês.</p>
+                        {canWriteFinancial ? (
+                          <Button
+                            variant="ghost"
+                            className="h-10 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            onClick={() => setShowAddDialog(true)}
+                            disabled={!isBudgetReady}
                           >
-                            <div className={`w-9 h-9 rounded-xl ${color.lightBg} flex items-center justify-center shrink-0`}>
-                              <Tag className={`w-3.5 h-3.5 ${color.text}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-sm text-foreground">{cat.name}</span>
-                                  <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full">{cat.percent}%</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className={`text-xs tabular-nums ${over ? "text-status-danger" : "text-muted-foreground"}`}>
-                                    {formatCurrency(spent)}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground/40">/</span>
-                                  <span className="text-xs text-muted-foreground/60 tabular-nums">{formatCurrency(allocated)}</span>
-                                </div>
-                              </div>
-                              <Progress
-                                value={usedPct}
-                                className={`h-1.5 rounded-full ${over ? "[&>div]:bg-destructive" : color.bar}`}
-                              />
-                              <div className="flex items-center justify-between mt-1">
-                                <span className={`text-[10px] ${over ? "text-status-danger" : "text-muted-foreground/60"}`}>
-                                  {over ? `+${formatCurrency(spent - allocated)} acima` : `${formatCurrency(catRemaining)} restante`}
-                                </span>
-                                {catTransactions.length > 0 && (
-                                  <span className="text-[10px] text-muted-foreground/40">
-                                    {catTransactions.length} mov.
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                              <ChevronDown className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-                            </motion.div>
-                          </button>
+                            Adicionar lançamento
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </section>
 
-                          {/* Inline transactions */}
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="px-3 pb-3 border-t border-border/50">
-                                  {catTransactions.length === 0 ? (
-                                    <p className="text-xs text-muted-foreground/50 py-3 text-center">Sem despesas nesta categoria</p>
-                                  ) : (
-                                    <div className="flex flex-col mt-2 gap-0.5">
-                                      {catTransactions.map((tx) => (
-                                        <div
-                                          key={tx.id}
-                                          className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20"
-                                        >
-                                          {tx.origin === "recurring" ? (
-                                            <RefreshCw className="w-3 h-3 text-muted-foreground/40 shrink-0" />
-                                          ) : (
-                                            <ArrowDownRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />
-                                          )}
-                                          <span className="text-xs text-foreground truncate flex-1">{tx.description}</span>
-                                          <span className="text-[10px] text-muted-foreground/40 shrink-0">{formatDate(tx.date)}</span>
-                                          <span className="text-xs text-status-danger tabular-nums shrink-0">-{formatCurrency(tx.amount)}</span>
-                                          {tx.origin === "manual" && canWriteFinancial && (
-                                            <button
-                                              className="text-muted-foreground/70 active:scale-95 transition-transform shrink-0 p-1.5 rounded-lg"
-                                              onClick={(e) => { e.stopPropagation(); setPendingDeleteTransactionId(tx.id); }}
-                                              aria-label="Remover lançamento"
-                                            >
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-                </motion.div>
-              ) : (
-                /* ===== Income view ===== */
-                <motion.div
-                  key="income-view"
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col gap-2"
-                >
-                  {summary.incomeTransactions.length === 0 ? (
-                    <EmptyStateV2
-                      icon={<ShoppingCart className="w-5 h-5" />}
-                      title="Sem receitas neste periodo"
-                      description="Ainda não tens movimentos de receita neste mês."
-                    />
-                  ) : (
-                    [...summary.incomeTransactions]
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((tx, i) => (
-                        <motion.div key={tx.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-                          <Card className="p-3 flex-row items-center gap-3 border-0 shadow-sm">
-                            <div className="w-9 h-9 rounded-xl bg-success-soft flex items-center justify-center shrink-0">
-                              {tx.origin === "recurring" ? (
-                                <RefreshCw className="w-3.5 h-3.5 text-status-success" />
-                              ) : (
-                                <ArrowUpRight className="w-3.5 h-3.5 text-status-success" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-foreground truncate">{tx.description}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[11px] text-muted-foreground">{formatDate(tx.date)}</span>
-                                <span className="text-muted-foreground/30 text-[11px]">&bull;</span>
-                                <span className="text-[11px] text-muted-foreground truncate">
-                                  {resolveIncomeCategoryName(tx.categoryId, incomeCategories)}
-                                </span>
-                                {tx.origin === "recurring" && (
-                                  <span className="text-[10px] bg-status-info-soft text-status-info px-1.5 py-0.5 rounded-full">
-                                    Recorrente
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-sm text-status-success tabular-nums shrink-0">
-                              +{formatCurrency(tx.amount)}
-                            </p>
-                            {tx.origin === "manual" && canWriteFinancial && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl transition-all h-9 w-9"
-                                  onClick={() => setPendingDeleteTransactionId(tx.id)}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
-                          </Card>
-                        </motion.div>
-                      ))
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <section className="space-y-3 border-t border-border/60 pt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm text-foreground">Receitas</h3>
+                  <span className="text-xs text-muted-foreground">{formatCurrency(summary.totalIncome)}</span>
+                </div>
 
-            {/* Legend (only in expenses view) */}
-            {viewTab === "expenses" && budget.categories.length > 0 && (
-              <motion.div className="flex flex-wrap gap-x-3 gap-y-1 mt-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                {budget.categories.map((cat, ci) => (
-                  <div key={cat.id} className="flex items-center gap-1">
-                    <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${getCatColor(ci).gradient}`} />
-                    <span className="text-[10px] text-muted-foreground/60">{cat.name}</span>
+                {incomeTransactionsSorted.length === 0 ? (
+                  <div className="space-y-2 py-1">
+                    <p className="text-xs text-muted-foreground">
+                      Ainda não tens movimentos de receita neste mês.
+                    </p>
+                    {canWriteFinancial ? (
+                      <Button
+                        variant="ghost"
+                        className="h-10 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        onClick={() => setShowAddDialog(true)}
+                        disabled={!isBudgetReady}
+                      >
+                        Adicionar lançamento
+                      </Button>
+                    ) : null}
                   </div>
-                ))}
-              </motion.div>
-            )}
+                ) : (
+                  <div className="divide-y divide-border/60 border-y border-border/60">
+                    {incomeTransactionsSorted.map((tx) => (
+                      <div key={tx.id} className="flex items-center gap-2 py-2.5">
+                        {tx.origin === "recurring" ? (
+                          <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                        ) : (
+                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{tx.description}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{formatDate(tx.date)}</span>
+                        <span className="shrink-0 text-sm tabular-nums text-status-success">
+                          +{formatCurrency(tx.amount)}
+                        </span>
+                        {tx.origin === "manual" && canWriteFinancial ? (
+                          <button
+                            type="button"
+                            className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+                            onClick={() => setPendingDeleteTransactionId(tx.id)}
+                            aria-label="Remover lançamento"
+                          >
+                            <Trash2 className="mx-auto h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
           </motion.div>
         </motion.div>
       ) : null}
+
+      <ResponsiveOverlay
+        open={monthPickerOpen}
+        onOpenChange={(nextOpen) => {
+          setMonthPickerOpen(nextOpen);
+        }}
+      >
+        <OverlayContent density="compact">
+          <OverlayHeader>
+            <OverlayTitle>Escolher mês</OverlayTitle>
+          </OverlayHeader>
+          <OverlayBody className="pt-1">
+            <div className="max-h-[58vh] space-y-1 overflow-y-auto pr-1">
+              {monthPickerLoading ? (
+                <p className="py-2 text-xs text-muted-foreground">A carregar meses...</p>
+              ) : null}
+              {monthOptions.map((option) => {
+                const isSelected = option.value === currentMonth;
+                const hasInfo = monthAvailability[option.value] ?? false;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => selectMonth(option.value)}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                      isSelected ? "bg-accent text-foreground" : "hover:bg-accent/55"
+                    } ${hasInfo ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    <span className="capitalize">{option.label}</span>
+                    {isSelected ? <Check className="h-4 w-4" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </OverlayBody>
+        </OverlayContent>
+      </ResponsiveOverlay>
+
+      <CategoryExpensesSheet
+        open={Boolean(activeExpenseCategory)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setActiveExpenseCategoryId(null);
+        }}
+        categoryName={activeExpenseCategory?.category.name ?? "Categoria"}
+        transactions={activeExpenseCategory?.transactions ?? []}
+        canWriteFinancial={canWriteFinancial}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+        onDeleteTransaction={(transactionId) => setPendingDeleteTransactionId(transactionId)}
+      />
 
       <AddTransactionDialog
         open={showAddDialog}
@@ -827,7 +1003,7 @@ function AddTransactionDialog({
           type="button"
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
             type === "expense"
-              ? "bg-card text-status-danger ring-1 ring-danger/25 shadow-sm"
+              ? "bg-card text-status-danger ring-1 ring-danger/25"
               : "text-muted-foreground hover:bg-card"
           }`}
           onClick={() => setType("expense")}
@@ -839,7 +1015,7 @@ function AddTransactionDialog({
           type="button"
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
             type === "income"
-              ? "bg-card text-status-success ring-1 ring-success/25 shadow-sm"
+              ? "bg-card text-status-success ring-1 ring-success/25"
               : "text-muted-foreground hover:bg-card"
           }`}
           onClick={() => setType("income")}
@@ -952,7 +1128,7 @@ function AddTransactionDialog({
             || !canWriteFinancial
             || (type === "income" ? !incomeCategoryId : !expenseCategoryId)
           }
-          className="rounded-xl flex-1 bg-brand-gradient text-primary-foreground border-0 shadow-card"
+          className="rounded-xl flex-1 bg-brand-gradient text-primary-foreground border-0"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
         </Button>
@@ -965,7 +1141,7 @@ function AddTransactionDialog({
       <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
         <SheetContent
           side="bottom"
-          className="right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-3xl border border-border/80 bg-card/95 p-0 shadow-overlay backdrop-blur-xl"
+          className="right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-[20px] border border-border/80 bg-card/95 p-0 shadow-overlay backdrop-blur-xl"
         >
           <SheetHeader className="px-4 pt-3 pb-2 text-left">
             <SheetTitle className="text-base">Novo Lançamento</SheetTitle>
@@ -983,7 +1159,7 @@ function AddTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="p-0 border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-3xl overflow-hidden sm:max-w-lg">
+      <DialogContent className="p-0 border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-[20px] overflow-hidden sm:max-w-lg">
         <DialogHeader className="px-5 pt-5 pb-3 text-left">
           <DialogTitle className="text-base text-foreground">Novo Lançamento</DialogTitle>
           <DialogDescription className="sr-only">
@@ -1114,7 +1290,8 @@ function IncomeCategoriesDialog({
                 <Button
                   type="button"
                   size="icon"
-                  className="h-10 w-10 rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+                  className="h-11 w-11 rounded-xl bg-brand-gradient text-primary-foreground border-0"
+                  aria-label="Criar categoria de receita"
                   onClick={() => {
                     void handleCreate();
                   }}

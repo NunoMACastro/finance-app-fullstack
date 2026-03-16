@@ -61,6 +61,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Theme contract guardrail
+        run: npm run check-theme-contract
+
       - name: Token guardrail
         run: npm run check:tokens
 

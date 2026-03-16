@@ -4,10 +4,18 @@ import { newCategoryId } from "../../lib/hash.js";
 import { notFound, unprocessable } from "../../lib/api-error.js";
 import { Types } from "mongoose";
 
+interface BudgetCategoryInput {
+  id: string;
+  name: string;
+  percent: number;
+  colorSlot?: number | null;
+}
+
 interface BudgetCategoryDto {
   id: string;
   name: string;
   percent: number;
+  colorSlot: number;
 }
 
 interface MonthBudgetDto {
@@ -25,36 +33,39 @@ interface BudgetTemplateDto {
 }
 
 const BUDGET_TOLERANCE = 0.01;
+const CATEGORY_COLOR_MIN = 1;
+const CATEGORY_COLOR_MAX = 9;
+const CATEGORY_COLOR_COUNT = CATEGORY_COLOR_MAX - CATEGORY_COLOR_MIN + 1;
 
 const BUDGET_TEMPLATES: BudgetTemplateDto[] = [
   {
     id: "conservador",
     name: "Conservador",
     categories: [
-      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50 },
-      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10 },
-      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20 },
-      { id: "tpl_conservador_poupanca", name: "Poupanca", percent: 20 },
+      { id: "tpl_conservador_despesas", name: "Despesas", percent: 50, colorSlot: 1 },
+      { id: "tpl_conservador_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
+      { id: "tpl_conservador_investimento", name: "Investimento", percent: 20, colorSlot: 3 },
+      { id: "tpl_conservador_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
     ],
   },
   {
     id: "equilibrado",
     name: "Equilibrado",
     categories: [
-      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60 },
-      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5 },
-      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15 },
-      { id: "tpl_equilibrado_poupanca", name: "Poupanca", percent: 20 },
+      { id: "tpl_equilibrado_despesas", name: "Despesas", percent: 60, colorSlot: 1 },
+      { id: "tpl_equilibrado_lazer", name: "Lazer", percent: 5, colorSlot: 2 },
+      { id: "tpl_equilibrado_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
+      { id: "tpl_equilibrado_poupanca", name: "Poupança", percent: 20, colorSlot: 4 },
     ],
   },
   {
     id: "agressivo",
     name: "Agressivo",
     categories: [
-      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70 },
-      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10 },
-      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15 },
-      { id: "tpl_agressivo_poupanca", name: "Poupanca", percent: 5 },
+      { id: "tpl_agressivo_despesas", name: "Despesas", percent: 70, colorSlot: 1 },
+      { id: "tpl_agressivo_lazer", name: "Lazer", percent: 10, colorSlot: 2 },
+      { id: "tpl_agressivo_investimento", name: "Investimento", percent: 15, colorSlot: 3 },
+      { id: "tpl_agressivo_poupanca", name: "Poupança", percent: 5, colorSlot: 4 },
     ],
   },
 ];
@@ -63,17 +74,65 @@ function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function normalizeColorSlot(colorSlot?: number | null): number | null {
+  if (!Number.isInteger(colorSlot)) return null;
+  if ((colorSlot as number) < CATEGORY_COLOR_MIN || (colorSlot as number) > CATEGORY_COLOR_MAX) return null;
+  return colorSlot as number;
+}
+
+function hashCategoryIdToColorSlot(categoryId: string): number {
+  let hash = 0;
+  for (let i = 0; i < categoryId.length; i += 1) {
+    hash = (hash * 31 + categoryId.charCodeAt(i)) >>> 0;
+  }
+  return (hash % CATEGORY_COLOR_COUNT) + CATEGORY_COLOR_MIN;
+}
+
+export function assignCategoryColorSlots(categories: BudgetCategoryInput[]): BudgetCategoryDto[] {
+  const usedSlots = new Set<number>();
+  const normalized = categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    percent: category.percent,
+    colorSlot: 0,
+  }));
+
+  normalized.forEach((category, index) => {
+    const slot = normalizeColorSlot(categories[index]?.colorSlot);
+    if (!slot || usedSlots.has(slot)) return;
+    category.colorSlot = slot;
+    usedSlots.add(slot);
+  });
+
+  normalized.forEach((category) => {
+    if (category.colorSlot !== 0) return;
+    let slot = hashCategoryIdToColorSlot(category.id);
+    if (usedSlots.size < CATEGORY_COLOR_COUNT) {
+      while (usedSlots.has(slot)) {
+        slot = slot === CATEGORY_COLOR_MAX ? CATEGORY_COLOR_MIN : slot + 1;
+      }
+    }
+    category.colorSlot = slot;
+    usedSlots.add(slot);
+  });
+
+  return normalized;
+}
+
 function toBudgetDto(budget: {
   accountId: { toString(): string };
   month: string;
   totalBudget: number;
-  categories: Array<{ id: string; name: string; percent: number }>;
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null }>;
 }): MonthBudgetDto {
-  const categories = budget.categories.map((c) => ({
-    id: c.id,
-    name: c.name,
-    percent: c.percent,
-  }));
+  const categories = assignCategoryColorSlots(
+    budget.categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      percent: c.percent,
+      colorSlot: c.colorSlot,
+    })),
+  );
 
   return {
     accountId: budget.accountId.toString(),
@@ -85,7 +144,7 @@ function toBudgetDto(budget: {
 }
 
 export function validateBudgetPercentages(
-  categories: Array<{ id: string; name: string; percent: number }>,
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null }>,
   tolerance = BUDGET_TOLERANCE,
 ): void {
   const total = categories.reduce((sum, c) => sum + c.percent, 0);
@@ -108,7 +167,7 @@ export function validateBudgetPercentages(
 }
 
 export function isBudgetReady(
-  categories: Array<{ id: string; name: string; percent: number }>,
+  categories: Array<{ id: string; name: string; percent: number; colorSlot?: number | null }>,
   tolerance = BUDGET_TOLERANCE,
 ): boolean {
   if (categories.length === 0) {
@@ -165,6 +224,7 @@ export function getBudgetTemplates(): BudgetTemplateDto[] {
       id: category.id,
       name: category.name,
       percent: category.percent,
+      colorSlot: category.colorSlot,
     })),
   }));
 }
@@ -188,10 +248,11 @@ export async function getBudget(accountId: string, month: string): Promise<Month
 export async function saveBudget(
   accountId: string,
   month: string,
-  input: { totalBudget: number; categories: BudgetCategoryDto[] },
+  input: { totalBudget: number; categories: BudgetCategoryInput[] },
   actorUserId: string,
 ): Promise<MonthBudgetDto> {
-  validateBudgetPercentages(input.categories);
+  const categoriesWithSlots = assignCategoryColorSlots(input.categories);
+  validateBudgetPercentages(categoriesWithSlots);
 
   const totalBudget = await sumIncomeForMonth(accountId, month);
 
@@ -201,7 +262,7 @@ export async function saveBudget(
       $set: {
         userId: actorUserId,
         totalBudget,
-        categories: input.categories,
+        categories: categoriesWithSlots,
       },
     },
     {
@@ -220,6 +281,7 @@ export async function addCategory(
   input: { name: string; percent: number },
   actorUserId: string,
 ): Promise<MonthBudgetDto> {
+  const categoryId = newCategoryId();
   const budget =
     (await BudgetModel.findOne({ accountId, month })) ??
     (await BudgetModel.create({
@@ -229,12 +291,21 @@ export async function addCategory(
       totalBudget: 0,
       categories: [],
     }));
-
-  budget.categories.push({
-    id: newCategoryId(),
-    name: input.name,
-    percent: input.percent,
-  });
+  const existingCategories: BudgetCategoryInput[] = budget.categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    percent: category.percent,
+    colorSlot: category.colorSlot,
+  }));
+  const categoriesWithSlots = assignCategoryColorSlots([
+    ...existingCategories,
+    {
+      id: categoryId,
+      name: input.name,
+      percent: input.percent,
+    },
+  ]);
+  budget.set("categories", categoriesWithSlots);
 
   budget.userId = new Types.ObjectId(actorUserId);
   budget.totalBudget = await sumIncomeForMonth(accountId, month);
@@ -288,6 +359,7 @@ export async function copyBudgetFromMonth(
           id: c.id,
           name: c.name,
           percent: c.percent,
+          colorSlot: c.colorSlot,
         })),
       },
     },

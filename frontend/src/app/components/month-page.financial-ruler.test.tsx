@@ -1,0 +1,202 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { MonthPage } from "./month-page";
+
+const apiMocks = vi.hoisted(() => ({
+  getMonthSummary: vi.fn(),
+  getBudget: vi.fn(),
+  getIncomeCategories: vi.fn(),
+}));
+
+vi.mock("../lib/api", () => ({
+  transactionsApi: {
+    getMonthSummary: apiMocks.getMonthSummary,
+    delete: vi.fn(),
+    create: vi.fn(),
+  },
+  budgetApi: {
+    get: apiMocks.getBudget,
+  },
+  incomeCategoriesApi: {
+    list: apiMocks.getIncomeCategories,
+  },
+  resolveIncomeCategoryName: () => "Salário",
+}));
+
+vi.mock("../lib/auth-context", () => ({
+  useAuth: () => ({
+    user: {
+      id: "u1",
+      name: "Nuno",
+      email: "nuno@example.com",
+      currency: "EUR",
+      tutorialSeenAt: "2026-01-01T00:00:00.000Z",
+      preferences: { hideAmountsByDefault: false },
+    },
+    isAmountsHidden: false,
+  }),
+}));
+
+vi.mock("../lib/account-context", () => ({
+  useAccount: () => ({
+    activeAccountId: "acc1",
+    activeAccountRole: "owner",
+    canWriteFinancial: true,
+  }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+describe("MonthPage financial ruler states", () => {
+  beforeEach(() => {
+    apiMocks.getIncomeCategories.mockResolvedValue([]);
+  });
+
+  test("mostra estado de orçamento por definir quando budget nao esta pronto", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 0,
+      totalExpense: 0,
+      balance: 0,
+      expenseTransactions: [],
+      incomeTransactions: [],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 0,
+      categories: [],
+      isReady: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Orçamento por definir")).toBeInTheDocument();
+  });
+
+  test("mostra estado humano quando mes esta sem atividade", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 0,
+      totalExpense: 0,
+      balance: 0,
+      expenseTransactions: [],
+      incomeTransactions: [],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 0,
+      categories: [{ id: "c1", name: "Casa", percent: 100 }],
+      isReady: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/À espera de movimentos/)).toBeInTheDocument();
+    expect(screen.getByText("Ainda sem atividade este mês")).toBeInTheDocument();
+  });
+
+  test("mostra estado acima do orçamento com valor diario protegido", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 100,
+      totalExpense: 400,
+      balance: -300,
+      expenseTransactions: [{ id: "tx1", amount: 400, categoryId: "c1", date: "2026-03-01", description: "Teste", origin: "manual" }],
+      incomeTransactions: [{ id: "tx2", amount: 100, categoryId: "salary", date: "2026-03-01", description: "Salário", origin: "manual" }],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 300,
+      categories: [{ id: "c1", name: "Casa", percent: 100 }],
+      isReady: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/Acima do orçamento/)).toBeInTheDocument();
+    expect(screen.getByText(/0,00.*\/dia/)).toBeInTheDocument();
+  });
+
+  test("abre detalhe da categoria em sheet e mostra receitas em bloco separado", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 1200,
+      totalExpense: 120,
+      balance: 1080,
+      expenseTransactions: [
+        {
+          id: "tx1",
+          accountId: "acc1",
+          userId: "u1",
+          month: "2026-03",
+          date: "2026-03-01",
+          type: "expense",
+          origin: "manual",
+          description: "Continente",
+          amount: 120,
+          categoryId: "c1",
+          createdAt: "2026-03-01T00:00:00.000Z",
+          updatedAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+      incomeTransactions: [
+        {
+          id: "tx2",
+          accountId: "acc1",
+          userId: "u1",
+          month: "2026-03",
+          date: "2026-03-01",
+          type: "income",
+          origin: "manual",
+          description: "Salário",
+          amount: 1200,
+          categoryId: "salary",
+          createdAt: "2026-03-01T00:00:00.000Z",
+          updatedAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 1200,
+      categories: [{ id: "c1", name: "Casa", percent: 100 }],
+      isReady: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Abrir detalhes de despesas da categoria Casa/ }));
+    expect(await screen.findByText("Despesas · Casa")).toBeInTheDocument();
+    expect(screen.getByText("Receitas")).toBeInTheDocument();
+  });
+});

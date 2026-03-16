@@ -8,6 +8,7 @@ import { getErrorMessage } from "../lib/api-error";
 import { useAccount } from "../lib/account-context";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency as formatCurrencyValue, formatMonthLong } from "../lib/formatting";
+import { nextCategoryColorSlot, resolveCategoryColorSlot } from "../lib/category-color-slot";
 import type { BudgetCategory, BudgetTemplate, MonthBudget } from "../lib/types";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -28,8 +29,9 @@ const CATEGORY_COLORS = [
   { gradient: "bg-category-gradient-9" },
 ];
 
-function getCatColor(index: number) {
-  return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+function getCatColor(colorSlot?: number, fallbackIndex = 0) {
+  const resolvedSlot = colorSlot ?? ((fallbackIndex % CATEGORY_COLORS.length) + 1);
+  return CATEGORY_COLORS[(resolvedSlot - 1) % CATEGORY_COLORS.length];
 }
 
 function catEur(cat: BudgetCategory, totalBudget: number): number {
@@ -119,14 +121,16 @@ export function BudgetEditorPage() {
     if (!cleanName) return;
     setBudget((prev) => {
       if (!prev) return prev;
+      const categoryId = `cat_new_${Date.now()}`;
       return {
         ...prev,
         categories: [
           ...prev.categories,
           {
-            id: `cat_new_${Date.now()}`,
+            id: categoryId,
             name: cleanName,
             percent: parseFloat(newCatPercent) || 0,
+            colorSlot: nextCategoryColorSlot(prev.categories, categoryId),
           },
         ],
       };
@@ -144,6 +148,7 @@ export function BudgetEditorPage() {
           id: `${template.id}_${category.id}`,
           name: category.name,
           percent: category.percent,
+          colorSlot: category.colorSlot,
         })),
       };
     });
@@ -168,7 +173,7 @@ export function BudgetEditorPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
+    <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="budget-editor">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={handleBack}>
           <ArrowLeft className="w-5 h-5" />
@@ -180,11 +185,11 @@ export function BudgetEditorPage() {
       </div>
 
       {loading ? (
-        <SectionCardV2 tone="section" className="flex items-center justify-center p-8 shadow-md">
+        <SectionCardV2 tone="section" className="flex items-center justify-center p-8">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </SectionCardV2>
       ) : loadError ? (
-        <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft shadow-sm">
+        <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft">
           <div className="p-4 flex flex-col gap-3">
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
@@ -202,7 +207,7 @@ export function BudgetEditorPage() {
       ) : budget ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
           {!canWriteFinancial && (
-            <SectionCardV2 tone="control" className="border-border bg-info-soft shadow-sm">
+            <SectionCardV2 tone="control" className="border-border bg-info-soft">
               <div className="p-3 text-xs text-info-foreground">
                 Modo leitura: sem permissão para editar o orçamento.
               </div>
@@ -210,14 +215,14 @@ export function BudgetEditorPage() {
           )}
 
           {templates.length > 0 && (
-            <SectionCardV2 tone="section" className="p-4 flex flex-col gap-2 border-0 shadow-md">
+            <SectionCardV2 tone="section" className="p-4 flex flex-col gap-3">
               <label className="text-sm text-muted-foreground">Templates</label>
               <div className="grid grid-cols-1 gap-2">
                 {templates.map((template) => (
                   <button
                     key={template.id}
                     type="button"
-                    className="rounded-xl border border-border bg-surface-soft px-3 py-2 text-left hover:bg-accent transition-colors"
+                    className="rounded-xl border border-border bg-surface-soft px-3 py-2.5 text-left hover:bg-accent transition-colors"
                     onClick={() => applyTemplate(template)}
                     disabled={!canWriteFinancial}
                   >
@@ -229,7 +234,7 @@ export function BudgetEditorPage() {
                 ))}
                 <button
                   type="button"
-                  className="rounded-xl border border-dashed border-muted-foreground/30 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                  className="rounded-xl border border-dashed border-muted-foreground/30 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
                   onClick={() => {
                     setBudget((prev) => (prev ? { ...prev, categories: [] } : prev));
                   }}
@@ -242,7 +247,7 @@ export function BudgetEditorPage() {
             </SectionCardV2>
           )}
 
-          <SectionCardV2 tone="section" className="p-4 flex flex-col gap-4 border-0 shadow-md">
+          <SectionCardV2 tone="section" className="p-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-muted-foreground">Orçamento Total (EUR)</label>
               <div className="relative opacity-80">
@@ -302,7 +307,9 @@ export function BudgetEditorPage() {
               {budget.categories.map((category, index) => (
                 <div key={category.id} className="rounded-xl border border-border/60 bg-muted/20 p-2.5 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${getCatColor(index).gradient} shrink-0`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${getCatColor(resolveCategoryColorSlot(category, index), index).gradient} shrink-0`}
+                      />
                     <Input
                       className="flex-1 h-9 rounded-xl text-sm"
                       value={category.name}
@@ -388,7 +395,7 @@ export function BudgetEditorPage() {
             </div>
           </SectionCardV2>
 
-          <div className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-border/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="sticky bottom-0 bg-background/95 border-t border-border/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <ActionRailV2
               primary={(
                 <Button variant="outline" className="w-full rounded-xl" onClick={handleBack}>
@@ -397,7 +404,7 @@ export function BudgetEditorPage() {
               )}
               secondary={(
                 <Button
-                  className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+                  className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
                   onClick={handleSave}
                   disabled={
                     saving

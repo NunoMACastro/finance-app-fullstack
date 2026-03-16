@@ -31,15 +31,15 @@ export const mockUser: UserProfile = {
 
 // Default budget categories
 export const defaultCategories: BudgetCategory[] = [
-  { id: "cat1", name: "Habitacao", percent: 32 },
-  { id: "cat2", name: "Transportes", percent: 7 },
-  { id: "cat3", name: "Alimentacao", percent: 14 },
-  { id: "cat4", name: "Lazer", percent: 9 },
-  { id: "cat5", name: "Saude", percent: 3 },
-  { id: "cat6", name: "Investimento", percent: 17 },
-  { id: "cat7", name: "Poupanca", percent: 11 },
-  { id: "cat8", name: "Educacao", percent: 5 },
-  { id: "cat9", name: "Outros", percent: 2 },
+  { id: "cat1", name: "Habitação", percent: 32, colorSlot: 1 },
+  { id: "cat2", name: "Transportes", percent: 7, colorSlot: 2 },
+  { id: "cat3", name: "Alimentação", percent: 14, colorSlot: 3 },
+  { id: "cat4", name: "Lazer", percent: 9, colorSlot: 4 },
+  { id: "cat5", name: "Saúde", percent: 3, colorSlot: 5 },
+  { id: "cat6", name: "Investimento", percent: 17, colorSlot: 6 },
+  { id: "cat7", name: "Poupança", percent: 11, colorSlot: 7 },
+  { id: "cat8", name: "Educação", percent: 5, colorSlot: 8 },
+  { id: "cat9", name: "Outros", percent: 2, colorSlot: 9 },
 ];
 
 export const mockMonthBudget: MonthBudget = {
@@ -313,7 +313,7 @@ export const mockTransactions: Transaction[] = [
     date: `${currentMonth}-02`,
     type: "expense",
     origin: "manual",
-    description: "Poupanca Emergencia",
+    description: "Poupança Emergência",
     amount: 150,
     categoryId: "cat7",
     createdAt: `${currentMonth}-02T09:00:00Z`,
@@ -342,7 +342,36 @@ function generateMonthData(monthKey: string, index: number, baseIncome: number) 
   return { month: monthKey, income, expense, balance: income - expense };
 }
 
-export function getStatsSnapshot(type: "semester" | "year"): StatsSnapshot {
+function buildMockForecast(trend: TrendItem[], forecastWindow: 3 | 6) {
+  const sample = trend.slice(-forecastWindow);
+  const sampleSize = sample.length;
+  const confidence: "low" | "medium" | "high" =
+    sampleSize < 3 ? "low" : sampleSize < forecastWindow ? "medium" : "high";
+
+  if (sampleSize === 0) {
+    return {
+      projectedIncome: 0,
+      projectedExpense: 0,
+      projectedBalance: 0,
+      windowMonths: forecastWindow,
+      sampleSize,
+      confidence,
+    };
+  }
+
+  const projectedIncome = Math.round(sample.reduce((sum, item) => sum + item.income, 0) / sampleSize);
+  const projectedExpense = Math.round(sample.reduce((sum, item) => sum + item.expense, 0) / sampleSize);
+  return {
+    projectedIncome,
+    projectedExpense,
+    projectedBalance: projectedIncome - projectedExpense,
+    windowMonths: forecastWindow,
+    sampleSize,
+    confidence,
+  };
+}
+
+export function getStatsSnapshot(type: "semester" | "year", forecastWindow: 3 | 6 = 3): StatsSnapshot {
   const months = type === "semester" ? 6 : 12;
   const trend: TrendItem[] = [];
   let totalIncome = 0;
@@ -417,9 +446,7 @@ export function getStatsSnapshot(type: "semester" | "year"): StatsSnapshot {
     return series;
   });
 
-  const last3 = trend.slice(-3);
-  const avgIncome = Math.round(last3.reduce((s, t) => s + t.income, 0) / 3);
-  const avgExpense = Math.round(last3.reduce((s, t) => s + t.expense, 0) / 3);
+  const forecast = buildMockForecast(trend, forecastWindow);
 
   const incomeCategorySeeds = [
     { categoryId: "inc1", categoryName: "Salario", weight: 0.72 },
@@ -484,10 +511,6 @@ export function getStatsSnapshot(type: "semester" | "year"): StatsSnapshot {
     })),
     incomeByCategory,
     incomeCategorySeries,
-    forecast: {
-      projectedIncome: avgIncome,
-      projectedExpense: avgExpense,
-      projectedBalance: avgIncome - avgExpense,
-    },
+    forecast,
   };
 }

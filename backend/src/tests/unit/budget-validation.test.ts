@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  assignCategoryColorSlots,
   getBudgetTemplates,
   isBudgetReady,
   validateBudgetPercentages,
@@ -9,8 +10,8 @@ describe("validateBudgetPercentages", () => {
   test("accepts exact 100%", () => {
     expect(() =>
       validateBudgetPercentages([
-        { id: "cat1", name: "A", percent: 60 },
-        { id: "cat2", name: "B", percent: 40 },
+        { id: "cat1", name: "A", percent: 60, colorSlot: 1 },
+        { id: "cat2", name: "B", percent: 40, colorSlot: 2 },
       ]),
     ).not.toThrow();
   });
@@ -67,6 +68,21 @@ describe("validateBudgetPercentages", () => {
       const total = template.categories.reduce((sum, category) => sum + category.percent, 0);
       expect(total).toBe(100);
       expect(template.categories.length).toBe(4);
+      for (const category of template.categories) {
+        expect(category.colorSlot).toBeGreaterThanOrEqual(1);
+        expect(category.colorSlot).toBeLessThanOrEqual(9);
+      }
     }
+  });
+
+  test("atribui colorSlot em categorias sem slot e evita duplicacoes diretas", () => {
+    const categories = assignCategoryColorSlots([
+      { id: "cat1", name: "A", percent: 40, colorSlot: 1 },
+      { id: "cat2", name: "B", percent: 40 },
+      { id: "cat3", name: "C", percent: 20, colorSlot: 1 },
+    ]);
+    expect(categories).toHaveLength(3);
+    expect(categories[0]?.colorSlot).toBe(1);
+    expect(new Set(categories.map((item) => item.colorSlot)).size).toBe(3);
   });
 });

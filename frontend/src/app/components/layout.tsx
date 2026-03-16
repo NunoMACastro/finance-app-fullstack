@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Outlet, NavLink, useLocation, useNavigate } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../lib/auth-context";
 import { getErrorMessage } from "../lib/api-error";
@@ -17,34 +18,13 @@ import {
   OverlayTitle,
   ResponsiveOverlay,
 } from "./ui/responsive-overlay";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
 import { TutorialTour, type TourScope } from "./tutorial-tour";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
-import {
-  BadgePlus,
-  BarChart3,
-  CircleHelp,
-  Ellipsis,
-  Eye,
-  EyeOff,
-  LayoutDashboard,
-  LogOut,
-  Users,
-  UserPlus,
-  Wallet,
-} from "lucide-react";
-import { PageShellV2 } from "./v2/page-shell-v2";
 import { OverlayFormV2 } from "./v2/overlay-form-v2";
-
-const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Mês" },
-  { to: "/stats", icon: BarChart3, label: "Stats" },
-];
+import { AppShellV3 } from "./v3/app-shell-v3";
+import { BottomNavV3 } from "./v3/bottom-nav-v3";
+import { TopBarV3 } from "./v3/top-bar-v3";
+import { OverflowActionsSheetV3 } from "./v3/overflow-actions-sheet-v3";
 
 export function AppLayout() {
   const { user, logout, completeTutorial, isAmountsHidden, toggleAmountVisibility } = useAuth();
@@ -67,6 +47,7 @@ export function AppLayout() {
   const location = useLocation();
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [tutorialScope, setTutorialScope] = useState<TourScope>("month");
+  const [overflowSheetOpen, setOverflowSheetOpen] = useState(false);
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
@@ -99,16 +80,28 @@ export function AppLayout() {
     }
   };
 
-  const initials = user?.name
-    ? user.name
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "?";
-
   const scopeFromPath = (path: string): TourScope => (path.startsWith("/stats") ? "stats" : "month");
+  const openTutorial = useCallback(() => {
+    setOverflowSheetOpen(false);
+    setTutorialScope(scopeFromPath(location.pathname));
+    setTutorialOpen(true);
+  }, [location.pathname]);
+
+  const openCreateSharedAccount = useCallback(() => {
+    setCreateDialogOpen(true);
+    setOverflowSheetOpen(false);
+  }, []);
+
+  const openJoinByCode = useCallback(() => {
+    setJoinDialogOpen(true);
+    setOverflowSheetOpen(false);
+  }, []);
+
+  const openMembersFromOverflow = useCallback(() => {
+    setOverflowSheetOpen(false);
+    void openMembersManager();
+  }, []);
+
   const tutorialSessionKey = useCallback(
     (scope: TourScope) => `tutorial_seen_session:${user?.id ?? "anon"}:${scope}`,
     [user?.id],
@@ -207,141 +200,37 @@ export function AppLayout() {
   };
 
   return (
-    <PageShellV2>
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-card/70 pt-[max(env(safe-area-inset-top),0px)] backdrop-blur-xl">
-        <div className="px-4 py-3">
-          <div className="rounded-3xl border border-border/70 bg-card/95 p-2.5 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => navigate("/")}
-                className="flex min-w-0 items-center gap-2 rounded-2xl px-2 py-1 hover:bg-accent/60"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient shadow-card">
-                  <Wallet className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <span className="truncate text-sm text-foreground">Poupérrimo</span>
-              </button>
+    <AppShellV3>
+      <TopBarV3
+        appName="Poupérrimo"
+        isAmountsHidden={isAmountsHidden}
+        onNavigateHome={() => navigate("/")}
+        onToggleAmountVisibility={toggleAmountVisibility}
+        onOpenTutorial={openTutorial}
+        onLogout={() => void handleLogout()}
+      />
 
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleAmountVisibility}
-                  title={isAmountsHidden ? "Mostrar valores" : "Ocultar valores"}
-                  className="h-9 w-9 rounded-xl"
-                  data-tour="header-visibility-toggle"
-                >
-                  {isAmountsHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-xl"
-                      title="Ações rápidas"
-                      data-tour="header-actions-menu"
-                    >
-                      <Ellipsis className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-xl border-border bg-card/95 backdrop-blur-xl">
-                    <DropdownMenuItem
-                      onClick={() => setCreateDialogOpen(true)}
-                      className="gap-2"
-                      data-tour="header-create-shared"
-                    >
-                      <BadgePlus className="w-4 h-4" />
-                      Criar conta partilhada
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setJoinDialogOpen(true)}
-                      className="gap-2"
-                      data-tour="header-join-shared"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      Entrar por código
-                    </DropdownMenuItem>
-                    {activeAccount?.type === "shared" && activeAccountRole === "owner" ? (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          void openMembersManager();
-                        }}
-                        className="gap-2"
-                      >
-                        <Users className="w-4 h-4" />
-                        Gerir membros
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setTutorialScope(scopeFromPath(location.pathname));
-                        setTutorialOpen(true);
-                      }}
-                      className="gap-2"
-                    >
-                      <CircleHelp className="w-4 h-4" />
-                      Tutorial
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/profile")}
-                  className="h-9 w-9 rounded-full bg-brand-gradient-soft text-xs text-foreground ring-1 ring-border/60"
-                  data-tour="header-profile-badge"
-                  aria-label="Abrir perfil"
-                >
-                  {initials}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleLogout}
-                  title="Sair"
-                  className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive"
-                  data-tour="header-logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center gap-2">
-              <select
-                value={activeAccountId ?? ""}
-                onChange={(event) => setActiveAccount(event.target.value)}
-                className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-input-background px-3 text-sm"
-                data-tour="header-account-select"
-              >
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} · {getAccountRoleLabel(account.role)}
-                  </option>
-                ))}
-              </select>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setTutorialScope(scopeFromPath(location.pathname));
-                  setTutorialOpen(true);
-                }}
-                title="Tutorial"
-                className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground hover:text-primary"
-              >
-                <CircleHelp className="w-4 h-4" />
-              </Button>
-            </div>
+      <div className="-mt-1 bg-background px-4 pb-2">
+        <div className="mx-auto w-full max-w-[320px]" data-tour="header-account-select">
+          <div className="relative rounded-full bg-surface-soft/80">
+            <select
+              value={activeAccountId ?? ""}
+              onChange={(event) => setActiveAccount(event.target.value)}
+              className="h-11 w-full appearance-none bg-transparent px-4 pr-10 text-center text-sm text-foreground focus-visible:outline-none"
+              aria-label="Selecionar conta ativa"
+            >
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.type === "shared" ? "Partilhada" : "Pessoal"} · {account.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="flex-1 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 bg-background px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]" data-ui-v3-shell="content">
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
@@ -350,37 +239,19 @@ export function AppLayout() {
           <Outlet />
         </motion.div>
       </main>
+      <BottomNavV3 onOpenSharedActions={() => setOverflowSheetOpen(true)} />
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-card/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[430px] items-center justify-around px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `relative flex flex-col items-center gap-0.5 px-5 py-2 rounded-2xl transition-all duration-200 ${
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`
-              }
-              end={item.to === "/"}
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <motion.div
-                      layoutId="nav-active-v2"
-                      className="absolute inset-0 rounded-2xl bg-accent"
-                      transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
-                    />
-                  )}
-                  <item.icon className="relative z-10 w-5 h-5" />
-                  <span className="relative z-10 text-xs">{item.label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <OverflowActionsSheetV3
+        open={overflowSheetOpen}
+        onOpenChange={setOverflowSheetOpen}
+        onCreateShared={openCreateSharedAccount}
+        onJoinByCode={openJoinByCode}
+        onOpenMembers={openMembersFromOverflow}
+        canManageMembers={activeAccount?.type === "shared" && activeAccountRole === "owner"}
+        onOpenTutorial={openTutorial}
+        title="Conta partilhada"
+        showTutorial={false}
+      />
 
       <OverlayFormV2
         open={createDialogOpen}
@@ -396,7 +267,7 @@ export function AppLayout() {
               Cancelar
             </Button>
             <Button
-              className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+              className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
               onClick={async () => {
                 try {
                   await createSharedAccount(newAccountName);
@@ -438,7 +309,7 @@ export function AppLayout() {
               Cancelar
             </Button>
             <Button
-              className="rounded-xl bg-brand-gradient text-primary-foreground border-0 shadow-card"
+              className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
               onClick={async () => {
                 try {
                   await joinByCode(joinCode);
@@ -585,6 +456,6 @@ export function AppLayout() {
           void closeTutorial(reason);
         }}
       />
-    </PageShellV2>
+    </AppShellV3>
   );
 }

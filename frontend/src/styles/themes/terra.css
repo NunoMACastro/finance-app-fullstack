@@ -1,0 +1,108 @@
+:root[data-theme="terra"] {
+  --t-background: #f1e8dc;
+  --t-foreground: #302720;
+  --t-card: #fffdfa;
+  --t-card-foreground: #302720;
+  --t-popover: #fffdfa;
+  --t-popover-foreground: #302720;
+  --t-primary: #8f6f5d;
+  --t-primary-foreground: #fffdfa;
+  --t-secondary: #e2d4c6;
+  --t-secondary-foreground: #5a4b40;
+  --t-muted: #e2d4c6;
+  --t-muted-foreground: #7c6b5c;
+  --t-accent: #faf6f0;
+  --t-accent-foreground: #5a4b40;
+  --t-destructive: #c56f60;
+  --t-destructive-foreground: #fffdfa;
+  --t-danger: #c56f60;
+  --t-danger-foreground: #fffdfa;
+  --t-danger-soft: #f9e5e0;
+  --t-success: #7da37b;
+  --t-success-foreground: #fffdfa;
+  --t-success-soft: #e7f2e4;
+  --t-warning: #c78d46;
+  --t-warning-foreground: #6b430d;
+  --t-warning-soft: #faeedc;
+  --t-info: #8ca79a;
+  --t-info-foreground: #415c50;
+  --t-info-soft: #e8f1ec;
+  --t-surface-soft: #faf6f0;
+  --t-surface-raised: #fffdfa;
+  --t-surface-inset: #ebe7dd;
+  --t-border: #d2c1b0;
+  --t-input: transparent;
+  --t-input-background: #fffdfa;
+  --t-switch-background: #d2c4b4;
+  --t-ring: #8f6f5d;
+  --t-ring-soft: color-mix(in srgb, var(--t-ring) 32%, transparent);
+  --t-overlay: color-mix(in srgb, var(--t-foreground) 42%, transparent);
+  --t-chart-1: #8f6f5d;
+  --t-chart-2: #b38d6d;
+  --t-chart-3: #d0aa84;
+  --t-chart-4: #9dbb9a;
+  --t-chart-5: #9f86be;
+  --t-sidebar: #fffdfa;
+  --t-sidebar-foreground: #302720;
+  --t-sidebar-primary: #8f6f5d;
+  --t-sidebar-primary-foreground: #fffdfa;
+  --t-sidebar-accent: #faf6f0;
+  --t-sidebar-accent-foreground: #5a4b40;
+  --t-sidebar-border: #d2c1b0;
+  --t-sidebar-ring: #8f6f5d;
+  --t-gradient-page: linear-gradient(160deg, #faf6f0, #f1e8dc);
+  --t-gradient-brand: linear-gradient(120deg, #8f6f5d, #b38d6d);
+  --t-gradient-brand-soft: linear-gradient(
+    140deg,
+    color-mix(in srgb, #8f6f5d 24%, white),
+    color-mix(in srgb, #b38d6d 18%, white)
+  );
+  --t-gradient-info: linear-gradient(120deg, #8f6f5d, #b38d6d, #d0aa84);
+  --t-gradient-danger: linear-gradient(
+    120deg,
+    color-mix(in srgb, #c56f60 80%, white),
+    color-mix(in srgb, #c56f60 64%, #b38d6d)
+  );
+  --t-chart-income: #7da37b;
+  --t-chart-expense: #c56f60;
+  --t-chart-balance: #8ca79a;
+  --t-chart-axis: color-mix(in srgb, var(--t-muted-foreground) 68%, transparent);
+  --t-chart-grid: color-mix(in srgb, var(--t-foreground) 7%, transparent);
+  --t-chart-dot-stroke: #fffdfa;
+  --t-category-1: #9bb8aa;
+  --t-category-2: #8dac78;
+  --t-category-3: #d4ac72;
+  --t-category-4: #cf8170;
+  --t-category-5: #ab92ca;
+  --t-category-6: #c98e58;
+  --t-category-7: #7fb4a6;
+  --t-category-8: #d39bb0;
+  --t-category-9: #a79d92;
+  --t-category-gradient-1: linear-gradient(120deg, color-mix(in srgb, var(--t-category-1) 78%, white), color-mix(in srgb, var(--t-category-1) 56%, var(--t-primary)));
+  --t-category-gradient-2: linear-gradient(120deg, color-mix(in srgb, var(--t-category-2) 78%, white), color-mix(in srgb, var(--t-category-2) 56%, var(--t-chart-2)));
+  --t-category-gradient-3: linear-gradient(120deg, color-mix(in srgb, var(--t-category-3) 78%, white), color-mix(in srgb, var(--t-category-3) 56%, var(--t-chart-3)));
+  --t-category-gradient-4: linear-gradient(120deg, color-mix(in srgb, var(--t-category-4) 78%, white), color-mix(in srgb, var(--t-category-4) 56%, var(--t-chart-4)));
+  --t-category-gradient-5: linear-gradient(120deg, color-mix(in srgb, var(--t-category-5) 78%, white), color-mix(in srgb, var(--t-category-5) 56%, var(--t-primary)));
+  --t-category-gradient-6: linear-gradient(120deg, color-mix(in srgb, var(--t-category-6) 78%, white), color-mix(in srgb, var(--t-category-6) 56%, var(--t-chart-3)));
+  --t-category-gradient-7: linear-gradient(120deg, color-mix(in srgb, var(--t-category-7) 78%, white), color-mix(in srgb, var(--t-category-7) 56%, var(--t-chart-2)));
+  --t-category-gradient-8: linear-gradient(120deg, color-mix(in srgb, var(--t-category-8) 78%, white), color-mix(in srgb, var(--t-category-8) 56%, var(--t-chart-2)));
+  --t-category-gradient-9: linear-gradient(120deg, color-mix(in srgb, var(--t-category-9) 78%, white), color-mix(in srgb, var(--t-category-9) 56%, var(--t-primary)));
+  --t-category-soft-1: color-mix(in srgb, var(--t-category-1) 26%, white);
+  --t-category-soft-2: color-mix(in srgb, var(--t-category-2) 26%, white);
+  --t-category-soft-3: color-mix(in srgb, var(--t-category-3) 26%, white);
+  --t-category-soft-4: color-mix(in srgb, var(--t-category-4) 28%, white);
+  --t-category-soft-5: color-mix(in srgb, var(--t-category-5) 26%, white);
+  --t-category-soft-6: color-mix(in srgb, var(--t-category-6) 26%, white);
+  --t-category-soft-7: color-mix(in srgb, var(--t-category-7) 26%, white);
+  --t-category-soft-8: color-mix(in srgb, var(--t-category-8) 26%, white);
+  --t-category-soft-9: color-mix(in srgb, var(--t-category-9) 26%, white);
+  --t-category-text-1: color-mix(in srgb, var(--t-category-1) 72%, black);
+  --t-category-text-2: color-mix(in srgb, var(--t-category-2) 72%, black);
+  --t-category-text-3: color-mix(in srgb, var(--t-category-3) 72%, black);
+  --t-category-text-4: color-mix(in srgb, var(--t-category-4) 72%, black);
+  --t-category-text-5: color-mix(in srgb, var(--t-category-5) 72%, black);
+  --t-category-text-6: color-mix(in srgb, var(--t-category-6) 72%, black);
+  --t-category-text-7: color-mix(in srgb, var(--t-category-7) 72%, black);
+  --t-category-text-8: color-mix(in srgb, var(--t-category-8) 72%, black);
+  --t-category-text-9: color-mix(in srgb, var(--t-category-9) 72%, black);
+}

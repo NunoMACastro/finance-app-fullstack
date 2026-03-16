@@ -3,11 +3,10 @@ import path from "node:path";
 
 const ROOT = path.resolve(process.cwd());
 const SRC_DIR = path.join(ROOT, "src");
+const THEMES_DIR = path.join(SRC_DIR, "styles", "themes");
 
 const INCLUDED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css"]);
-const EXCLUDED_FILES = new Set([
-  path.join(SRC_DIR, "styles", "theme.css"),
-]);
+const EXCLUDED_FILES = new Set();
 const EXCLUDED_DIR_FRAGMENTS = [`${path.sep}imports${path.sep}`];
 
 const hardcodedUtilityPattern =
@@ -25,6 +24,7 @@ function walk(dir, collector) {
     }
     if (!INCLUDED_EXTENSIONS.has(path.extname(filePath))) continue;
     if (EXCLUDED_FILES.has(filePath)) continue;
+    if (filePath.startsWith(THEMES_DIR + path.sep)) continue;
     if (EXCLUDED_DIR_FRAGMENTS.some((fragment) => filePath.includes(fragment))) continue;
     collector.push(filePath);
   }

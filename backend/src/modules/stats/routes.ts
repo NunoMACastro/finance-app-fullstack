@@ -15,7 +15,11 @@ statsRouter.get(
   requireFinancialReadAccess,
   asyncHandler(async (req, res) => {
     const query = semesterQuerySchema.parse(req.query);
-    const data = await statsService.getSemesterStats(req.auth!.accountId!, query.endingMonth);
+    const data = await statsService.getSemesterStats(
+      req.auth!.accountId!,
+      query.endingMonth,
+      (query.forecastWindow as 3 | 6 | undefined) ?? 3,
+    );
     res.status(200).json(data);
   }),
 );
@@ -25,7 +29,11 @@ statsRouter.get(
   requireFinancialReadAccess,
   asyncHandler(async (req, res) => {
     const query = yearQuerySchema.parse(req.query);
-    const data = await statsService.getYearStats(req.auth!.accountId!, query.year);
+    const data = await statsService.getYearStats(
+      req.auth!.accountId!,
+      query.year,
+      (query.forecastWindow as 3 | 6 | undefined) ?? 3,
+    );
     res.status(200).json(data);
   }),
 );

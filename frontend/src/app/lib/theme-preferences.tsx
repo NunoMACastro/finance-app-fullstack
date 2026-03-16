@@ -2,13 +2,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useAuth } from "./auth-context";
 import type { ThemePalette } from "./types";
 
-const STORAGE_KEY = "finance_v2.theme_palette";
+const STORAGE_KEY = "finance_v2.theme";
+const LEGACY_STORAGE_KEY = "finance_v2.theme_palette";
 const DEFAULT_PALETTE: ThemePalette = "brisa";
 
 interface ThemePreferencesState {
-  palette: ThemePalette;
+  theme: ThemePalette;
   isSaving: boolean;
-  setPalette: (palette: ThemePalette) => Promise<void>;
+  setTheme: (theme: ThemePalette) => Promise<void>;
 }
 
 const ThemePreferencesContext = createContext<ThemePreferencesState | null>(null);
@@ -26,34 +27,36 @@ function normalizeThemePalette(value: string | null | undefined): ThemePalette {
 
 function readStoredPalette(): ThemePalette {
   if (typeof window === "undefined") return DEFAULT_PALETTE;
-  const value = window.localStorage.getItem(STORAGE_KEY);
+  const value = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
   return normalizeThemePalette(value);
 }
 
 export function ThemePreferencesProvider({ children }: { children: React.ReactNode }) {
   const { user, updateProfile } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  const [fallbackPalette, setFallbackPalette] = useState<ThemePalette>(() => readStoredPalette());
+  const [fallbackTheme, setFallbackTheme] = useState<ThemePalette>(() => readStoredPalette());
 
-  const palette = normalizeThemePalette(user?.preferences.themePalette ?? fallbackPalette);
+  const theme = normalizeThemePalette(user?.preferences.themePalette ?? fallbackTheme);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-theme-palette", palette);
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.removeAttribute("data-theme-palette");
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, palette);
+      window.localStorage.setItem(STORAGE_KEY, theme);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     }
-  }, [palette]);
+  }, [theme]);
 
-  const setPalette = useCallback(
-    async (nextPalette: ThemePalette) => {
+  const setTheme = useCallback(
+    async (nextTheme: ThemePalette) => {
       if (!user) {
-        setFallbackPalette(nextPalette);
+        setFallbackTheme(nextTheme);
         return;
       }
       setIsSaving(true);
       try {
-        await updateProfile({ preferences: { themePalette: nextPalette } });
+        await updateProfile({ preferences: { themePalette: nextTheme } });
       } finally {
         setIsSaving(false);
       }
@@ -63,11 +66,11 @@ export function ThemePreferencesProvider({ children }: { children: React.ReactNo
 
   const value = useMemo(
     () => ({
-      palette,
+      theme,
       isSaving,
-      setPalette,
+      setTheme,
     }),
-    [isSaving, palette, setPalette],
+    [isSaving, setTheme, theme],
   );
 
   return <ThemePreferencesContext.Provider value={value}>{children}</ThemePreferencesContext.Provider>;

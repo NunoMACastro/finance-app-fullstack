@@ -47,6 +47,8 @@ Atalhos importantes:
 - Arquitetura: [`docs/architecture/system-overview.md`](./docs/architecture/system-overview.md)
 - API: [`docs/backend/api-reference.md`](./docs/backend/api-reference.md)
 - Frontend estado/API: [`docs/frontend/state-and-api.md`](./docs/frontend/state-and-api.md)
+- Frontend theming/tokens: [`docs/frontend/design-tokens.md`](./docs/frontend/design-tokens.md)
+- Frontend UI v3: [`docs/frontend/ui-v3-spec.md`](./docs/frontend/ui-v3-spec.md)
 - Deploy: [`docs/operations/deployment.md`](./docs/operations/deployment.md)
 
 ## Requisitos
@@ -110,6 +112,7 @@ npm run test
 cd frontend
 npm run dev
 npm run typecheck
+npm run check-theme-contract
 npm run check:tokens
 npm run lint
 npm run test

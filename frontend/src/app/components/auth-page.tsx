@@ -1,425 +1,346 @@
 import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { Heart, Loader2, Wallet } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { isApiError } from "../lib/http-client";
 import {
-    fetchLoginPatchNotes,
-    type LoginPatchNotes,
+  fetchLoginPatchNotes,
+  type LoginPatchNotes,
 } from "../lib/login-patch-notes";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import {
-    Wallet,
-    Loader2,
-    Mail,
-    Lock,
-    UserCircle,
-    Heart,
-    ScrollText,
-} from "lucide-react";
 
 export function AuthPage() {
-    const { login, register, isLoading } = useAuth();
-    const currentYear = new Date().getFullYear();
-    const [loginEmail, setLoginEmail] = useState("");
-    const [loginPassword, setLoginPassword] = useState("");
-    const [regName, setRegName] = useState("");
-    const [regEmail, setRegEmail] = useState("");
-    const [regPassword, setRegPassword] = useState("");
-    const [regConfirm, setRegConfirm] = useState("");
-    const [error, setError] = useState("");
-    const [patchNotes, setPatchNotes] = useState<LoginPatchNotes | null>(null);
+  const { login, register, isLoading } = useAuth();
+  const currentYear = new Date().getFullYear();
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirm, setRegConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [patchNotes, setPatchNotes] = useState<LoginPatchNotes | null>(null);
+  const [mode, setMode] = useState<"login" | "register">("login");
 
-    useEffect(() => {
-        let isCancelled = false;
+  useEffect(() => {
+    let isCancelled = false;
 
-        const loadPatchNotes = async () => {
-            const notes = await fetchLoginPatchNotes();
-            if (isCancelled) return;
-            setPatchNotes(notes);
-        };
-
-        void loadPatchNotes();
-
-        return () => {
-            isCancelled = true;
-        };
-    }, []);
-
-    const getErrorMessage = (err: unknown, fallback: string) => {
-        if (isApiError(err)) return err.message;
-        if (err instanceof Error && err.message) return err.message;
-        return fallback;
+    const loadPatchNotes = async () => {
+      const notes = await fetchLoginPatchNotes();
+      if (isCancelled) return;
+      setPatchNotes(notes);
     };
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError("");
-        if (!loginEmail || !loginPassword) {
-            setError("Preencha todos os campos");
-            return;
-        }
+    void loadPatchNotes();
 
-        try {
-            await login(loginEmail, loginPassword);
-        } catch (err) {
-            setError(getErrorMessage(err, "Erro ao iniciar sessão"));
-        }
+    return () => {
+      isCancelled = true;
     };
+  }, []);
 
-    const handleRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError("");
-        if (!regName || !regEmail || !regPassword) {
-            setError("Preencha todos os campos");
-            return;
-        }
-        if (regPassword !== regConfirm) {
-            setError("As passwords não coincidem");
-            return;
-        }
-        if (regPassword.length < 6) {
-            setError("Password deve ter pelo menos 6 caracteres");
-            return;
-        }
+  const getErrorMessage = (err: unknown, fallback: string) => {
+    if (isApiError(err)) return err.message;
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  };
 
-        try {
-            await register(regName, regEmail, regPassword);
-        } catch (err) {
-            setError(getErrorMessage(err, "Erro ao criar conta"));
-        }
-    };
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
 
-    return (
-        <div className="relative min-h-screen overflow-hidden bg-page-gradient">
-            <div className="pointer-events-none absolute inset-0 bg-brand-gradient-soft opacity-70" />
-            <div className="pointer-events-none absolute inset-0 bg-info-gradient opacity-20" />
+    if (!loginEmail || !loginPassword) {
+      setError("Preenche todos os campos");
+      return;
+    }
 
-            <motion.div
-                className="pointer-events-none absolute -top-16 -left-10 h-60 w-60 rounded-full bg-primary/25 blur-3xl"
-                animate={{ x: [0, 14, 0], y: [0, 8, 0] }}
-                transition={{
-                    duration: 10,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                }}
-            />
-            <motion.div
-                className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-info/20 blur-3xl"
-                animate={{ x: [0, -12, 0], y: [0, -10, 0] }}
-                transition={{
-                    duration: 11,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                }}
-            />
+    try {
+      await login(loginEmail, loginPassword);
+    } catch (err) {
+      setError(getErrorMessage(err, "Erro ao iniciar sessão"));
+    }
+  };
 
-            <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-4 py-7 sm:px-6">
-                <motion.section
-                    className="mx-auto w-full max-w-md overflow-hidden rounded-[30px] border border-border/80 bg-card/95 shadow-overlay"
-                    initial={{ opacity: 0, y: 16, scale: 0.985 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                >
-                    <div className="relative overflow-hidden bg-brand-gradient px-6 pb-7 pt-6 text-primary-foreground">
-                        <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-primary-foreground/20 blur-2xl" />
-                        <div className="pointer-events-none absolute -left-9 bottom-1 h-24 w-24 rounded-full bg-primary-foreground/15 blur-2xl" />
+  const handleRegister = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
 
-                        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-foreground/25 backdrop-blur-sm shadow-card">
-                            <Wallet className="h-7 w-7 text-primary-foreground" />
-                        </div>
+    if (!regName || !regEmail || !regPassword) {
+      setError("Preenche todos os campos");
+      return;
+    }
 
-                        <h1 className="text-primary-foreground">Poupérrimo</h1>
-                    </div>
+    if (regPassword !== regConfirm) {
+      setError("As passwords não coincidem");
+      return;
+    }
 
-                    <div className="p-5 sm:p-6">
-                        <Tabs defaultValue="login" className="w-full">
-                            <TabsList className="mb-5 h-10 w-full rounded-xl bg-muted p-1 sm:h-11">
-                                <TabsTrigger
-                                    value="login"
-                                    className="h-full flex-1 rounded-lg"
-                                >
-                                    Entrar
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="register"
-                                    className="h-full flex-1 rounded-lg"
-                                >
-                                    Registar
-                                </TabsTrigger>
-                            </TabsList>
+    if (regPassword.length < 6) {
+      setError("A password deve ter pelo menos 6 caracteres");
+      return;
+    }
 
-                            <TabsContent value="login" className="mt-0">
-                                <form
-                                    onSubmit={handleLogin}
-                                    className="flex flex-col gap-4"
-                                >
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm text-muted-foreground">
-                                            Email
-                                        </label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                type="email"
-                                                placeholder="nome@exemplo.pt"
-                                                className="h-10 rounded-xl border-border bg-input-background pl-10 sm:h-11"
-                                                value={loginEmail}
-                                                onChange={(e) =>
-                                                    setLoginEmail(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                    </div>
+    try {
+      await register(regName, regEmail, regPassword);
+    } catch (err) {
+      setError(getErrorMessage(err, "Erro ao criar conta"));
+    }
+  };
 
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm text-muted-foreground">
-                                            Password
-                                        </label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                type="password"
-                                                placeholder="A tua password"
-                                                className="h-10 rounded-xl border-border bg-input-background pl-10 sm:h-11"
-                                                value={loginPassword}
-                                                onChange={(e) =>
-                                                    setLoginPassword(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                    </div>
+  return (
+    <div className="min-h-screen bg-background">
+      <motion.header
+        className="relative isolate flex min-h-[28svh] max-h-[34svh] items-center justify-center overflow-hidden bg-brand-gradient px-6 pb-16 pt-10"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-brand-gradient-soft opacity-40" />
+        <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-primary-foreground/20 blur-3xl" />
 
-                                    <AnimatePresence>
-                                        {error && (
-                                            <motion.p
-                                                initial={{
-                                                    opacity: 0,
-                                                    height: 0,
-                                                }}
-                                                animate={{
-                                                    opacity: 1,
-                                                    height: "auto",
-                                                }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
-                                            >
-                                                {error}
-                                            </motion.p>
-                                        )}
-                                    </AnimatePresence>
-
-                                    <Button
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="h-10 rounded-xl border-0 bg-brand-gradient text-primary-foreground shadow-card hover:opacity-95 sm:h-11"
-                                    >
-                                        {isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            "Entrar"
-                                        )}
-                                    </Button>
-                                </form>
-                            </TabsContent>
-
-                            <TabsContent value="register" className="mt-0">
-                                <form
-                                    onSubmit={handleRegister}
-                                    className="flex flex-col gap-4"
-                                >
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm text-muted-foreground">
-                                            Nome
-                                        </label>
-                                        <div className="relative">
-                                            <UserCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                placeholder="O teu nome"
-                                                className="h-10 rounded-xl border-border bg-input-background pl-10 sm:h-11"
-                                                value={regName}
-                                                onChange={(e) =>
-                                                    setRegName(e.target.value)
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm text-muted-foreground">
-                                            Email
-                                        </label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                type="email"
-                                                placeholder="nome@exemplo.pt"
-                                                className="h-10 rounded-xl border-border bg-input-background pl-10 sm:h-11"
-                                                value={regEmail}
-                                                onChange={(e) =>
-                                                    setRegEmail(e.target.value)
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-sm text-muted-foreground">
-                                                Password
-                                            </label>
-                                            <div className="relative">
-                                                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                                <Input
-                                                    type="password"
-                                                    placeholder="Min. 6 caracteres"
-                                                    className="h-10 rounded-xl border-border bg-input-background pl-10 sm:h-11"
-                                                    value={regPassword}
-                                                    onChange={(e) =>
-                                                        setRegPassword(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-sm text-muted-foreground">
-                                                Confirmar
-                                            </label>
-                                            <div className="relative">
-                                                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                                <Input
-                                                    type="password"
-                                                    placeholder="Repete a password"
-                                                    className="h-10 rounded-xl border-border bg-input-background pl-10 sm:h-11"
-                                                    value={regConfirm}
-                                                    onChange={(e) =>
-                                                        setRegConfirm(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <AnimatePresence>
-                                        {error && (
-                                            <motion.p
-                                                initial={{
-                                                    opacity: 0,
-                                                    height: 0,
-                                                }}
-                                                animate={{
-                                                    opacity: 1,
-                                                    height: "auto",
-                                                }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
-                                            >
-                                                {error}
-                                            </motion.p>
-                                        )}
-                                    </AnimatePresence>
-
-                                    <Button
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="h-10 rounded-xl border-0 bg-brand-gradient text-primary-foreground shadow-card hover:opacity-95 sm:h-11"
-                                    >
-                                        {isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            "Criar conta"
-                                        )}
-                                    </Button>
-                                </form>
-                            </TabsContent>
-                        </Tabs>
-                    </div>
-                </motion.section>
-
-                {patchNotes && (
-                    <motion.aside
-                        className="mx-auto mt-4 w-full max-w-md rounded-3xl border border-border/80 bg-card/95 p-4 shadow-card"
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-                        aria-live="polite"
-                    >
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                                <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-status-info-soft text-status-info">
-                                    <ScrollText className="h-4 w-4" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-foreground">Mini patch notes</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        O que mudou e info importante
-                                    </p>
-                                </div>
-                            </div>
-                            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                                {patchNotes.version}
-                            </span>
-                        </div>
-
-                        {patchNotes.updatedAt && (
-                            <p className="mb-3 text-[11px] text-muted-foreground">{patchNotes.updatedAt}</p>
-                        )}
-
-                        <div className="space-y-3">
-                            {patchNotes.changes.length > 0 && (
-                                <div className="rounded-xl bg-status-info-soft px-3 py-2.5">
-                                    <p className="text-xs text-info-foreground">O que mudou</p>
-                                    <ul className="mt-2 space-y-1.5">
-                                        {patchNotes.changes.map((item, index) => (
-                                            <li key={`${item}-${index}`} className="text-xs text-info-foreground">
-                                                - {item}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {patchNotes.instructions.length > 0 && (
-                                <div className="rounded-xl bg-status-warning-soft px-3 py-2.5">
-                                    <p className="text-xs text-warning-foreground">Instrucoes importantes</p>
-                                    <ul className="mt-2 space-y-1.5">
-                                        {patchNotes.instructions.map((item, index) => (
-                                            <li key={`${item}-${index}`} className="text-xs text-warning-foreground">
-                                                - {item}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    </motion.aside>
-                )}
-
-                <div className="mt-6 flex items-center justify-center">
-                    <div className="group relative inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>made with</span>
-                        <button
-                            type="button"
-                            aria-label={`Nuno Castro ${currentYear}`}
-                            className="inline-flex items-center text-status-danger transition-colors hover:opacity-80"
-                        >
-                            <Heart className="h-3.5 w-3.5 fill-current" />
-                        </button>
-                        <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-lg border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground opacity-0 shadow-card transition-all duration-200 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100">
-                            Nuno Castro · {currentYear}
-                        </span>
-                    </div>
-                </div>
-            </div>
+        <div className="relative z-10 flex flex-col items-center gap-3 text-primary-foreground">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-foreground/20">
+            <Wallet className="h-7 w-7" />
+          </div>
+          <h1 className="text-center text-3xl font-medium tracking-tight">Poupérrimo</h1>
         </div>
-    );
+
+        <svg
+          data-testid="auth-hero-wave"
+          aria-hidden="true"
+          viewBox="0 0 390 110"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute -bottom-px left-0 h-24 w-full"
+        >
+          <path
+            d="M0,64 C96,0 184,118 390,46 L390,110 L0,110 Z"
+            fill="var(--background)"
+          />
+          <path
+            d="M0,64 C96,0 184,118 390,46"
+            fill="none"
+            stroke="var(--border)"
+            strokeWidth="1.25"
+          />
+        </svg>
+      </motion.header>
+
+      <main className="mx-auto flex min-h-[72svh] w-full max-w-md flex-col px-6 pb-8 pt-5">
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut", delay: 0.04 }}
+        >
+          {mode === "login" ? (
+            <form onSubmit={handleLogin} className="flex flex-col gap-5" noValidate>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="auth-login-email" className="text-sm text-muted-foreground">
+                  Email
+                </label>
+                <Input
+                  id="auth-login-email"
+                  type="email"
+                  placeholder="nome@exemplo.pt"
+                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="auth-login-password" className="text-sm text-muted-foreground">
+                  Password
+                </label>
+                <Input
+                  id="auth-login-password"
+                  type="password"
+                  placeholder="A tua password"
+                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                />
+                <p className="pt-1 text-right text-xs text-muted-foreground">
+                  Recuperação de password disponível em breve.
+                </p>
+              </div>
+
+              <AnimatePresence>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <div className="mt-4 flex flex-col gap-1">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
+                </Button>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Ainda não tens conta?{" "}
+                  <button
+                    type="button"
+                    className="text-primary underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setError("");
+                      setMode("register");
+                    }}
+                  >
+                    Regista-te
+                  </button>
+                </p>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="flex flex-col gap-5" noValidate>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="auth-register-name" className="text-sm text-muted-foreground">
+                  Nome
+                </label>
+                <Input
+                  id="auth-register-name"
+                  placeholder="O teu nome"
+                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                  value={regName}
+                  onChange={(event) => setRegName(event.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="auth-register-email" className="text-sm text-muted-foreground">
+                  Email
+                </label>
+                <Input
+                  id="auth-register-email"
+                  type="email"
+                  placeholder="nome@exemplo.pt"
+                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                  value={regEmail}
+                  onChange={(event) => setRegEmail(event.target.value)}
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="auth-register-password" className="text-sm text-muted-foreground">
+                    Password
+                  </label>
+                  <Input
+                    id="auth-register-password"
+                    type="password"
+                    placeholder="Min. 6 caracteres"
+                    className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                    value={regPassword}
+                    onChange={(event) => setRegPassword(event.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="auth-register-confirm" className="text-sm text-muted-foreground">
+                    Confirmar
+                  </label>
+                  <Input
+                    id="auth-register-confirm"
+                    type="password"
+                    placeholder="Repete a password"
+                    className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                    value={regConfirm}
+                    onChange={(event) => setRegConfirm(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <div className="mt-4 flex flex-col gap-1">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
+                </Button>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Já tens conta?{" "}
+                  <button
+                    type="button"
+                    className="text-primary underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setError("");
+                      setMode("login");
+                    }}
+                  >
+                    Entrar
+                  </button>
+                </p>
+              </div>
+            </form>
+          )}
+        </motion.section>
+
+        {patchNotes && (
+          <motion.aside
+            className="mt-auto pt-7 text-xs text-muted-foreground"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+            aria-live="polite"
+          >
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground/85">
+              Notas {patchNotes.version}
+            </p>
+            {patchNotes.updatedAt && (
+              <p className="mt-1 text-[11px] text-muted-foreground">{patchNotes.updatedAt}</p>
+            )}
+            {patchNotes.changes.length > 0 && (
+              <ul className="mt-2 space-y-1.5">
+                {patchNotes.changes.slice(0, 3).map((item, index) => (
+                  <li key={`${item}-${index}`} className="text-muted-foreground">
+                    - {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </motion.aside>
+        )}
+
+        <div className="flex justify-center pt-8">
+          <div className="group relative inline-flex items-center gap-1.5 text-xs text-muted-foreground/85">
+            <span>made with</span>
+            <button
+              type="button"
+              aria-label={`Nuno Castro ${currentYear}`}
+              className="inline-flex items-center text-status-danger transition-colors hover:opacity-80"
+            >
+              <Heart className="h-3.5 w-3.5 fill-current" />
+            </button>
+            <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 translate-y-1 whitespace-nowrap px-2 py-1 text-[11px] text-muted-foreground opacity-0 transition-all duration-200 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100">
+              Nuno Castro · {currentYear}
+            </span>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }

@@ -81,6 +81,7 @@ export interface BudgetCategory {
   id: string;
   name: string;
   percent: number; // percentage of totalBudget (0-100)
+  colorSlot?: number; // theme slot (1-9)
 }
 
 export interface IncomeCategory {
@@ -265,6 +266,9 @@ export interface StatsSnapshot {
     projectedIncome: number;
     projectedExpense: number;
     projectedBalance: number;
+    windowMonths: 3 | 6;
+    sampleSize: number;
+    confidence: "low" | "medium" | "high";
   };
 }
 

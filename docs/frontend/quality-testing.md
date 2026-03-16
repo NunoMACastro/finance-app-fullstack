@@ -5,6 +5,7 @@
 ```bash
 cd frontend
 npm run typecheck
+npm run check-theme-contract
 npm run check:tokens
 npm run lint
 npm run test
@@ -14,6 +15,7 @@ npm run build
 ## Tooling
 
 - TypeScript (`tsc --noEmit`)
+- Theme contract guardrail (`scripts/check-theme-contract.mjs`)
 - Token guardrail (`scripts/check-tokens.mjs`)
 - ESLint (`@typescript-eslint`, hooks, react-refresh)
 - Vitest + Testing Library + jsdom
@@ -44,6 +46,7 @@ Na pipeline principal:
 - install
 - typecheck
 - check:tokens
+- check-theme-contract
 - lint
 - tests
 - build

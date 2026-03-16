@@ -67,6 +67,9 @@ interface StatsSnapshotDto {
     projectedIncome: number;
     projectedExpense: number;
     projectedBalance: number;
+    windowMonths: 3 | 6;
+    sampleSize: number;
+    confidence: "low" | "medium" | "high";
   };
 }
 
@@ -100,13 +103,20 @@ function categoryMonthKey(categoryId: string, month: string): string {
   return `${categoryId}::${month}`;
 }
 
-export function buildForecast(trend: TrendItem[]) {
-  const sample = trend.slice(-3);
+export function buildForecast(trend: TrendItem[], windowMonths: 3 | 6 = 3) {
+  const sample = trend.slice(-windowMonths);
+  const sampleSize = sample.length;
+  const confidence: "low" | "medium" | "high" =
+    sampleSize < 3 ? "low" : sampleSize < windowMonths ? "medium" : "high";
+
   if (sample.length === 0) {
     return {
       projectedIncome: 0,
       projectedExpense: 0,
       projectedBalance: 0,
+      windowMonths,
+      sampleSize,
+      confidence,
     };
   }
 
@@ -117,6 +127,9 @@ export function buildForecast(trend: TrendItem[]) {
     projectedIncome,
     projectedExpense,
     projectedBalance: projectedIncome - projectedExpense,
+    windowMonths,
+    sampleSize,
+    confidence,
   };
 }
 
@@ -125,6 +138,7 @@ async function buildStats(
   periodType: "semester" | "year",
   periodKey: string,
   months: string[],
+  forecastWindow: 3 | 6,
 ): Promise<StatsSnapshotDto> {
   const transactions = await TransactionModel.find({
     accountId,
@@ -276,26 +290,34 @@ async function buildStats(
     categorySeries,
     incomeByCategory,
     incomeCategorySeries,
-    forecast: buildForecast(trend),
+    forecast: buildForecast(trend, forecastWindow),
   };
 }
 
-export async function getSemesterStats(accountId: string, endingMonth?: string): Promise<StatsSnapshotDto> {
+export async function getSemesterStats(
+  accountId: string,
+  endingMonth?: string,
+  forecastWindow: 3 | 6 = 3,
+): Promise<StatsSnapshotDto> {
   const anchor = endingMonth ?? monthFromDate(new Date());
   const months = lastNMonthsEndingAt(anchor, 6);
   const periodKey = semesterKey(anchor);
-  return buildStats(accountId, "semester", periodKey, months);
+  return buildStats(accountId, "semester", periodKey, months, forecastWindow);
 }
 
-export async function getYearStats(accountId: string, year?: number): Promise<StatsSnapshotDto> {
+export async function getYearStats(
+  accountId: string,
+  year?: number,
+  forecastWindow: 3 | 6 = 3,
+): Promise<StatsSnapshotDto> {
   if (year) {
-    return buildStats(accountId, "year", String(year), monthsForYear(year));
+    return buildStats(accountId, "year", String(year), monthsForYear(year), forecastWindow);
   }
 
   const anchor = monthFromDate(new Date());
   const months = lastNMonthsEndingAt(anchor, 12);
   const periodKey = anchor.slice(0, 4);
-  return buildStats(accountId, "year", periodKey, months);
+  return buildStats(accountId, "year", periodKey, months, forecastWindow);
 }
 
 export async function compareBudget(accountId: string, from: string, to: string): Promise<BudgetCompareDto> {
@@ -315,7 +337,7 @@ export async function compareBudget(accountId: string, from: string, to: string)
     if (months.length > 36) break;
   }
 
-  const stats = await buildStats(accountId, "semester", `${from}_${to}`, months);
+  const stats = await buildStats(accountId, "semester", `${from}_${to}`, months, 3);
   const budgeted = stats.budgetVsActual.reduce((sum, item) => sum + item.budgeted, 0);
   const actual = stats.budgetVsActual.reduce((sum, item) => sum + item.actual, 0);
 

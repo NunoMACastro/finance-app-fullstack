@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
+import { Skeleton } from "./ui/skeleton";
 import {
   TrendingUp,
   TrendingDown,
   Target,
-  Loader2,
   ArrowUpRight,
   ArrowDownRight,
   Zap,
@@ -81,10 +81,16 @@ function SvgTrendChart({
   data,
   onDotClick,
   selectedIndex,
+  visibleSeries,
 }: {
   data: TrendDataPoint[];
   onDotClick: (index: number) => void;
   selectedIndex: number | null;
+  visibleSeries: {
+    income: boolean;
+    expense: boolean;
+    balance: boolean;
+  };
 }) {
   const W = 340;
   const H = 200;
@@ -92,7 +98,11 @@ function SvgTrendChart({
   const cw = W - PAD.left - PAD.right;
   const ch = H - PAD.top - PAD.bottom;
 
-  const allVals = data.flatMap((d) => [d.income, d.expense, d.balance]);
+  const allVals = data.flatMap((d) => [
+    ...(visibleSeries.income ? [d.income] : []),
+    ...(visibleSeries.expense ? [d.expense] : []),
+    ...(visibleSeries.balance ? [d.balance] : []),
+  ]);
   const maxV = Math.max(...allVals, 1);
   const minV = Math.min(...allVals, 0);
   const range = maxV - minV || 1;
@@ -132,7 +142,7 @@ function SvgTrendChart({
             stroke="var(--chart-grid)" strokeDasharray="3 3"
           />
           <text x={PAD.left - 4} y={y(t) + 3} textAnchor="end" fill="var(--chart-axis)" fontSize={9}>
-            {(t / 1000).toFixed(1)}k
+            {(t / 1000).toFixed(1)}k€
           </text>
         </g>
       ))}
@@ -143,12 +153,40 @@ function SvgTrendChart({
         </text>
       ))}
       {/* Area fills */}
-      <path d={areaPath("income")} fill="url(#incFill)" />
-      <path d={areaPath("expense")} fill="url(#expFill)" />
+      {visibleSeries.income ? <path d={areaPath("income")} fill="url(#incFill)" /> : null}
+      {visibleSeries.expense ? <path d={areaPath("expense")} fill="url(#expFill)" /> : null}
       {/* Lines */}
-      <polyline points={polyline("income")} fill="none" stroke="var(--chart-income)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-      <polyline points={polyline("expense")} fill="none" stroke="var(--chart-expense)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-      <polyline points={polyline("balance")} fill="none" stroke="var(--chart-balance)" strokeWidth={2} strokeDasharray="6 4" strokeLinejoin="round" strokeLinecap="round" />
+      {visibleSeries.income ? (
+        <polyline
+          points={polyline("income")}
+          fill="none"
+          stroke="var(--chart-income)"
+          strokeWidth={selectedIndex !== null ? 3 : 2.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
+      {visibleSeries.expense ? (
+        <polyline
+          points={polyline("expense")}
+          fill="none"
+          stroke="var(--chart-expense)"
+          strokeWidth={selectedIndex !== null ? 3 : 2.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
+      {visibleSeries.balance ? (
+        <polyline
+          points={polyline("balance")}
+          fill="none"
+          stroke="var(--chart-balance)"
+          strokeWidth={selectedIndex !== null ? 2.5 : 2}
+          strokeDasharray="6 4"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
       {/* Interactive dots - only show on hover/selection */}
       {data.map((d, i) => (
         <g key={`dots-${i}`} className="cursor-pointer" onClick={() => onDotClick(i)}>
@@ -162,9 +200,36 @@ function SvgTrendChart({
             />
           )}
           {/* Dots */}
-          <circle cx={x(i)} cy={y(d.income)} r={selectedIndex === i ? 5 : 3} fill="var(--chart-income)" stroke="var(--chart-dot-stroke)" strokeWidth={2} />
-          <circle cx={x(i)} cy={y(d.expense)} r={selectedIndex === i ? 5 : 3} fill="var(--chart-expense)" stroke="var(--chart-dot-stroke)" strokeWidth={2} />
-          <circle cx={x(i)} cy={y(d.balance)} r={selectedIndex === i ? 4 : 2.5} fill="var(--chart-balance)" stroke="var(--chart-dot-stroke)" strokeWidth={1.5} />
+          {visibleSeries.income ? (
+            <circle
+              cx={x(i)}
+              cy={y(d.income)}
+              r={selectedIndex === i ? 5 : 3}
+              fill="var(--chart-income)"
+              stroke="var(--chart-dot-stroke)"
+              strokeWidth={2}
+            />
+          ) : null}
+          {visibleSeries.expense ? (
+            <circle
+              cx={x(i)}
+              cy={y(d.expense)}
+              r={selectedIndex === i ? 5 : 3}
+              fill="var(--chart-expense)"
+              stroke="var(--chart-dot-stroke)"
+              strokeWidth={2}
+            />
+          ) : null}
+          {visibleSeries.balance ? (
+            <circle
+              cx={x(i)}
+              cy={y(d.balance)}
+              r={selectedIndex === i ? 4 : 2.5}
+              fill="var(--chart-balance)"
+              stroke="var(--chart-dot-stroke)"
+              strokeWidth={1.5}
+            />
+          ) : null}
         </g>
       ))}
     </svg>
@@ -290,7 +355,7 @@ function MonthDetailPanel({
       exit={{ opacity: 0, height: 0, marginTop: 0 }}
       className="overflow-hidden"
     >
-      <Card className="border-0 shadow-md bg-info-soft p-4">
+      <Card className="border border-border/70 bg-info-soft p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Info className="w-4 h-4 text-status-info" />
@@ -304,22 +369,22 @@ function MonthDetailPanel({
           </button>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-card rounded-xl p-2.5 text-center shadow-sm">
+          <div className="bg-card rounded-xl p-2.5 text-center">
             <p className="text-[10px] text-muted-foreground mb-0.5">Receita</p>
             <p className="text-xs text-status-success tabular-nums">{formatCurrency(item.income)}</p>
           </div>
-          <div className="bg-card rounded-xl p-2.5 text-center shadow-sm">
+          <div className="bg-card rounded-xl p-2.5 text-center">
             <p className="text-[10px] text-muted-foreground mb-0.5">Despesa</p>
             <p className="text-xs text-status-danger tabular-nums">{formatCurrency(item.expense)}</p>
           </div>
-          <div className="bg-card rounded-xl p-2.5 text-center shadow-sm">
+          <div className="bg-card rounded-xl p-2.5 text-center">
             <p className="text-[10px] text-muted-foreground mb-0.5">Saldo</p>
             <p className={`text-xs tabular-nums ${item.balance >= 0 ? "text-status-info" : "text-status-danger"}`}>
               {formatCurrency(item.balance)}
             </p>
           </div>
-          <div className="bg-card rounded-xl p-2.5 text-center shadow-sm">
-            <p className="text-[10px] text-muted-foreground mb-0.5">Poupanca</p>
+          <div className="bg-card rounded-xl p-2.5 text-center">
+            <p className="text-[10px] text-muted-foreground mb-0.5">Poupança</p>
             <p className={`text-xs tabular-nums ${savingsRate >= 20 ? "text-status-success" : savingsRate >= 10 ? "text-status-warning" : "text-status-danger"}`}>
               {savingsRate}%
             </p>
@@ -328,10 +393,10 @@ function MonthDetailPanel({
         {/* Mini bar showing income vs expense ratio */}
         <div className="mt-3">
           <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-            <span>Racio despesa/receita</span>
+            <span>Rácio despesa/receita</span>
             <span className="tabular-nums">{item.income > 0 ? Math.round((item.expense / item.income) * 100) : 0}%</span>
           </div>
-          <div className="h-2 w-full bg-card rounded-full overflow-hidden shadow-sm">
+          <div className="h-2 w-full bg-card rounded-full overflow-hidden">
             <motion.div
               className="h-full rounded-full bg-brand-gradient"
               initial={{ width: 0 }}
@@ -385,10 +450,8 @@ function CategoryDetailCard({
       transition={{ delay: 0.25 + index * 0.04 }}
     >
       <Card
-        className={`p-4 border-0 shadow-sm transition-all duration-300 cursor-pointer ${
-          isHighlighted
-            ? "shadow-lg ring-2 ring-primary/40 scale-[1.01]"
-            : "hover:shadow-md"
+        className={`cursor-pointer border border-border/70 p-4 transition-all duration-300 ${
+          isHighlighted ? "ring-2 ring-primary/40 scale-[1.01]" : "hover:bg-accent/30"
         }`}
         onClick={onToggle}
       >
@@ -446,7 +509,7 @@ function CategoryDetailCard({
               <div className="mt-3 pt-3 border-t border-muted">
                 <div className="grid grid-cols-1 gap-2 mb-3">
                   <div className="bg-muted/40 rounded-lg p-2 text-center">
-                    <p className="text-[10px] text-muted-foreground">Utilizacao</p>
+                    <p className="text-[10px] text-muted-foreground">Utilização</p>
                     <p className={`text-xs tabular-nums ${over ? "text-status-danger" : "text-status-info"}`}>
                       {pct.toFixed(1)}%
                     </p>
@@ -458,13 +521,13 @@ function CategoryDetailCard({
                     </p>
                   </div>
                   <div className="bg-muted/40 rounded-lg p-2 text-center">
-                    <p className="text-[10px] text-muted-foreground">Disponivel</p>
+                    <p className="text-[10px] text-muted-foreground">Disponível</p>
                     <p className={`text-xs tabular-nums ${over ? "text-status-danger" : "text-status-success"}`}>
                       {formatCurrency(item.budgeted - item.actual)}
                     </p>
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground mb-2">Tendencia mensal</p>
+                <p className="text-[10px] text-muted-foreground mb-2">Tendência mensal</p>
                 {/* Pure CSS mini bar chart */}
                 <div className="flex items-end gap-1.5" style={{ height: 64 }}>
                   {categoryTrend.map((ct, ci) => {
@@ -502,6 +565,29 @@ function CategoryDetailCard({
   );
 }
 
+function StatsLoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="border border-border/70 p-4">
+        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-10 w-full" />
+      </Card>
+      <Card className="border border-border/70 p-4">
+        <Skeleton className="h-4 w-28 mb-3" />
+        <Skeleton className="h-44 w-full" />
+      </Card>
+      <Card className="border border-border/70 p-4">
+        <Skeleton className="h-4 w-36 mb-3" />
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-[92%]" />
+          <Skeleton className="h-3 w-[84%]" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════
    Main Stats Page
    ══════════════════════════════════════════════════════ */
@@ -510,6 +596,7 @@ export function StatsPage() {
   const { user, isAmountsHidden } = useAuth();
   const { activeAccountId } = useAccount();
   const [period, setPeriod] = useState<"semester" | "year">("semester");
+  const [forecastWindow, setForecastWindow] = useState<3 | 6>(3);
   const [stats, setStats] = useState<StatsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -518,12 +605,20 @@ export function StatsPage() {
   // Interactive state
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
+  const [visibleSeries, setVisibleSeries] = useState({
+    income: true,
+    expense: true,
+    balance: true,
+  });
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
   applyRuntimeFormatting(user, isAmountsHidden);
 
   // Refs for scroll-to
   const detailSectionRef = useRef<HTMLDivElement>(null);
+  const trendSectionRef = useRef<HTMLDivElement>(null);
+  const budgetSectionRef = useRef<HTMLDivElement>(null);
+  const topCategoriesRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const loadStats = useCallback(async () => {
@@ -538,7 +633,10 @@ export function StatsPage() {
     setHighlightedCategory(null);
 
     try {
-      const fetchPromise = period === "semester" ? statsApi.getSemester() : statsApi.getYear();
+      const fetchPromise =
+        period === "semester"
+          ? statsApi.getSemester(undefined, forecastWindow)
+          : statsApi.getYear(undefined, forecastWindow);
       const data = await fetchPromise;
       if (requestId !== requestIdRef.current) return;
       setStats(data);
@@ -551,7 +649,7 @@ export function StatsPage() {
         setLoading(false);
       }
     }
-  }, [period, activeAccountId]);
+  }, [period, activeAccountId, forecastWindow]);
 
   useEffect(() => {
     void loadStats();
@@ -689,20 +787,32 @@ export function StatsPage() {
     setActivePieIndex(null);
   }, []);
 
+  const scrollToSection = useCallback((ref: React.RefObject<HTMLDivElement>) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const toggleSeries = useCallback((series: "income" | "expense" | "balance") => {
+    setVisibleSeries((prev) => {
+      const enabledCount = Object.values(prev).filter(Boolean).length;
+      if (prev[series] && enabledCount === 1) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [series]: !prev[series],
+      };
+    });
+  }, []);
+
   /* ── Render ─────────────────────────────────────── */
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="text-sm text-muted-foreground">A carregar estatísticas...</span>
-      </div>
-    );
+    return <StatsLoadingSkeleton />;
   }
 
   if (loadError) {
     return (
-      <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft shadow-sm">
+      <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft">
         <div className="p-4 flex flex-col gap-3">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
@@ -735,7 +845,7 @@ export function StatsPage() {
   const maxIncomeByCategory = Math.max(...incomeByCategory.map((item) => item.amount), 1);
 
   return (
-    <div className="flex flex-col gap-5 pb-4">
+    <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="stats">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -787,26 +897,23 @@ export function StatsPage() {
 
       {/* Savings Rate Hero */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <SectionCardV2 tone="hero" className="relative overflow-hidden border-0 shadow-xl shadow-card">
-          <div className="absolute inset-0 bg-info-gradient" />
-          <div className="absolute inset-0 bg-brand-gradient-soft opacity-30" />
-          <div className="relative p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary-foreground/25 backdrop-blur-sm flex items-center justify-center">
-                <PiggyBank className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="text-primary-foreground text-sm">Taxa de Poupança</h3>
-                <p className="text-primary-foreground/70 text-xs">Percentagem do rendimento poupado</p>
-              </div>
+        <SectionCardV2 tone="hero" className="p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-info-soft flex items-center justify-center">
+              <PiggyBank className="w-5 h-5 text-status-info" />
             </div>
-            <div className="flex items-center gap-5 mb-4">
+            <div>
+              <h3 className="text-foreground text-sm">Taxa de Poupança</h3>
+              <p className="text-muted-foreground text-xs">Percentagem do rendimento poupado</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-5 mb-4">
               <div className="relative w-20 h-20">
                 <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="color-mix(in srgb, var(--primary-foreground) 22%, transparent)" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="color-mix(in srgb, var(--primary) 22%, transparent)" strokeWidth="3" />
                   <motion.circle
                     cx="18" cy="18" r="15.5" fill="none"
-                    stroke="var(--primary-foreground)" strokeWidth="3" strokeLinecap="round"
+                    stroke="var(--primary)" strokeWidth="3" strokeLinecap="round"
                     strokeDasharray={`${Math.max(derived.savingsRate, 0) * 0.9738} 100`}
                     initial={{ strokeDasharray: "0 100" }}
                     animate={{ strokeDasharray: `${Math.max(derived.savingsRate, 0) * 0.9738} 100` }}
@@ -814,31 +921,30 @@ export function StatsPage() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-primary-foreground text-sm tabular-nums">
+                  <span className="text-foreground text-sm tabular-nums">
                     {derived.savingsRate >= 0 ? Math.round(derived.savingsRate) : 0}%
                   </span>
                 </div>
               </div>
               <div className="flex-1 grid grid-cols-2 gap-2">
-                <div className="bg-primary-foreground/15 backdrop-blur-sm rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-primary-foreground/60 mb-0.5">Média/dia</p>
-                  <p className="text-primary-foreground text-xs tabular-nums">{formatCurrency(derived.avgDailySpend)}</p>
+                <div className="rounded-xl border border-border/70 bg-surface-soft p-2.5 text-center">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Média/dia</p>
+                  <p className="text-foreground text-xs tabular-nums">{formatCurrency(derived.avgDailySpend)}</p>
                 </div>
-                <div className="bg-primary-foreground/15 backdrop-blur-sm rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-primary-foreground/60 mb-0.5">Saldo médio</p>
-                  <p className="text-primary-foreground text-xs tabular-nums">{formatCurrency(derived.avgMonthlyBalance)}</p>
+                <div className="rounded-xl border border-border/70 bg-surface-soft p-2.5 text-center">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Saldo médio</p>
+                  <p className="text-foreground text-xs tabular-nums">{formatCurrency(derived.avgMonthlyBalance)}</p>
                 </div>
-                <div className="bg-primary-foreground/15 backdrop-blur-sm rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-primary-foreground/60 mb-0.5">Sequência +</p>
-                  <p className="text-primary-foreground text-xs tabular-nums">{derived.streak} {derived.streak === 1 ? "mês" : "meses"}</p>
+                <div className="rounded-xl border border-border/70 bg-surface-soft p-2.5 text-center">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Meses positivos</p>
+                  <p className="text-foreground text-xs tabular-nums">{derived.streak} {derived.streak === 1 ? "mês" : "meses"}</p>
                 </div>
-                <div className="bg-primary-foreground/15 backdrop-blur-sm rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-primary-foreground/60 mb-0.5">Acima orç.</p>
-                  <p className="text-primary-foreground text-xs tabular-nums">{derived.overBudgetCount} cat.</p>
+                <div className="rounded-xl border border-border/70 bg-surface-soft p-2.5 text-center">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Acima orç.</p>
+                  <p className="text-foreground text-xs tabular-nums">{derived.overBudgetCount} cat.</p>
                 </div>
               </div>
             </div>
-          </div>
         </SectionCardV2>
       </motion.div>
 
@@ -849,45 +955,51 @@ export function StatsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
       >
-        <Card className="p-4 border-0 shadow-md">
-          <div className="w-9 h-9 rounded-2xl bg-success-soft flex items-center justify-center mb-2">
-            <ArrowUpRight className="w-4 h-4 text-status-success" />
-          </div>
-          <p className="text-[11px] text-muted-foreground mb-0.5">Receitas</p>
-          <p className="text-sm text-status-success tabular-nums">{formatCurrency(stats.totals.totalIncome)}</p>
-          {derived.momIncome !== 0 && (
-            <div className={`flex items-center gap-0.5 mt-1 ${derived.momIncome >= 0 ? "text-status-success" : "text-status-danger"}`}>
-              {derived.momIncome >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              <span className="text-[10px] tabular-nums">{derived.momIncome >= 0 ? "+" : ""}{derived.momIncome.toFixed(1)}%</span>
+        <button type="button" className="text-left" onClick={() => scrollToSection(trendSectionRef)}>
+          <Card className="p-4 border border-border/70">
+            <div className="w-9 h-9 rounded-xl bg-success-soft flex items-center justify-center mb-2">
+              <ArrowUpRight className="w-4 h-4 text-status-success" />
             </div>
-          )}
-        </Card>
-        <Card className="p-4 border-0 shadow-md">
-          <div className="w-9 h-9 rounded-2xl bg-danger-soft flex items-center justify-center mb-2">
-            <ArrowDownRight className="w-4 h-4 text-status-danger" />
-          </div>
-          <p className="text-[11px] text-muted-foreground mb-0.5">Despesas</p>
-          <p className="text-sm text-status-danger tabular-nums">{formatCurrency(stats.totals.totalExpense)}</p>
-          {derived.momExpense !== 0 && (
-            <div className={`flex items-center gap-0.5 mt-1 ${derived.momExpense <= 0 ? "text-status-success" : "text-status-danger"}`}>
-              {derived.momExpense <= 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-              <span className="text-[10px] tabular-nums">{derived.momExpense >= 0 ? "+" : ""}{derived.momExpense.toFixed(1)}%</span>
-            </div>
-          )}
-        </Card>
-        <Card className="p-4 border-0 shadow-md">
-          <div className={`w-9 h-9 rounded-2xl flex items-center justify-center mb-2 ${stats.totals.balance >= 0 ? "bg-info-soft" : "bg-danger-soft"}`}>
-            {stats.totals.balance >= 0 ? (
-              <TrendingUp className="w-4 h-4 text-status-info" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-status-danger" />
+            <p className="text-[11px] text-muted-foreground mb-0.5">Receitas</p>
+            <p className="text-sm text-status-success tabular-nums">{formatCurrency(stats.totals.totalIncome)}</p>
+            {derived.momIncome !== 0 && (
+              <div className={`flex items-center gap-0.5 mt-1 ${derived.momIncome >= 0 ? "text-status-success" : "text-status-danger"}`}>
+                {derived.momIncome >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                <span className="text-[10px] tabular-nums">{derived.momIncome >= 0 ? "+" : ""}{derived.momIncome.toFixed(1)}%</span>
+              </div>
             )}
-          </div>
-          <p className="text-[11px] text-muted-foreground mb-0.5">Saldo</p>
-          <p className={`text-sm tabular-nums ${stats.totals.balance >= 0 ? "text-status-info" : "text-status-danger"}`}>
-            {formatCurrency(stats.totals.balance)}
-          </p>
-        </Card>
+          </Card>
+        </button>
+        <button type="button" className="text-left" onClick={() => scrollToSection(topCategoriesRef)}>
+          <Card className="p-4 border border-border/70">
+            <div className="w-9 h-9 rounded-xl bg-danger-soft flex items-center justify-center mb-2">
+              <ArrowDownRight className="w-4 h-4 text-status-danger" />
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-0.5">Despesas</p>
+            <p className="text-sm text-status-danger tabular-nums">{formatCurrency(stats.totals.totalExpense)}</p>
+            {derived.momExpense !== 0 && (
+              <div className={`flex items-center gap-0.5 mt-1 ${derived.momExpense <= 0 ? "text-status-success" : "text-status-danger"}`}>
+                {derived.momExpense <= 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                <span className="text-[10px] tabular-nums">{derived.momExpense >= 0 ? "+" : ""}{derived.momExpense.toFixed(1)}%</span>
+              </div>
+            )}
+          </Card>
+        </button>
+        <button type="button" className="text-left" onClick={() => scrollToSection(budgetSectionRef)}>
+          <Card className="p-4 border border-border/70">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${stats.totals.balance >= 0 ? "bg-info-soft" : "bg-danger-soft"}`}>
+              {stats.totals.balance >= 0 ? (
+                <TrendingUp className="w-4 h-4 text-status-info" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-status-danger" />
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-0.5">Saldo</p>
+            <p className={`text-sm tabular-nums ${stats.totals.balance >= 0 ? "text-status-info" : "text-status-danger"}`}>
+              {formatCurrency(stats.totals.balance)}
+            </p>
+          </Card>
+        </button>
       </motion.div>
 
       {/* Best / Worst Month */}
@@ -897,7 +1009,7 @@ export function StatsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
       >
-        <Card className="p-4 border-0 shadow-md">
+        <Card className="p-4 border border-border/70">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-lg bg-warning-soft flex items-center justify-center">
               <Award className="w-3.5 h-3.5 text-status-warning" />
@@ -907,7 +1019,7 @@ export function StatsPage() {
           <p className="text-sm capitalize">{formatFullMonth(derived.bestMonth.month)}</p>
           <p className="text-xs text-status-success tabular-nums mt-0.5">+{formatCurrency(derived.bestMonth.balance)}</p>
         </Card>
-        <Card className="p-4 border-0 shadow-md">
+        <Card className="p-4 border border-border/70">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-lg bg-danger-soft flex items-center justify-center">
               <AlertTriangle className="w-3.5 h-3.5 text-status-danger" />
@@ -928,7 +1040,7 @@ export function StatsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.09 }}
       >
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <div className="w-7 h-7 rounded-lg bg-success-soft flex items-center justify-center">
@@ -939,7 +1051,7 @@ export function StatsPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {incomeByCategory.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sem receitas categorizadas no periodo.</p>
+              <p className="text-xs text-muted-foreground">Sem receitas categorizadas no período.</p>
             ) : (
               incomeByCategory.slice(0, 6).map((item, index) => (
                 <div key={item.categoryId} className="flex flex-col gap-1.5">
@@ -961,18 +1073,18 @@ export function StatsPage() {
             )}
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <div className="w-7 h-7 rounded-lg bg-info-soft flex items-center justify-center">
                 <BarChart3 className="w-3.5 h-3.5 text-status-info" />
               </div>
-              Evolucao Mensal das Receitas
+              Evolução Mensal das Receitas
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {incomeCategorySeries.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sem series de receita para mostrar.</p>
+              <p className="text-xs text-muted-foreground">Sem séries de receita para mostrar.</p>
             ) : (
               incomeCategorySeries.slice(0, 4).map((series, seriesIndex) => {
                 const maxSeriesValue = Math.max(...series.monthly.map((point) => point.amount), 1);
@@ -1010,19 +1122,20 @@ export function StatsPage() {
 
       {/* Trend Chart - Interactive (Pure SVG) */}
       <motion.div
+        ref={trendSectionRef}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         data-tour="stats-trend-chart"
       >
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-info-soft flex items-center justify-center">
                   <TrendingUp className="w-3.5 h-3.5 text-status-info" />
                 </div>
-                Tendencia Mensal
+                Tendência Mensal
               </div>
               <span className="text-[10px] text-muted-foreground">Toca num ponto para detalhes</span>
             </CardTitle>
@@ -1032,20 +1145,30 @@ export function StatsPage() {
               data={trendData}
               onDotClick={handleTrendDotClick}
               selectedIndex={selectedTrendIndex}
+              visibleSeries={visibleSeries}
             />
             <div className="flex items-center justify-center gap-6 mt-2">
-              <div className="flex items-center gap-1.5">
+              <button
+                className={`flex items-center gap-1.5 rounded-lg px-2 py-1 ${visibleSeries.income ? "bg-success-soft text-foreground" : "opacity-55"}`}
+                onClick={() => toggleSeries("income")}
+              >
                 <div className="w-3 h-3 rounded-full bg-category-solid-3" />
-                <span className="text-xs text-muted-foreground">Receitas</span>
-              </div>
-              <div className="flex items-center gap-1.5">
+                <span className="text-xs">Receitas</span>
+              </button>
+              <button
+                className={`flex items-center gap-1.5 rounded-lg px-2 py-1 ${visibleSeries.expense ? "bg-danger-soft text-foreground" : "opacity-55"}`}
+                onClick={() => toggleSeries("expense")}
+              >
                 <div className="w-3 h-3 rounded-full bg-category-solid-8" />
-                <span className="text-xs text-muted-foreground">Despesas</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-0.5 bg-category-solid-1 rounded" />
-                <span className="text-xs text-muted-foreground">Saldo</span>
-              </div>
+                <span className="text-xs">Despesas</span>
+              </button>
+              <button
+                className={`flex items-center gap-1.5 rounded-lg px-2 py-1 ${visibleSeries.balance ? "bg-info-soft text-foreground" : "opacity-55"}`}
+                onClick={() => toggleSeries("balance")}
+              >
+                <div className="h-0.5 w-2.5 rounded bg-category-solid-1" />
+                <span className="text-xs">Saldo</span>
+              </button>
             </div>
 
             {/* Month detail panel on dot click */}
@@ -1063,7 +1186,7 @@ export function StatsPage() {
 
       {/* Savings Rate Trend (Pure CSS bars) */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <div className="w-7 h-7 rounded-lg bg-status-info-soft flex items-center justify-center">
@@ -1118,95 +1241,115 @@ export function StatsPage() {
 
       {/* Expense Distribution Donut - Interactive (Pure SVG) */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-0">
             <CardTitle className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-brand-gradient-soft flex items-center justify-center">
                   <BarChart3 className="w-3.5 h-3.5 text-primary" />
                 </div>
-                Distribuicao de Despesas
+                Distribuição de Despesas
               </div>
               <span className="text-[10px] text-muted-foreground">Toca numa fatia</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            <div className="flex flex-col gap-3">
-              <div className="w-full flex justify-center">
-                <SvgDonutChart
-                  data={derived.pieData}
-                  activeIndex={activePieIndex}
-                  highlightedCategory={highlightedCategory}
-                  onSliceClick={handleDonutSliceClick}
-                />
+            {derived.pieData.every((item) => item.value <= 0) ? (
+              <div className="rounded-xl border border-dashed border-border px-3 py-4 text-center">
+                <p className="text-sm text-foreground">Ainda sem despesas neste período.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Quando adicionares lançamentos, verás aqui a distribuição por categoria.
+                </p>
               </div>
-              <div className="flex flex-col gap-1.5">
-                {derived.pieData.map((item, i) => (
-                  <button
-                    key={item.categoryId}
-                    className={`flex items-center gap-2 text-left rounded-lg px-1.5 py-1 transition-all ${
-                      highlightedCategory === item.categoryId
-                        ? "bg-info-soft scale-[1.02]"
-                        : highlightedCategory
-                          ? "opacity-40"
-                          : "hover:bg-muted/40"
-                    }`}
-                    onClick={() => handlePieLegendClick(item.categoryId, i)}
-                  >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+            ) : (
+              <>
+                <div className="flex flex-col gap-3">
+                  <div className="w-full flex justify-center">
+                    <SvgDonutChart
+                      data={derived.pieData}
+                      activeIndex={activePieIndex}
+                      highlightedCategory={highlightedCategory}
+                      onSliceClick={handleDonutSliceClick}
                     />
-                    <span className="text-[11px] text-muted-foreground truncate flex-1">{item.name}</span>
-                    <span className="text-[11px] tabular-nums">{item.percent.toFixed(0)}%</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Active slice detail */}
-            <AnimatePresence>
-              {activePieIndex !== null && derived.pieData[activePieIndex] && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-3 pt-3 border-t border-muted">
-                    {(() => {
-                      const p = derived.pieData[activePieIndex];
-                      const bva = stats.budgetVsActual.find(b => b.categoryId === p.categoryId);
-                      return (
-                        <div className="grid grid-cols-1 gap-2">
-                          <div className="bg-muted/40 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground">Total gasto</p>
-                            <p className="text-xs tabular-nums">{formatCurrency(p.value)}</p>
-                          </div>
-                          <div className="bg-muted/40 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground">Orçamento</p>
-                            <p className="text-xs tabular-nums">{bva ? formatCurrency(bva.budgeted) : "\u2014"}</p>
-                          </div>
-                          <div className="bg-muted/40 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground">Diferenca</p>
-                            <p className={`text-xs tabular-nums ${bva && bva.actual > bva.budgeted ? "text-status-danger" : "text-status-success"}`}>
-                              {bva ? formatCurrency(bva.budgeted - bva.actual) : "\u2014"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <div className="flex flex-col gap-1.5">
+                    {derived.pieData.map((item, i) => (
+                      <button
+                        key={item.categoryId}
+                        className={`flex items-center gap-2 text-left rounded-lg px-1.5 py-1 transition-all ${
+                          highlightedCategory === item.categoryId
+                            ? "bg-info-soft scale-[1.02]"
+                            : highlightedCategory
+                              ? "opacity-40"
+                              : "hover:bg-muted/40"
+                        }`}
+                        onClick={() => handlePieLegendClick(item.categoryId, i)}
+                      >
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                        />
+                        <span className="text-[11px] text-muted-foreground truncate flex-1">{item.name}</span>
+                        <span className="text-[11px] tabular-nums">{item.percent.toFixed(0)}%</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active slice detail */}
+                <AnimatePresence>
+                  {activePieIndex !== null && derived.pieData[activePieIndex] && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 pt-3 border-t border-muted">
+                        {(() => {
+                          const p = derived.pieData[activePieIndex];
+                          const bva = stats.budgetVsActual.find(b => b.categoryId === p.categoryId);
+                          return (
+                            <div className="grid grid-cols-1 gap-2">
+                              <div className="bg-muted/40 rounded-lg p-2 text-center">
+                                <p className="text-[10px] text-muted-foreground">Total gasto</p>
+                                <p className="text-xs tabular-nums">{formatCurrency(p.value)}</p>
+                              </div>
+                              <div className="bg-muted/40 rounded-lg p-2 text-center">
+                                <p className="text-[10px] text-muted-foreground">Orçamento</p>
+                                <p className="text-xs tabular-nums">{bva ? formatCurrency(bva.budgeted) : "\u2014"}</p>
+                              </div>
+                              <div className="bg-muted/40 rounded-lg p-2 text-center">
+                                <p className="text-[10px] text-muted-foreground">Estado</p>
+                                <p className={`text-xs tabular-nums ${bva && bva.actual > bva.budgeted ? "text-status-danger" : "text-status-success"}`}>
+                                  {bva
+                                    ? bva.actual > bva.budgeted
+                                      ? `${formatCurrency(bva.actual - bva.budgeted)} excedido`
+                                      : `${formatCurrency(bva.budgeted - bva.actual)} restante`
+                                    : "\u2014"}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
           </CardContent>
         </Card>
       </motion.div>
 
       {/* Top Spending Categories - Clickable */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-        <Card className="border-0 shadow-md overflow-hidden">
+      <motion.div
+        ref={topCategoriesRef}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18 }}
+      >
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <div className="w-7 h-7 rounded-lg bg-warning-soft flex items-center justify-center">
@@ -1264,12 +1407,13 @@ export function StatsPage() {
 
       {/* Budget vs Actual Chart */}
       <motion.div
+        ref={budgetSectionRef}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.22 }}
         data-tour="stats-budget-actual"
       >
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/70 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <div className="w-7 h-7 rounded-lg bg-info-soft flex items-center justify-center">
@@ -1290,12 +1434,14 @@ export function StatsPage() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-muted-foreground truncate max-w-[120px]">{b.categoryName}</span>
                       <span className={`text-[10px] tabular-nums ${over ? "text-status-danger" : "text-status-success"}`}>
-                        {over ? "+" : ""}{formatCurrency(b.actual - b.budgeted)}
+                        {over
+                          ? `${formatCurrency(b.actual - b.budgeted)} excedido`
+                          : `${formatCurrency(b.budgeted - b.actual)} restante`}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground w-6">Orc.</span>
+                        <span className="text-[10px] text-muted-foreground w-7">Orç.</span>
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <motion.div
                             className="h-full rounded-full bg-category-solid-1"
@@ -1372,46 +1518,75 @@ export function StatsPage() {
 
       {/* Forecast */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-        <Card className="relative overflow-hidden border-0 shadow-xl shadow-card">
-          <div className="absolute inset-0 bg-info-gradient" />
-          <div className="absolute inset-0 bg-brand-gradient-soft opacity-25" />
-          <div className="relative p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-primary-foreground/25 backdrop-blur-sm flex items-center justify-center">
-                <Zap className="w-4 h-4 text-primary-foreground" />
+        <Card className="overflow-hidden border border-border/70">
+          <div className="p-4">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-info-soft flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-status-info" />
+                </div>
+                <div>
+                  <h3 className="text-foreground text-sm">Projeção Próximo Mês</h3>
+                  <p className="text-muted-foreground text-xs">
+                    Média móvel dos últimos {stats.forecast.windowMonths} meses
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-primary-foreground text-sm">Projeção Próximo Mês</h3>
-                <p className="text-primary-foreground/70 text-xs">Média móvel dos últimos 3 meses</p>
+              <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
+                <button
+                  type="button"
+                  className={`rounded-lg px-2 py-1 text-xs ${
+                    forecastWindow === 3 ? "bg-card text-foreground" : "text-muted-foreground"
+                  }`}
+                  onClick={() => setForecastWindow(3)}
+                >
+                  3M
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-lg px-2 py-1 text-xs ${
+                    forecastWindow === 6 ? "bg-card text-foreground" : "text-muted-foreground"
+                  }`}
+                  onClick={() => setForecastWindow(6)}
+                >
+                  6M
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 mb-3">
-              <div className="bg-primary-foreground/20 backdrop-blur-sm rounded-2xl p-3 text-center">
-                <p className="text-[11px] text-primary-foreground/70 mb-1">Receita</p>
-                <p className="text-primary-foreground text-sm tabular-nums">{formatCurrency(stats.forecast.projectedIncome)}</p>
+              <div className="rounded-xl border border-border/70 bg-surface-soft p-3 text-center">
+                <p className="text-[11px] text-muted-foreground mb-1">Receita</p>
+                <p className="text-foreground text-sm tabular-nums">{formatCurrency(stats.forecast.projectedIncome)}</p>
               </div>
-              <div className="bg-primary-foreground/20 backdrop-blur-sm rounded-2xl p-3 text-center">
-                <p className="text-[11px] text-primary-foreground/70 mb-1">Despesa</p>
-                <p className="text-primary-foreground text-sm tabular-nums">{formatCurrency(stats.forecast.projectedExpense)}</p>
+              <div className="rounded-xl border border-border/70 bg-surface-soft p-3 text-center">
+                <p className="text-[11px] text-muted-foreground mb-1">Despesa</p>
+                <p className="text-foreground text-sm tabular-nums">{formatCurrency(stats.forecast.projectedExpense)}</p>
               </div>
-              <div className="bg-primary-foreground/25 backdrop-blur-sm rounded-2xl p-3 text-center border border-primary-foreground/30">
-                <p className="text-[11px] text-primary-foreground/70 mb-1">Saldo</p>
-                <p className={`text-sm tabular-nums ${stats.forecast.projectedBalance >= 0 ? "text-primary-foreground" : "text-danger-soft"}`}>
+              <div className="rounded-xl border border-border/70 bg-surface-soft p-3 text-center">
+                <p className="text-[11px] text-muted-foreground mb-1">Saldo</p>
+                <p className={`text-sm tabular-nums ${stats.forecast.projectedBalance >= 0 ? "text-foreground" : "text-status-danger"}`}>
                   {formatCurrency(stats.forecast.projectedBalance)}
                 </p>
               </div>
             </div>
-            <div className="bg-primary-foreground/15 backdrop-blur-sm rounded-xl p-3 flex items-center justify-between">
+            <div className="rounded-xl border border-border/70 bg-surface-soft p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Wallet className="w-3.5 h-3.5 text-primary-foreground/70" />
-                <span className="text-xs text-primary-foreground/80">Taxa poupança projetada</span>
+                <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-foreground">Taxa poupança projetada</span>
               </div>
-              <span className="text-sm text-primary-foreground tabular-nums">
+              <span className="text-sm text-foreground tabular-nums">
                 {stats.forecast.projectedIncome > 0
                   ? Math.round(((stats.forecast.projectedIncome - stats.forecast.projectedExpense) / stats.forecast.projectedIncome) * 100)
                   : 0}%
               </span>
             </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {stats.forecast.confidence === "high"
+                ? `Confiança alta: ${stats.forecast.sampleSize} meses de dados usados.`
+                : stats.forecast.confidence === "medium"
+                  ? `Confiança média: dados limitados (${stats.forecast.sampleSize}/${stats.forecast.windowMonths} meses).`
+                  : `Confiança baixa: poucos dados disponíveis (${stats.forecast.sampleSize} meses).`}
+            </p>
           </div>
         </Card>
       </motion.div>

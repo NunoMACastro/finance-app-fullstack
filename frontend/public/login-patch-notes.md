@@ -1,4 +1,4 @@
-<!-- show-patch-notes: false -->
+<!-- show-patch-notes: true -->
 
 # v2.0.0
 
@@ -6,11 +6,12 @@
 
 ## O que mudou
 
-- Novo card de mini patch notes por baixo do login.
-- Visual do login afinado para destacar informacao de release.
+- Novo bloco compacto de patch notes no fundo da autenticação.
+- Visual do login/registo atualizado com topo gradiente e separador curvo.
 - Estrutura preparada para atualizar esta informacao sem mexer em codigo.
 
 ## Instrucoes importantes
 
 - N/A
-- Para esconder este card, muda a primeira linha para `<!-- show-patch-notes: false -->`.
+- `<!-- show-patch-notes: true -->` mostra patch notes.
+- `<!-- show-patch-notes: false -->` esconde patch notes.
