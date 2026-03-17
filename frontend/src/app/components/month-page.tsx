@@ -1019,7 +1019,7 @@ function AddTransactionDialog({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <SegmentedControlV3
         value={type}
-        onChange={setType}
+        onChange={(value) => setType(value as "expense" | "income")}
         options={[
           { value: "expense", label: "Despesa" },
           { value: "income", label: "Receita" },

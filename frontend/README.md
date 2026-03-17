@@ -31,7 +31,6 @@ npm run dev
 ## Config minima (`.env`)
 
 ```env
-VITE_USE_MOCK=false
 VITE_API_BASE_URL=http://localhost:3001/api/v1
 VITE_MAINTENANCE_MODE=false
 ```

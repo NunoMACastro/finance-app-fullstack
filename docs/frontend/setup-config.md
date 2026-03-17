@@ -4,7 +4,7 @@
 
 - Node.js 20+
 - npm 10+
-- Backend API disponivel (ou modo mock)
+- Backend API disponivel
 
 ## Setup local
 
@@ -23,9 +23,6 @@ Lidas em `src/app/lib/config.ts`.
 Nota: a app corre apenas em `UI v3` (os fallbacks antigos foram removidos).
 As regras de estrutura visual e coerencia estao em `docs/frontend/ui-v3-spec.md`.
 
-- `VITE_USE_MOCK`
-  - `false` por default
-  - `true` ativa dados simulados em `app/lib/api.ts`
 - `VITE_API_BASE_URL`
   - default `/api/v1`
   - local recomendado: `http://localhost:3001/api/v1`
@@ -39,7 +36,6 @@ As regras de estrutura visual e coerencia estao em `docs/frontend/ui-v3-spec.md`
 Exemplo `.env`:
 
 ```env
-VITE_USE_MOCK=false
 VITE_API_BASE_URL=http://localhost:3001/api/v1
 VITE_MAINTENANCE_MODE=false
 VITE_MAINTENANCE_TITLE=Estamos em manutencao

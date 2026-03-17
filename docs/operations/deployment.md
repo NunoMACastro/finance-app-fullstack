@@ -30,7 +30,6 @@ Restricoes:
 
 ### Frontend
 
-- `VITE_USE_MOCK=false`
 - `VITE_API_BASE_URL=https://<backend-domain>/api/v1`
 - `VITE_MAINTENANCE_MODE=false` (ou `true` para janela de manutencao)
 - `VITE_MAINTENANCE_TITLE`
@@ -68,4 +67,3 @@ Executar antes de abrir trafego de escrita.
   - reverter release no provider (Vercel)
 - DB:
   - backups Atlas antes de mudancas estruturais
-

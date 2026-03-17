@@ -6,8 +6,6 @@
  *  • On 401, attempts a single token refresh and retries the original request
  *  • Queues concurrent requests during refresh to avoid race conditions
  *  • Normalises errors into a predictable { code, message, details } shape
- *
- * This module is only used when config.useMock === false.
  */
 
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";

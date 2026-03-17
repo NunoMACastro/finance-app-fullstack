@@ -12,7 +12,6 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { ExportUserData, ThemePalette, UserProfile, UserSession } from "./types";
 import { authApi } from "./api";
 import { tokenStore } from "./token-store";
-import { config } from "./config";
 
 interface AuthState {
   /** Current user profile, or null if not authenticated */
@@ -103,12 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!cancelled) setIsInitialising(false);
     }
 
-    // In mock mode, skip rehydration (no real tokens)
-    if (config.useMock) {
-      setIsInitialising(false);
-    } else {
-      rehydrate();
-    }
+    rehydrate();
 
     return () => { cancelled = true; };
   }, []);

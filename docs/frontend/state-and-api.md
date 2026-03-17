@@ -39,9 +39,8 @@ Modulos:
   - `statsApi.getSemester/getYear` suportam `options.includeInsight?: boolean`
   - quando `includeInsight=true`, resposta pode vir com `snapshot.insight` inline
 
-Dois modos:
+Modo unico:
 - real API via `httpClient`
-- mock em memoria quando `config.useMock=true`
 
 ## HTTP client
 
@@ -170,7 +169,6 @@ Arquivo: `app/lib/account-store.ts`
 
 ## Gestao de concorrencia e race conditions
 
-- `useApi` hook usa `callId` para ignorar respostas obsoletas.
 - Stats/Month usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
 - Stats faz carregamento em 2 fases para UX responsiva:
   - primeiro request com `includeInsight=false` para render imediato do snapshot base

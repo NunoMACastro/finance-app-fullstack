@@ -255,7 +255,7 @@ export function StatsPage() {
         trailing={(
           <SegmentedControlV3
             value={period}
-            onChange={setPeriod}
+            onChange={(value) => setPeriod(value as "semester" | "year")}
             options={periodOptions}
             size="default"
             ariaLabel="Selecionar período"
