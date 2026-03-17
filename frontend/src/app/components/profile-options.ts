@@ -16,7 +16,12 @@ export const CURRENCY_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 export const SELECT_CLASS_NAME =
-  "h-11 w-full rounded-xl border border-border bg-input-background px-3 text-sm text-foreground";
+  "h-12 w-full rounded-2xl border-0 bg-surface-soft px-4 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
+
+export const PROFILE_FIELD_GROUP_CLASS = "space-y-1.5";
+export const PROFILE_FIELD_LABEL_CLASS = "text-sm text-muted-foreground";
+export const PROFILE_INPUT_CLASS =
+  "h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30";
 
 export function formatSessionDate(value: string): string {
   return new Date(value).toLocaleString("pt-PT", {

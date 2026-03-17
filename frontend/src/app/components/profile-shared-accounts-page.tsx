@@ -4,6 +4,7 @@ import { useAccount } from "../lib/account-context";
 import { getAccountRoleLabel } from "../lib/account-role-label";
 import { getErrorMessage } from "../lib/api-error";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
+import { PROFILE_FIELD_LABEL_CLASS } from "./profile-options";
 import { ProfileSectionShell } from "./profile-section-shell";
 import { Button } from "./ui/button";
 
@@ -20,7 +21,7 @@ export function ProfileSharedAccountsPage() {
       backTo="/profile/shared"
     >
       <section className="space-y-2 border-y border-border/60 py-4">
-        <p className="text-xs text-muted-foreground">Contas disponíveis</p>
+        <p className={PROFILE_FIELD_LABEL_CLASS}>Contas disponíveis</p>
         <div className="divide-y divide-border/60 border-y border-border/60">
           {accounts.map((account) => (
             <div key={account.id} className="flex items-center justify-between gap-3 py-3">
@@ -33,7 +34,7 @@ export function ProfileSharedAccountsPage() {
               <Button
                 type="button"
                 variant={activeAccountId === account.id ? "default" : "outline"}
-                className={`h-11 rounded-xl px-3 ${activeAccountId === account.id ? "border-0 bg-brand-gradient text-primary-foreground" : ""}`}
+                className={`h-12 rounded-2xl px-3 ${activeAccountId === account.id ? "border-0 bg-primary text-primary-foreground hover:opacity-95" : ""}`}
                 onClick={() => setActiveAccount(account.id)}
               >
                 {activeAccountId === account.id ? "Ativa" : "Ativar"}
@@ -48,7 +49,7 @@ export function ProfileSharedAccountsPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full rounded-xl text-destructive hover:bg-danger-soft"
+            className="h-12 w-full rounded-2xl text-destructive hover:bg-danger-soft"
             onClick={() => setConfirmLeaveOpen(true)}
           >
             Sair da conta ativa

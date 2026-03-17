@@ -6,6 +6,8 @@ const statsApiMocks = vi.hoisted(() => ({
   getYear: vi.fn(),
 }));
 
+const navigateMock = vi.hoisted(() => vi.fn());
+
 vi.mock("../lib/auth-context", () => ({
   useAuth: () => ({
     user: { currency: "EUR" },
@@ -25,6 +27,14 @@ vi.mock("../lib/api", () => ({
     getYear: statsApiMocks.getYear,
   },
 }));
+
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 import { StatsPage } from "./stats-page";
 
@@ -51,6 +61,13 @@ function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450) {
         actual: expenseActual,
         difference: 1200 - expenseActual,
       },
+      {
+        categoryId: "cat2",
+        categoryName: "Lazer",
+        budgeted: 400,
+        actual: 390,
+        difference: 10,
+      },
     ],
     categorySeries: [
       {
@@ -60,6 +77,15 @@ function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450) {
           { month: "2026-01", budgeted: 400, actual: Math.round(expenseActual / 3) },
           { month: "2026-02", budgeted: 400, actual: Math.round(expenseActual / 3) },
           { month: "2026-03", budgeted: 400, actual: Math.round(expenseActual / 3) },
+        ],
+      },
+      {
+        categoryId: "cat2",
+        categoryName: "Lazer",
+        monthly: [
+          { month: "2026-01", budgeted: 130, actual: 110 },
+          { month: "2026-02", budgeted: 130, actual: 140 },
+          { month: "2026-03", budgeted: 140, actual: 140 },
         ],
       },
     ],
@@ -95,16 +121,17 @@ function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450) {
 
 describe("StatsPage", () => {
   beforeEach(() => {
+    navigateMock.mockReset();
     statsApiMocks.getSemester.mockImplementation((_, forecastWindow: 3 | 6 = 3) =>
       Promise.resolve(buildSnapshot(forecastWindow)),
     );
     statsApiMocks.getYear.mockResolvedValue(buildSnapshot(3));
   });
 
-  test("updates forecast window from 3M to 6M and shows confidence note", async () => {
+  test("renders pulse and updates forecast window from 3M to 6M", async () => {
     const { container } = render(<StatsPage />);
 
-    await screen.findByText("Projeção Próximo Mês");
+    await screen.findByText("Pulse do período");
     expect(container.querySelector('[data-ui-v3-page="stats"]')).toBeInTheDocument();
     expect(screen.getByText("A mostrar dados da conta ativa")).toBeInTheDocument();
 
@@ -121,14 +148,27 @@ describe("StatsPage", () => {
     expect(screen.getByText("Confiança média: dados limitados (3/6 meses).")).toBeInTheDocument();
   });
 
-  test("shows explicit donut empty state when expenses are zero", async () => {
-    statsApiMocks.getSemester.mockResolvedValue(buildSnapshot(3, 0));
-
+  test("opens and closes category insight sheet from drivers list", async () => {
     render(<StatsPage />);
 
-    await screen.findByText("Ainda sem despesas neste período.");
-    expect(
-      screen.getByText("Quando adicionares lançamentos, verás aqui a distribuição por categoria."),
-    ).toBeInTheDocument();
+    const driverRow = await screen.findByTestId("stats-driver-row-cat1");
+    fireEvent.click(driverRow);
+    expect(await screen.findByText("Detalhe · Despesas")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Detalhe · Despesas")).not.toBeInTheDocument();
+    });
+  });
+
+  test("shows fetch error and allows retry", async () => {
+    statsApiMocks.getSemester.mockRejectedValueOnce(new Error("Falha de rede"));
+    statsApiMocks.getSemester.mockResolvedValueOnce(buildSnapshot(3));
+
+    render(<StatsPage />);
+    expect(await screen.findByText("Falha de rede")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(await screen.findByText("Pulse do período")).toBeInTheDocument();
   });
 });

@@ -47,6 +47,12 @@ Padrao de detalhe por categoria (Month):
 
 Escopo de stats v1:
 - `/stats` usa sempre a conta ativa (`X-Account-Id`), sem agregação global.
+- a UI segue padrão `Action-first + Storytelling`:
+  - `Pulse do período`
+  - `Drivers` (top 3)
+  - `Tendência`
+  - `Projeção`
+- detalhe de categoria abre em `sheet` contextual, sem expansão inline pesada.
 
 Padrao de perfil v3:
 - `/profile` funciona como hub (`settings list`).

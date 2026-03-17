@@ -6,7 +6,12 @@ import { getErrorMessage } from "../lib/api-error";
 import type { UserSession } from "../lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { formatSessionDate } from "./profile-options";
+import {
+  formatSessionDate,
+  PROFILE_FIELD_GROUP_CLASS,
+  PROFILE_FIELD_LABEL_CLASS,
+  PROFILE_INPUT_CLASS,
+} from "./profile-options";
 import { ProfileSectionShell } from "./profile-section-shell";
 
 export function ProfileSecurityPage() {
@@ -60,24 +65,30 @@ export function ProfileSecurityPage() {
       description="Password e sessões ativas."
       pageId="profile-security"
     >
-      <section className="space-y-3 border-y border-border/60 py-4">
-        <Input
-          value={currentPassword}
-          onChange={(event) => setCurrentPassword(event.target.value)}
-          type="password"
-          placeholder="Password atual"
-          className="h-11 rounded-xl"
-        />
-        <Input
-          value={newPassword}
-          onChange={(event) => setNewPassword(event.target.value)}
-          type="password"
-          placeholder="Nova password"
-          className="h-11 rounded-xl"
-        />
+      <section className="space-y-4 border-y border-border/60 py-4">
+        <div className={PROFILE_FIELD_GROUP_CLASS}>
+          <label className={PROFILE_FIELD_LABEL_CLASS}>Password atual</label>
+          <Input
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            type="password"
+            placeholder="Password atual"
+            className={PROFILE_INPUT_CLASS}
+          />
+        </div>
+        <div className={PROFILE_FIELD_GROUP_CLASS}>
+          <label className={PROFILE_FIELD_LABEL_CLASS}>Nova password</label>
+          <Input
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            type="password"
+            placeholder="Nova password"
+            className={PROFILE_INPUT_CLASS}
+          />
+        </div>
         <Button
           type="button"
-          className="h-11 rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+          className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
           disabled={savingPassword || !currentPassword || !newPassword}
           onClick={async () => {
             setSavingPassword(true);
@@ -100,7 +111,7 @@ export function ProfileSecurityPage() {
       <section className="space-y-3 border-b border-border/60 pb-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-foreground">Sessões ({activeSessions.length} ativas)</p>
-          <Button type="button" variant="ghost" className="h-11 rounded-xl px-3" onClick={() => void loadSessions()}>
+          <Button type="button" variant="ghost" className="h-12 rounded-2xl px-3" onClick={() => void loadSessions()}>
             <RefreshCw className="h-4 w-4" />
             Atualizar
           </Button>
@@ -144,7 +155,7 @@ export function ProfileSecurityPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-11 w-11 rounded-xl text-muted-foreground hover:text-destructive"
+                        className="h-12 w-12 rounded-2xl text-muted-foreground hover:text-destructive"
                         onClick={async () => {
                           try {
                             await revokeSession(session.jti);
@@ -162,7 +173,7 @@ export function ProfileSecurityPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-11 rounded-xl px-3 text-xs"
+                        className="h-12 rounded-2xl px-3 text-xs"
                         onClick={async () => {
                           try {
                             await revokeSession(session.jti);
@@ -187,7 +198,7 @@ export function ProfileSecurityPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full rounded-xl"
+            className="h-12 w-full rounded-2xl"
             onClick={async () => {
               try {
                 await revokeAllSessions();
@@ -204,7 +215,7 @@ export function ProfileSecurityPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full rounded-xl"
+            className="h-12 w-full rounded-2xl"
             disabled={revokedSessions.length === 0}
             onClick={async () => {
               try {

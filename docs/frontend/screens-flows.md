@@ -98,7 +98,11 @@ Ordenacao hibrida da lista:
 ### Fluxo de carregamento
 1. escolher periodo (`6M`/`12M`)
 2. chamar endpoint correspondente
-3. renderizar KPIs, trend, pie, budget vs actual, detalhe categorias, forecast
+3. renderizar stack v3:
+   - `Pulse do período` (saldo + desvio + insight)
+   - `Drivers` (top 3 categorias críticas)
+   - `Tendência` (receitas/despesas/saldo)
+   - `Projeção` (3M/6M + confiança)
 
 Escopo funcional v1:
 - stats são sempre da conta ativa (`account-scoped`), sem agregação global entre contas nesta vaga
@@ -106,14 +110,14 @@ Escopo funcional v1:
 
 ### Interacoes
 - selecao de ponto no grafico de tendencia
-- destaque por categoria (pie + listas)
-- expandir detalhe por categoria
+- tap em driver abre `sheet` contextual de detalhe da categoria
+- no `sheet`, CTA opcional para abrir movimentos da categoria no mês mais recente
 
 ### Empty states e erro
-- loading state
+- loading state com skeletons estáveis
 - erro de API com mensagem + retry
 - sem dados suficientes:
-  - componentes mostram valores zero de forma consistente
+  - `Pulse` e `Drivers` degradam para mensagens curtas sem quebrar layout
 - sem crash
 
 ## 5) Profile page (`/profile`)

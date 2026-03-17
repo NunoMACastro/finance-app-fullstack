@@ -3,6 +3,11 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAccount } from "../lib/account-context";
 import { getErrorMessage } from "../lib/api-error";
+import {
+  PROFILE_FIELD_GROUP_CLASS,
+  PROFILE_FIELD_LABEL_CLASS,
+  PROFILE_INPUT_CLASS,
+} from "./profile-options";
 import { ProfileSectionShell } from "./profile-section-shell";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,19 +24,19 @@ export function ProfileSharedJoinPage() {
       pageId="profile-shared-join"
       backTo="/profile/shared"
     >
-      <section className="space-y-3 border-y border-border/60 py-4">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Código de convite</label>
+      <section className="space-y-4 border-y border-border/60 py-4">
+        <div className={PROFILE_FIELD_GROUP_CLASS}>
+          <label className={PROFILE_FIELD_LABEL_CLASS}>Código de convite</label>
           <Input
             value={joinCode}
             onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
             placeholder="ABC123"
-            className="h-11 rounded-xl uppercase"
+            className={`${PROFILE_INPUT_CLASS} uppercase`}
           />
         </div>
         <Button
           type="button"
-          className="h-11 rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+          className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
           disabled={joiningAccount || !joinCode.trim()}
           onClick={async () => {
             setJoiningAccount(true);

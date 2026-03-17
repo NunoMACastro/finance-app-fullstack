@@ -69,8 +69,9 @@ Pontos chave:
 Responsabilidades:
 - carregar stats (`statsApi.getSemester`/`getYear`)
 - manter escopo account-scoped via conta ativa (sem agregação global no v1)
-- renderizar tendencia, categorias, budget vs actual e forecast
-- suportar detalhe por categoria com `categorySeries`
+- compor stack v3 (`Pulse`, `Drivers`, `Tendência`, `Projeção`)
+- usar `stats-view-model` para derivar métricas e estados semânticos
+- suportar detalhe por categoria em `StatsCategoryInsightSheet`
 - tratar erros com retry
 
 ### BudgetEditorPage

@@ -8,7 +8,7 @@ import type { AccountRole } from "../lib/types";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
 import { ProfileSectionShell } from "./profile-section-shell";
 import { Button } from "./ui/button";
-import { SELECT_CLASS_NAME } from "./profile-options";
+import { PROFILE_FIELD_LABEL_CLASS, SELECT_CLASS_NAME } from "./profile-options";
 
 export function ProfileSharedMembersPage() {
   const {
@@ -91,7 +91,7 @@ export function ProfileSharedMembersPage() {
               <p className="text-sm text-foreground">Membros de {activeAccount.name}</p>
               <Button
                 type="button"
-                className="h-11 rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+                className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
                 disabled={generatingInvite}
                 onClick={async () => {
                   setGeneratingInvite(true);
@@ -110,7 +110,7 @@ export function ProfileSharedMembersPage() {
               </Button>
             </div>
             {inviteCode ? (
-              <p className="text-xs text-muted-foreground">
+              <p className={PROFILE_FIELD_LABEL_CLASS}>
                 Código atual: <span className="font-medium text-foreground">{inviteCode}</span>
               </p>
             ) : null}
@@ -127,7 +127,7 @@ export function ProfileSharedMembersPage() {
                     <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                     <div className="flex items-center gap-2">
                       <select
-                        className={`${SELECT_CLASS_NAME} flex-1 text-xs`}
+                        className={`${SELECT_CLASS_NAME} flex-1`}
                         value={member.role}
                         onChange={async (event) => {
                           try {
@@ -149,7 +149,7 @@ export function ProfileSharedMembersPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-11 rounded-xl px-3 text-destructive hover:bg-danger-soft"
+                        className="h-12 rounded-2xl px-3 text-destructive hover:bg-danger-soft"
                         onClick={() => setPendingMemberRemoval({ userId: member.userId, name: member.name })}
                       >
                         Remover

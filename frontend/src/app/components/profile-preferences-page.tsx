@@ -5,7 +5,12 @@ import { getErrorMessage } from "../lib/api-error";
 import { useThemePreferences } from "../lib/theme-preferences";
 import type { ThemePalette } from "../lib/types";
 import { Button } from "./ui/button";
-import { SELECT_CLASS_NAME, THEME_OPTIONS } from "./profile-options";
+import {
+  PROFILE_FIELD_GROUP_CLASS,
+  PROFILE_FIELD_LABEL_CLASS,
+  SELECT_CLASS_NAME,
+  THEME_OPTIONS,
+} from "./profile-options";
 import { ProfileSectionShell } from "./profile-section-shell";
 import { Switch } from "./ui/switch";
 
@@ -27,9 +32,9 @@ export function ProfilePreferencesPage() {
       description="Tema, privacidade visual e tutorial."
       pageId="profile-preferences"
     >
-      <section className="space-y-3 border-y border-border/60 py-4">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Tema</label>
+      <section className="space-y-4 border-y border-border/60 py-4">
+        <div className={PROFILE_FIELD_GROUP_CLASS}>
+          <label className={PROFILE_FIELD_LABEL_CLASS}>Tema</label>
           <select
             value={theme}
             className={SELECT_CLASS_NAME}
@@ -46,7 +51,7 @@ export function ProfilePreferencesPage() {
           </select>
         </div>
 
-        <label className="flex h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/60 px-3">
+        <label className="flex h-12 cursor-pointer items-center justify-between gap-3 rounded-2xl border-0 bg-surface-soft px-4">
           <div className="min-w-0">
             <p className="text-sm text-foreground">Ocultar valores por defeito</p>
             <p className="text-xs text-muted-foreground">Aplica-se automaticamente ao entrar na app.</p>
@@ -60,7 +65,7 @@ export function ProfilePreferencesPage() {
 
         <Button
           type="button"
-          className="h-11 rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+          className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
           onClick={async () => {
             try {
               await updateProfile({
@@ -82,7 +87,7 @@ export function ProfilePreferencesPage() {
         <Button
           type="button"
           variant="ghost"
-          className="h-11 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="h-12 rounded-2xl text-muted-foreground hover:bg-accent hover:text-foreground"
           onClick={async () => {
             try {
               await resetTutorial();

@@ -63,6 +63,11 @@ Normativa:
 ### Forms
 - `MUST` manter ritmo vertical consistente.
 - `MUST` evitar grupos com padding excessivo sem ganho de legibilidade.
+- `MUST` reutilizar o mesmo padrão visual entre auth e perfil para inputs/selects:
+  - label `text-sm` + campo `h-12`
+  - `rounded-2xl`
+  - `bg-surface-soft`
+  - foco suave (`ring` sem borda pesada)
 
 ### Auth (Login/Registo)
 - `MUST` usar topo/hero com gradiente do tema e logo/nome centrados.
@@ -88,7 +93,13 @@ Normativa:
 ### Stats
 - `MUST` ter filtros de período compactos.
 - `MUST` manter escopo por conta ativa no v1 (sem modo global implícito).
-- `SHOULD` usar blocos analíticos full-width com baixa ornamentação.
+- `MUST` seguir padrão `Action-first + Storytelling` com 4 blocos:
+  - `Pulse do período` (macro + insight acionável)
+  - `Drivers` (top 3 categorias com maior impacto)
+  - `Tendência` (gráfico principal único)
+  - `Projeção` (3M/6M + confiança)
+- `MUST` evitar grelhas KPI densas e painéis analíticos redundantes.
+- `MUST` usar drilldown de categoria em `sheet` contextual (não inline expandido).
 - `MUST` manter projeção com seletor `3M/6M` e nota de confiança.
 
 ### Budget Editor
