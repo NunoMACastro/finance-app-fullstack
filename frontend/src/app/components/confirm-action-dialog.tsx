@@ -34,10 +34,10 @@ export function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-3xl">
+      <AlertDialogContent className="rounded-[20px] border border-border/80 bg-card/95 p-4 shadow-overlay backdrop-blur-xl sm:p-5">
         <AlertDialogHeader className="text-left">
           <AlertDialogTitle className="text-base">{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-sm">{description}</AlertDialogDescription>
+          <AlertDialogDescription className="text-xs">{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl">{cancelLabel}</AlertDialogCancel>

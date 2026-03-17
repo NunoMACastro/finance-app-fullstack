@@ -1,5 +1,6 @@
 import { BarChart3 } from "lucide-react";
 import { formatMonthLong } from "../lib/formatting";
+import { SeriesToggleButtonV3 } from "./v3/interaction-primitives-v3";
 
 export interface StatsTrendPoint {
   month: string;
@@ -223,39 +224,27 @@ export function StatsTrendPanel({
           />
 
           <div className="mt-3 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              className={`h-10 rounded-xl px-3 text-xs ${
-                visibleSeries.income
-                  ? "bg-success-soft text-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
+            <SeriesToggleButtonV3
+              active={visibleSeries.income}
+              tone="success"
               onClick={() => onToggleSeries("income")}
             >
               Receitas
-            </button>
-            <button
-              type="button"
-              className={`h-10 rounded-xl px-3 text-xs ${
-                visibleSeries.expense
-                  ? "bg-danger-soft text-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
+            </SeriesToggleButtonV3>
+            <SeriesToggleButtonV3
+              active={visibleSeries.expense}
+              tone="danger"
               onClick={() => onToggleSeries("expense")}
             >
               Despesas
-            </button>
-            <button
-              type="button"
-              className={`h-10 rounded-xl px-3 text-xs ${
-                visibleSeries.balance
-                  ? "bg-info-soft text-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
+            </SeriesToggleButtonV3>
+            <SeriesToggleButtonV3
+              active={visibleSeries.balance}
+              tone="info"
               onClick={() => onToggleSeries("balance")}
             >
               Saldo
-            </button>
+            </SeriesToggleButtonV3>
           </div>
 
           {selectedPoint ? (

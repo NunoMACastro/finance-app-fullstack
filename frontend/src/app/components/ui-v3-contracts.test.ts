@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
@@ -7,6 +7,22 @@ const COMPONENTS_DIR = dirname(fileURLToPath(import.meta.url));
 
 function readComponent(relativePath: string): string {
   return readFileSync(join(COMPONENTS_DIR, relativePath), "utf8");
+}
+
+function collectRuntimeTsxFiles(dirPath: string, basePath = dirPath): string[] {
+  const entries = readdirSync(dirPath);
+  const files: string[] = [];
+  for (const entry of entries) {
+    const fullPath = join(dirPath, entry);
+    const stats = statSync(fullPath);
+    if (stats.isDirectory()) {
+      files.push(...collectRuntimeTsxFiles(fullPath, basePath));
+      continue;
+    }
+    if (!entry.endsWith(".tsx") || entry.endsWith(".test.tsx")) continue;
+    files.push(relative(basePath, fullPath));
+  }
+  return files;
 }
 
 describe("UI v3 visual contracts", () => {
@@ -82,5 +98,46 @@ describe("UI v3 visual contracts", () => {
     expect(source).toContain("ctaSecondary");
     expect(source).toContain("segmentedRoot");
     expect(source).toContain("segmentedItem");
+  });
+
+  test("no direct native button usage outside interaction primitives allowlist", () => {
+    const allowList = new Set([
+      "v3/segmented-control-v3.tsx",
+    ]);
+    const runtimeFiles = collectRuntimeTsxFiles(COMPONENTS_DIR);
+
+    for (const runtimeFile of runtimeFiles) {
+      if (allowList.has(runtimeFile)) continue;
+      const source = readComponent(runtimeFile);
+      expect(source).not.toContain("<button");
+    }
+  });
+
+  test("Button controls avoid disallowed radius classes", () => {
+    const runtimeFiles = collectRuntimeTsxFiles(COMPONENTS_DIR);
+    const disallowedRadiusRegex = /<Button[\s\S]{0,220}(rounded-none|rounded-lg|rounded-2xl)/g;
+
+    for (const runtimeFile of runtimeFiles) {
+      const source = readComponent(runtimeFile);
+      expect(source).not.toMatch(disallowedRadiusRegex);
+    }
+  });
+
+  test("primary CTA targets use gradient style", () => {
+    const targets = [
+      "auth-page.tsx",
+      "profile-account-page.tsx",
+      "profile-security-page.tsx",
+      "profile-preferences-page.tsx",
+      "profile-shared-create-page.tsx",
+      "profile-shared-join-page.tsx",
+      "profile-shared-members-page.tsx",
+      "stats-category-insight-sheet.tsx",
+    ];
+    for (const target of targets) {
+      const source = readComponent(target);
+      expect(source).toContain("bg-brand-gradient");
+      expect(source).not.toContain("rounded-full border-0 bg-primary");
+    }
   });
 });

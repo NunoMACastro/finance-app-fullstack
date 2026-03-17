@@ -136,20 +136,20 @@ export function StatsCategoryInsightSheet({
         <OverlayFooter sticky>
           <Button
             type="button"
-            className="rounded-xl border-0 bg-primary text-primary-foreground"
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => onOpenChange(false)}
+          >
+            Fechar
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl border-0 bg-brand-gradient text-primary-foreground"
             onClick={onOpenMovements}
             disabled={!driver || !hasMovements}
           >
             Ver movimentos
             <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-2xl"
-            onClick={() => onOpenChange(false)}
-          >
-            Fechar
           </Button>
         </OverlayFooter>
       </OverlayContent>

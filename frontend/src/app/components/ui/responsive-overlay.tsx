@@ -96,7 +96,7 @@ function OverlayContent({
         side="bottom"
         aria-describedby={undefined}
         className={cn(
-          "right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-3xl border border-border bg-card/95 p-0 shadow-overlay backdrop-blur-xl",
+          "right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-[20px] border border-border/80 bg-card/95 p-0 shadow-overlay backdrop-blur-xl",
           className,
         )}
       >
@@ -108,7 +108,7 @@ function OverlayContent({
   return (
     <DialogContent
       className={cn(
-        "p-0 border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-3xl overflow-hidden",
+        "overflow-hidden rounded-[20px] border border-border/80 bg-card/95 p-0 shadow-overlay backdrop-blur-xl",
         densityClassMap[density],
         className,
       )}
@@ -126,7 +126,7 @@ function OverlayHeader({
   if (isMobile) {
     return <SheetHeader className={cn("px-4 pt-3 pb-2 text-left", className)} {...props} />;
   }
-  return <DialogHeader className={cn("px-5 pt-5 pb-3 text-left", className)} {...props} />;
+  return <DialogHeader className={cn("px-4 pt-4 pb-2 text-left", className)} {...props} />;
 }
 
 function OverlayTitle({
@@ -155,7 +155,7 @@ function OverlayBody({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  return <div className={cn("px-4 pb-4 sm:px-5 sm:pb-5", className)} {...props} />;
+  return <div className={cn("px-4 pb-4", className)} {...props} />;
 }
 
 function OverlayFooter({
@@ -175,7 +175,7 @@ function OverlayFooter({
   if (isMobile) {
     return <SheetFooter className={cn("px-4 pt-3", baseClass)} {...props} />;
   }
-  return <DialogFooter className={cn("px-5 pt-3 pb-5 sm:flex-row sm:justify-end", baseClass)} {...props} />;
+  return <DialogFooter className={cn("px-4 pt-3 pb-4 sm:flex-row sm:justify-end", baseClass)} {...props} />;
 }
 
 export {

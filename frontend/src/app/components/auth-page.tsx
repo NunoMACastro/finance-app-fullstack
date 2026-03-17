@@ -9,6 +9,7 @@ import {
 } from "../lib/login-patch-notes";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { TextActionButtonV3 } from "./v3/interaction-primitives-v3";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
@@ -181,23 +182,22 @@ export function AuthPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
+                  className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
                 </Button>
 
                 <p className="text-center text-sm text-muted-foreground">
                   Ainda não tens conta?{" "}
-                  <button
-                    type="button"
-                    className="text-primary underline-offset-4 hover:underline"
+                  <TextActionButtonV3
+                    size="sm"
                     onClick={() => {
                       setError("");
                       setMode("register");
                     }}
                   >
                     Regista-te
-                  </button>
+                  </TextActionButtonV3>
                 </p>
               </div>
             </form>
@@ -276,23 +276,22 @@ export function AuthPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
+                  className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
                 </Button>
 
                 <p className="text-center text-sm text-muted-foreground">
                   Já tens conta?{" "}
-                  <button
-                    type="button"
-                    className="text-primary underline-offset-4 hover:underline"
+                  <TextActionButtonV3
+                    size="sm"
                     onClick={() => {
                       setError("");
                       setMode("login");
                     }}
                   >
                     Entrar
-                  </button>
+                  </TextActionButtonV3>
                 </p>
               </div>
             </form>
@@ -328,13 +327,14 @@ export function AuthPage() {
         <div className="flex justify-center pt-8">
           <div className="group relative inline-flex items-center gap-1.5 text-xs text-muted-foreground/85">
             <span>made with</span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               aria-label={`Nuno Castro ${currentYear}`}
-              className="inline-flex items-center text-status-danger transition-colors hover:opacity-80"
+              className="h-8 w-8 rounded-xl p-0 text-status-danger transition-colors hover:bg-transparent hover:opacity-80"
             >
               <Heart className="h-3.5 w-3.5 fill-current" />
-            </button>
+            </Button>
             <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 translate-y-1 whitespace-nowrap px-2 py-1 text-[11px] text-muted-foreground opacity-0 transition-all duration-200 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100">
               Nuno Castro · {currentYear}
             </span>

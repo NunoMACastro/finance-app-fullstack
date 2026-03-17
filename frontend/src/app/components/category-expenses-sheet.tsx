@@ -9,6 +9,7 @@ import {
   ResponsiveOverlay,
 } from "./ui/responsive-overlay";
 import type { Transaction } from "../lib/types";
+import { IconActionButtonV3 } from "./v3/interaction-primitives-v3";
 
 type CategoryExpensesSheetProps = {
   open: boolean;
@@ -67,14 +68,14 @@ export function CategoryExpensesSheet({
                     -{formatCurrency(tx.amount)}
                   </span>
                   {tx.origin === "manual" && canWriteFinancial ? (
-                    <button
-                      type="button"
-                      className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+                    <IconActionButtonV3
+                      size="compact"
+                      tone="danger"
                       onClick={() => onDeleteTransaction(tx.id)}
-                      aria-label="Remover lançamento"
+                      ariaLabel="Remover lançamento"
                     >
                       <Trash2 className="mx-auto h-4 w-4" />
-                    </button>
+                    </IconActionButtonV3>
                   ) : null}
                 </div>
               ))}
@@ -84,18 +85,18 @@ export function CategoryExpensesSheet({
         <OverlayFooter sticky>
           <Button
             type="button"
-            className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
-            onClick={onViewAll}
-          >
-            Ver todas
-          </Button>
-          <Button
-            type="button"
             variant="outline"
             className="rounded-xl"
             onClick={() => onOpenChange(false)}
           >
             Fechar
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
+            onClick={onViewAll}
+          >
+            Ver todas
           </Button>
         </OverlayFooter>
       </OverlayContent>

@@ -65,7 +65,7 @@ export function ProfilePreferencesPage() {
 
         <Button
           type="button"
-          className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
+          className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
           onClick={async () => {
             try {
               await updateProfile({
@@ -87,7 +87,7 @@ export function ProfilePreferencesPage() {
         <Button
           type="button"
           variant="ghost"
-          className="h-12 rounded-2xl text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="h-12 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground"
           onClick={async () => {
             try {
               await resetTutorial();

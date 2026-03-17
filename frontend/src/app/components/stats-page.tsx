@@ -230,7 +230,7 @@ export function StatsPage() {
               <p className="text-sm text-warning-foreground">{loadError}</p>
               <Button
                 variant="outline"
-                className="h-11 rounded-2xl border-warning/60 text-status-warning hover:bg-warning/20"
+                className="h-11 rounded-xl border-warning/60 text-status-warning hover:bg-warning/20"
                 onClick={() => {
                   void loadStats();
                 }}

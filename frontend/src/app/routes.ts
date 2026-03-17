@@ -24,7 +24,14 @@ export function createAppRouter() {
           },
         },
         {
-          path: "recurring",
+          path: "recurring/*",
+          lazy: async () => {
+            const mod = await import("./components/recurring-rules-page");
+            return { Component: mod.RecurringRulesPage };
+          },
+        },
+        {
+          path: "profile/recurring",
           lazy: async () => {
             const mod = await import("./components/recurring-rules-page");
             return { Component: mod.RecurringRulesPage };

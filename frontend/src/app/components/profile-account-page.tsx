@@ -81,7 +81,7 @@ export function ProfileAccountPage() {
 
         <Button
           type="button"
-          className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
+          className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
           disabled={savingProfile}
           onClick={async () => {
             setSavingProfile(true);
@@ -123,7 +123,7 @@ export function ProfileAccountPage() {
         <Button
           type="button"
           variant="outline"
-          className="h-12 rounded-2xl"
+          className="h-12 rounded-xl"
           disabled={savingEmail || !currentPasswordEmail || !newEmail}
           onClick={async () => {
             setSavingEmail(true);
@@ -147,7 +147,7 @@ export function ProfileAccountPage() {
         <Button
           type="button"
           variant="outline"
-          className="h-12 w-full rounded-2xl"
+          className="h-12 w-full rounded-xl"
           disabled={savingPrivacy}
           onClick={async () => {
             setSavingPrivacy(true);

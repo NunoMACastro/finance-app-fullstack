@@ -371,7 +371,7 @@ export function TutorialTour({
             >
               <div className="flex items-center gap-3">
                 <p className="text-xs text-muted-foreground">A preparar este passo...</p>
-                <Button variant="ghost" size="sm" className="h-7 rounded-lg text-xs" onClick={() => onClose("skip")}>
+                <Button variant="ghost" size="sm" className="h-9 rounded-xl text-xs" onClick={() => onClose("skip")}>
                   Saltar
                 </Button>
               </div>

@@ -34,6 +34,7 @@ import {
   ResponsiveOverlay,
 } from "./ui/responsive-overlay";
 import { PageHeaderV3 } from "./v3/page-header-v3";
+import { IconActionButtonV3 } from "./v3/interaction-primitives-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 type OriginFilter = "all" | "manual" | "recurring";
@@ -68,14 +69,15 @@ function sortTransactions(transactions: Transaction[], sortBy: SortOption): Tran
 
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClear}
-      className="inline-flex h-8 items-center gap-1 rounded-xl bg-accent px-2.5 text-xs text-foreground transition-colors hover:bg-accent/80"
+      variant="ghost"
+      className="inline-flex h-9 items-center gap-1 rounded-xl bg-accent px-2.5 text-xs text-foreground transition-colors hover:bg-accent/80"
     >
       <span className="truncate">{label}</span>
       <X className="h-3.5 w-3.5 shrink-0" />
-    </button>
+    </Button>
   );
 }
 
@@ -379,7 +381,7 @@ export function CategoryMovementsPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 rounded-xl px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="h-9 rounded-xl px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                   onClick={clearFilters}
                 >
                   Limpar filtros
@@ -413,14 +415,14 @@ export function CategoryMovementsPage() {
                     -{formatCurrency(transaction.amount)}
                   </span>
                   {transaction.origin === "manual" && canWriteFinancial ? (
-                    <button
-                      type="button"
-                      className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+                    <IconActionButtonV3
+                      size="compact"
+                      tone="danger"
                       onClick={() => setPendingDeleteId(transaction.id)}
-                      aria-label="Remover lançamento"
+                      ariaLabel="Remover lançamento"
                     >
                       <Trash2 className="mx-auto h-4 w-4" />
-                    </button>
+                    </IconActionButtonV3>
                   ) : null}
                 </div>
               ))}

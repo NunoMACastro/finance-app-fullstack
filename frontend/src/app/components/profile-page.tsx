@@ -1,6 +1,7 @@
 import { ChevronRight, Palette, Repeat, Shield, UserCog, Users } from "lucide-react";
 import { useNavigate } from "react-router";
 import { PageHeaderV3 } from "./v3/page-header-v3";
+import { RowActionButtonV3 } from "./v3/interaction-primitives-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 const PROFILE_SECTIONS = [
@@ -29,7 +30,7 @@ const PROFILE_SECTIONS = [
     id: "recurring",
     title: "Recorrências",
     description: "Regras automáticas de receitas e despesas",
-    to: "/recurring",
+    to: "/profile/recurring",
     icon: Repeat,
   },
   {
@@ -55,21 +56,23 @@ export function ProfilePage() {
         {PROFILE_SECTIONS.map((section) => {
           const Icon = section.icon;
           return (
-            <button
+            <RowActionButtonV3
               key={section.id}
-              type="button"
-              className="flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-accent/50"
               onClick={() => navigate(section.to)}
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-soft text-muted-foreground">
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-foreground">{section.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{section.description}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </button>
+              className="px-0"
+              leading={(
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-soft text-muted-foreground">
+                  <Icon className="h-4 w-4" />
+                </div>
+              )}
+              content={(
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground">{section.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">{section.description}</p>
+                </div>
+              )}
+              trailing={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            />
           );
         })}
       </div>

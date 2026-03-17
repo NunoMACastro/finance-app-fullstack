@@ -34,7 +34,7 @@ export function ProfileSharedAccountsPage() {
               <Button
                 type="button"
                 variant={activeAccountId === account.id ? "default" : "outline"}
-                className={`h-12 rounded-2xl px-3 ${activeAccountId === account.id ? "border-0 bg-primary text-primary-foreground hover:opacity-95" : ""}`}
+                className={`h-12 rounded-xl px-3 ${activeAccountId === account.id ? "border-0 bg-brand-gradient text-primary-foreground hover:opacity-95" : ""}`}
                 onClick={() => setActiveAccount(account.id)}
               >
                 {activeAccountId === account.id ? "Ativa" : "Ativar"}
@@ -49,7 +49,7 @@ export function ProfileSharedAccountsPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full rounded-2xl text-destructive hover:bg-danger-soft"
+            className="h-12 w-full rounded-xl text-destructive hover:bg-danger-soft"
             onClick={() => setConfirmLeaveOpen(true)}
           >
             Sair da conta ativa

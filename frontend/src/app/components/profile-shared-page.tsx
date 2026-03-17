@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useAccount } from "../lib/account-context";
 import { getAccountRoleLabel } from "../lib/account-role-label";
 import { ProfileSectionShell } from "./profile-section-shell";
+import { RowActionButtonV3 } from "./v3/interaction-primitives-v3";
 
 const SHARED_SECTIONS = [
   {
@@ -56,21 +57,23 @@ export function ProfileSharedPage() {
         {SHARED_SECTIONS.map((section) => {
           const Icon = section.icon;
           return (
-            <button
+            <RowActionButtonV3
               key={section.id}
-              type="button"
-              className="flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-accent/50"
               onClick={() => navigate(section.to)}
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-soft text-muted-foreground">
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-foreground">{section.title}</p>
-                <p className="text-xs text-muted-foreground">{section.description}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </button>
+              className="px-0"
+              leading={(
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-soft text-muted-foreground">
+                  <Icon className="h-4 w-4" />
+                </div>
+              )}
+              content={(
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground">{section.title}</p>
+                  <p className="text-xs text-muted-foreground">{section.description}</p>
+                </div>
+              )}
+              trailing={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            />
           );
         })}
       </section>

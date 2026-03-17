@@ -91,7 +91,7 @@ export function ProfileSharedMembersPage() {
               <p className="text-sm text-foreground">Membros de {activeAccount.name}</p>
               <Button
                 type="button"
-                className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
+                className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
                 disabled={generatingInvite}
                 onClick={async () => {
                   setGeneratingInvite(true);
@@ -149,7 +149,7 @@ export function ProfileSharedMembersPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-12 rounded-2xl px-3 text-destructive hover:bg-danger-soft"
+                        className="h-12 rounded-xl px-3 text-destructive hover:bg-danger-soft"
                         onClick={() => setPendingMemberRemoval({ userId: member.userId, name: member.name })}
                       >
                         Remover

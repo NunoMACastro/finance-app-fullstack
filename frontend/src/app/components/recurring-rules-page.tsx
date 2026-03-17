@@ -7,11 +7,17 @@ import { useAccount } from "../lib/account-context";
 import { getErrorMessage } from "../lib/api-error";
 import type { BudgetCategory, IncomeCategory, RecurringRule } from "../lib/types";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
+import {
+  PROFILE_FIELD_GROUP_CLASS,
+  PROFILE_FIELD_LABEL_CLASS,
+  PROFILE_INPUT_CLASS,
+  SELECT_CLASS_NAME,
+} from "./profile-options";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 import { ProfileSectionShell } from "./profile-section-shell";
 import { SegmentedControlV3 } from "./v3/segmented-control-v3";
-import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 function getCurrentMonthKey(): string {
   const now = new Date();
@@ -80,6 +86,13 @@ function getRuleStatusTone(rule: RecurringRule): "warning" | "normal" {
     return "warning";
   }
   return "normal";
+}
+
+function formatRuleAmount(value: number): string {
+  return value.toLocaleString("pt-PT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function RecurringRulesPage() {
@@ -290,15 +303,15 @@ export function RecurringRulesPage() {
       pageId="recurring-rules"
       backTo={backTo}
     >
-      <section className={UI_V3_CLASS.sectionStack}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
+      <section className="space-y-3 border-y border-border/60 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
             Gestão dedicada de regras recorrentes para a conta ativa.
           </p>
           <Button
-            variant="outline"
-            className="h-11 rounded-xl"
-            onClick={() => navigate("/", { replace: false, state: { from: "/recurring" } })}
+            variant="ghost"
+            className="h-11 rounded-xl px-3"
+            onClick={() => navigate("/", { replace: false, state: { from: "/profile/recurring" } })}
           >
             Ir para mês
           </Button>
@@ -306,145 +319,146 @@ export function RecurringRulesPage() {
 
         {canWriteFinancial ? (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button className="h-11 rounded-xl" onClick={startCreate}>
+            <Button className="h-12 rounded-xl" onClick={startCreate}>
               Nova regra
             </Button>
-            <Button variant="outline" className="h-11 rounded-xl" onClick={() => void runGenerate()}>
+            <Button variant="outline" className="h-12 rounded-xl" onClick={() => void runGenerate()}>
               {runningGenerate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />}
               Gerar agora ({currentMonth})
             </Button>
           </div>
         ) : (
-          <div className="rounded-xl border border-border/70 bg-surface-soft px-3 py-2.5 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Modo leitura: podes consultar regras, mas não podes editar.
-          </div>
+          </p>
         )}
+      </section>
 
-        {isFormOpen ? (
-          <div className="rounded-2xl border border-border/70 bg-card p-3.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm text-foreground">{editingRuleId ? "Editar regra" : "Nova regra"}</p>
-              <Button variant="ghost" className="h-9 rounded-xl px-3" onClick={resetForm}>
-                Cancelar
-              </Button>
-            </div>
+      {isFormOpen ? (
+        <section className="space-y-4 border-b border-border/60 pb-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-foreground">{editingRuleId ? "Editar regra" : "Nova regra"}</p>
+            <Button variant="ghost" className="h-11 rounded-xl px-3" onClick={resetForm}>
+              Cancelar
+            </Button>
+          </div>
 
-            <div className="mt-3 space-y-3">
-              <SegmentedControlV3
-                value={form.type}
-                onChange={(value) => setForm((prev) => ({ ...prev, type: value as "income" | "expense" }))}
-                options={[
-                  { value: "expense", label: "Despesa" },
-                  { value: "income", label: "Receita" },
-                ]}
-                size="default"
-                ariaLabel="Tipo da regra recorrente"
+          <SegmentedControlV3
+            value={form.type}
+            onChange={(value) => setForm((prev) => ({ ...prev, type: value as "income" | "expense" }))}
+            options={[
+              { value: "expense", label: "Despesa" },
+              { value: "income", label: "Receita" },
+            ]}
+            size="default"
+            ariaLabel="Tipo da regra recorrente"
+          />
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className={`${PROFILE_FIELD_GROUP_CLASS} sm:col-span-2`}>
+              <label className={PROFILE_FIELD_LABEL_CLASS}>Descrição</label>
+              <Input
+                className={PROFILE_INPUT_CLASS}
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="Ex: Salário"
               />
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs text-muted-foreground">Descrição</label>
-                  <Input
-                    className="h-11 rounded-xl"
-                    value={form.name}
-                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                    placeholder="Ex: Salário"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Valor</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="h-11 rounded-xl"
-                    value={form.amount}
-                    onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Dia do mês</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    className="h-11 rounded-xl"
-                    value={form.dayOfMonth}
-                    onChange={(event) => setForm((prev) => ({ ...prev, dayOfMonth: event.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Início</label>
-                  <Input
-                    type="month"
-                    className="h-11 rounded-xl"
-                    value={form.startMonth}
-                    onChange={(event) => setForm((prev) => ({ ...prev, startMonth: event.target.value }))}
-                    disabled={Boolean(editingRuleId)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Fim (opcional)</label>
-                  <Input
-                    type="month"
-                    className="h-11 rounded-xl"
-                    value={form.endMonth}
-                    onChange={(event) => setForm((prev) => ({ ...prev, endMonth: event.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs text-muted-foreground">
-                    {form.type === "income" ? "Categoria de receita" : "Categoria de despesa"}
-                  </label>
-                  <select
-                    className="h-11 w-full rounded-xl border border-border bg-input-background px-3 text-sm text-foreground"
-                    value={form.categoryId}
-                    onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                  >
-                    {selectedCategoryOptions.map((category) => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))}
-                  </select>
-                  {form.type === "expense" && selectedCategoryOptions.length === 0 ? (
-                    <p className="text-xs text-warning-foreground">
-                      Sem categorias de despesa no mês atual. Define primeiro um orçamento para associar a regra.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <Button
-                  className="h-11 flex-1 rounded-xl"
-                  onClick={() => void submitForm()}
-                  disabled={
-                    savingRule
-                    || !canWriteFinancial
-                    || !form.name.trim()
-                    || !form.amount
-                    || !form.categoryId
-                    || (form.type === "expense" && selectedCategoryOptions.length === 0)
-                  }
-                >
-                  {savingRule ? <Loader2 className="h-4 w-4 animate-spin" /> : editingRuleId ? "Guardar" : "Criar regra"}
-                </Button>
-              </div>
+            </div>
+            <div className={PROFILE_FIELD_GROUP_CLASS}>
+              <label className={PROFILE_FIELD_LABEL_CLASS}>Valor</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                className={PROFILE_INPUT_CLASS}
+                value={form.amount}
+                onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+              />
+            </div>
+            <div className={PROFILE_FIELD_GROUP_CLASS}>
+              <label className={PROFILE_FIELD_LABEL_CLASS}>Dia do mês</label>
+              <Input
+                type="number"
+                min="1"
+                max="31"
+                className={PROFILE_INPUT_CLASS}
+                value={form.dayOfMonth}
+                onChange={(event) => setForm((prev) => ({ ...prev, dayOfMonth: event.target.value }))}
+              />
+            </div>
+            <div className={PROFILE_FIELD_GROUP_CLASS}>
+              <label className={PROFILE_FIELD_LABEL_CLASS}>Início</label>
+              <Input
+                type="month"
+                className={PROFILE_INPUT_CLASS}
+                value={form.startMonth}
+                onChange={(event) => setForm((prev) => ({ ...prev, startMonth: event.target.value }))}
+                disabled={Boolean(editingRuleId)}
+              />
+            </div>
+            <div className={PROFILE_FIELD_GROUP_CLASS}>
+              <label className={PROFILE_FIELD_LABEL_CLASS}>Fim (opcional)</label>
+              <Input
+                type="month"
+                className={PROFILE_INPUT_CLASS}
+                value={form.endMonth}
+                onChange={(event) => setForm((prev) => ({ ...prev, endMonth: event.target.value }))}
+              />
+            </div>
+            <div className={`${PROFILE_FIELD_GROUP_CLASS} sm:col-span-2`}>
+              <label className={PROFILE_FIELD_LABEL_CLASS}>
+                {form.type === "income" ? "Categoria de receita" : "Categoria de despesa"}
+              </label>
+              <select
+                className={SELECT_CLASS_NAME}
+                value={form.categoryId}
+                onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+              >
+                {selectedCategoryOptions.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              {form.type === "expense" && selectedCategoryOptions.length === 0 ? (
+                <p className="text-xs text-warning-foreground">
+                  Sem categorias de despesa no mês atual. Define primeiro um orçamento para associar a regra.
+                </p>
+              ) : null}
             </div>
           </div>
-        ) : null}
 
+          <Button
+            className="h-12 w-full rounded-xl"
+            onClick={() => void submitForm()}
+            disabled={
+              savingRule
+              || !canWriteFinancial
+              || !form.name.trim()
+              || !form.amount
+              || !form.categoryId
+              || (form.type === "expense" && selectedCategoryOptions.length === 0)
+            }
+          >
+            {savingRule ? <Loader2 className="h-4 w-4 animate-spin" /> : editingRuleId ? "Guardar" : "Criar regra"}
+          </Button>
+        </section>
+      ) : null}
+
+      <section className="border-b border-border/60 pb-4">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             A carregar regras...
           </div>
         ) : loadingError ? (
-          <div className="rounded-xl border border-danger/30 bg-danger-soft px-3 py-2.5 text-sm text-danger-foreground">
-            {loadingError}
-          </div>
+          <p className="text-sm text-danger-foreground">{loadingError}</p>
         ) : rules.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/70 bg-surface-soft/60 px-3 py-5 text-center text-sm text-muted-foreground">
-            Ainda sem regras recorrentes.
+          <div className="space-y-3 rounded-2xl bg-surface-soft px-4 py-5 text-center">
+            <p className="text-sm text-muted-foreground">Ainda sem regras recorrentes.</p>
+            {canWriteFinancial ? (
+              <Button className="h-11 rounded-xl" onClick={startCreate}>
+                Criar primeira regra
+              </Button>
+            ) : null}
           </div>
         ) : (
           <div className="divide-y divide-border/60 border-y border-border/60">
@@ -454,12 +468,12 @@ export function RecurringRulesPage() {
               const isReassignOpen = reassignRuleId === rule.id;
 
               return (
-                <div key={rule.id} className="py-3">
+                <article key={rule.id} className="space-y-3 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm text-foreground">{rule.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {rule.type === "income" ? "Receita" : "Despesa"} · {rule.amount.toFixed(2)}€
+                        {rule.type === "income" ? "Receita" : "Despesa"} · {formatRuleAmount(rule.amount)}€
                       </p>
                       <p className="text-xs text-muted-foreground">{formatRuleSchedule(rule)}</p>
                       <p className={`mt-1 inline-flex items-center gap-1 text-xs ${
@@ -474,7 +488,7 @@ export function RecurringRulesPage() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 rounded-xl"
+                        className="h-11 w-11 rounded-xl"
                         onClick={() => startEdit(rule)}
                         disabled={!canWriteFinancial}
                         aria-label="Editar regra"
@@ -484,7 +498,7 @@ export function RecurringRulesPage() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 rounded-xl"
+                        className="h-11 w-11 rounded-xl"
                         onClick={() => void toggleRuleActive(rule)}
                         disabled={!canWriteFinancial}
                         aria-label={rule.active ? "Pausar regra" : "Ativar regra"}
@@ -494,7 +508,7 @@ export function RecurringRulesPage() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 rounded-xl text-danger"
+                        className="h-11 w-11 rounded-xl text-danger"
                         onClick={() => setPendingDeleteRule(rule)}
                         disabled={!canWriteFinancial}
                         aria-label="Remover regra"
@@ -505,10 +519,10 @@ export function RecurringRulesPage() {
                   </div>
 
                   {(rule.pendingFallbackCount ?? 0) > 0 && canWriteFinancial ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
-                        className="h-9 rounded-xl px-3"
+                        className="h-11 rounded-xl px-3"
                         onClick={() => {
                           setReassignRuleId(rule.id);
                           setMigrateHistory(false);
@@ -521,48 +535,51 @@ export function RecurringRulesPage() {
                   ) : null}
 
                   {isReassignOpen ? (
-                    <div className="mt-2 rounded-xl border border-border/70 bg-surface-soft/70 p-2.5">
-                      <p className="text-xs text-muted-foreground">Escolhe categoria nova para as próximas gerações.</p>
-                      <div className="mt-2 space-y-2">
-                        <select
-                          className="h-11 w-full rounded-xl border border-border bg-input-background px-3 text-sm text-foreground"
-                          value={reassignCategoryId}
-                          onChange={(event) => setReassignCategoryId(event.target.value)}
-                        >
-                          {reassignOptions.map((category) => (
-                            <option key={category.id} value={category.id}>{category.name}</option>
-                          ))}
-                        </select>
+                    <div className="space-y-3 border-t border-border/60 pt-3">
+                      <p className="text-xs text-muted-foreground">
+                        Escolhe categoria nova para as próximas gerações.
+                      </p>
 
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={migrateHistory}
-                            onChange={(event) => setMigrateHistory(event.target.checked)}
-                          />
+                      <select
+                        className={SELECT_CLASS_NAME}
+                        value={reassignCategoryId}
+                        onChange={(event) => setReassignCategoryId(event.target.value)}
+                      >
+                        {reassignOptions.map((category) => (
+                          <option key={category.id} value={category.id}>{category.name}</option>
+                        ))}
+                      </select>
+
+                      <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4">
+                        <span className="text-xs text-muted-foreground">
                           Migrar também histórico em fallback desta regra
-                        </label>
+                        </span>
+                        <Switch
+                          checked={migrateHistory}
+                          onCheckedChange={setMigrateHistory}
+                          aria-label="Migrar histórico em fallback"
+                        />
+                      </label>
 
-                        <div className="flex gap-2">
-                          <Button
-                            className="h-10 rounded-xl"
-                            onClick={() => void submitReassign()}
-                            disabled={savingReassign || !reassignCategoryId}
-                          >
-                            {savingReassign ? <Loader2 className="h-4 w-4 animate-spin" /> : "Aplicar"}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="h-10 rounded-xl"
-                            onClick={() => setReassignRuleId(null)}
-                          >
-                            Fechar
-                          </Button>
-                        </div>
+                      <div className="flex gap-2">
+                        <Button
+                          className="h-11 rounded-xl"
+                          onClick={() => void submitReassign()}
+                          disabled={savingReassign || !reassignCategoryId}
+                        >
+                          {savingReassign ? <Loader2 className="h-4 w-4 animate-spin" /> : "Aplicar"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="h-11 rounded-xl"
+                          onClick={() => setReassignRuleId(null)}
+                        >
+                          Fechar
+                        </Button>
                       </div>
                     </div>
                   ) : null}
-                </div>
+                </article>
               );
             })}
           </div>

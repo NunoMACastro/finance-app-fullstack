@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { Button } from "./ui/button";
 
 type ExpenseCategoryTone = "normal" | "warning" | "danger";
 
@@ -45,9 +46,10 @@ export function MonthExpenseCategoryRow({
   const fillClass = getPrimaryShadeBarClass(clampedProgress);
 
   return (
-    <button
+    <Button
       type="button"
-      className="w-full min-h-11 py-3 text-left transition-colors hover:bg-accent/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring-soft"
+      variant="ghost"
+      className="h-auto w-full min-h-11 justify-start rounded-xl py-3 text-left transition-colors hover:bg-accent/35"
       onClick={onOpen}
       aria-label={`Abrir detalhes de despesas da categoria ${name}`}
     >
@@ -78,6 +80,6 @@ export function MonthExpenseCategoryRow({
           style={{ width: `${clampedProgress}%` }}
         />
       </div>
-    </button>
+    </Button>
   );
 }

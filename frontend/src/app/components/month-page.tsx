@@ -2,32 +2,17 @@ import React, { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { motion } from "motion/react";
-import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
-import {
   OverlayBody,
   OverlayContent,
+  OverlayDescription,
   OverlayFooter,
   OverlayHeader,
   OverlayTitle,
   ResponsiveOverlay,
 } from "./ui/responsive-overlay";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "./ui/sheet";
-import { useIsMobile } from "./ui/use-mobile";
 import {
   Plus,
   Trash2,
@@ -68,6 +53,11 @@ import { ConfirmActionDialog } from "./confirm-action-dialog";
 import { MonthFinancialRuler } from "./month-financial-ruler";
 import { MonthExpenseCategoryRow } from "./month-expense-category-row";
 import { CategoryExpensesSheet } from "./category-expenses-sheet";
+import {
+  IconActionButtonV3,
+  RowActionButtonV3,
+  TextActionButtonV3,
+} from "./v3/interaction-primitives-v3";
 import { SegmentedControlV3 } from "./v3/segmented-control-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
@@ -508,7 +498,7 @@ export function MonthPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-11 w-11 rounded-none text-muted-foreground hover:bg-accent/60"
+          className="h-11 w-11 rounded-xl text-muted-foreground hover:bg-accent/60"
           onClick={goToPreviousMonth}
           aria-label="Ver mês anterior"
           disabled={monthOffset <= minimumOffset}
@@ -516,10 +506,11 @@ export function MonthPage() {
           <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => void openMonthPicker()}
-          className="min-h-11 px-3 text-center"
+          className="min-h-11 rounded-xl px-3 text-center hover:bg-accent/30"
           aria-label="Selecionar mês do orçamento"
         >
           <motion.span
@@ -532,12 +523,12 @@ export function MonthPage() {
             {compactCurrentMonthLabel}
             <ChevronDown className="h-5 w-5 text-muted-foreground" />
           </motion.span>
-        </button>
+        </Button>
 
         <Button
           variant="ghost"
           size="icon"
-          className="h-11 w-11 rounded-none text-muted-foreground hover:bg-accent/60"
+          className="h-11 w-11 rounded-xl text-muted-foreground hover:bg-accent/60"
           onClick={goToNextMonth}
           aria-label="Ver mês seguinte"
           disabled={monthOffset >= 0}
@@ -803,14 +794,14 @@ export function MonthPage() {
                           +{formatCurrency(tx.amount)}
                         </span>
                         {tx.origin === "manual" && canWriteFinancial ? (
-                          <button
-                            type="button"
-                            className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+                          <IconActionButtonV3
+                            size="compact"
+                            tone="danger"
                             onClick={() => setPendingDeleteTransactionId(tx.id)}
-                            aria-label="Remover lançamento"
+                            ariaLabel="Remover lançamento"
                           >
                             <Trash2 className="mx-auto h-4 w-4" />
-                          </button>
+                          </IconActionButtonV3>
                         ) : null}
                       </div>
                     ))}
@@ -841,17 +832,16 @@ export function MonthPage() {
                 const isSelected = option.value === currentMonth;
                 const hasInfo = monthAvailability[option.value] ?? false;
                 return (
-                  <button
+                  <RowActionButtonV3
                     key={option.value}
-                    type="button"
                     onClick={() => selectMonth(option.value)}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                    dense
+                    className={`px-3 ${
                       isSelected ? "bg-accent text-foreground" : "hover:bg-accent/55"
                     } ${hasInfo ? "text-foreground" : "text-muted-foreground"}`}
-                  >
-                    <span className="capitalize">{option.label}</span>
-                    {isSelected ? <Check className="h-4 w-4" /> : null}
-                  </button>
+                    content={<span className="capitalize">{option.label}</span>}
+                    trailing={isSelected ? <Check className="h-4 w-4" /> : null}
+                  />
                 );
               })}
             </div>
@@ -891,7 +881,7 @@ export function MonthPage() {
         }}
         onManageRecurringRules={() => {
           setShowAddDialog(false);
-          navigate("/recurring", { state: { from: "/" } });
+          navigate("/profile/recurring", { state: { from: "/" } });
         }}
         onRefreshIncomeCategories={reloadIncomeCategories}
       />
@@ -949,7 +939,6 @@ function AddTransactionDialog({
   onManageRecurringRules: () => void;
   onRefreshIncomeCategories: () => Promise<void>;
 }) {
-  const isMobile = useIsMobile();
   const [type, setType] = useState<"income" | "expense">("expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -1021,8 +1010,16 @@ function AddTransactionDialog({
     }
   };
 
-  const formContent = (mobileFooter = false) => (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+  const isSubmitDisabled = (
+    saving
+    || !description
+    || !amount
+    || !canWriteFinancial
+    || (type === "income" ? !incomeCategoryId : !expenseCategoryId)
+  );
+
+  const formContent = (
+    <form id="add-transaction-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
       <SegmentedControlV3
         value={type}
         onChange={(value) => setType(value as "expense" | "income")}
@@ -1034,7 +1031,7 @@ function AddTransactionDialog({
         ariaLabel="Selecionar tipo de lançamento"
       />
 
-      <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3">
+      <div className="space-y-3">
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-foreground">Descricao</label>
           <Input
@@ -1102,94 +1099,59 @@ function AddTransactionDialog({
                 ))}
           </select>
           {type === "income" && canWriteFinancial && (
-            <button
-              type="button"
-              className="text-left text-xs font-medium text-primary hover:text-primary/80 hover:underline w-fit"
+            <TextActionButtonV3
+              size="sm"
               onClick={onManageIncomeCategories}
             >
               Gerir categorias de receita
-            </button>
+            </TextActionButtonV3>
           )}
         </div>
 
         {canWriteFinancial ? (
-          <button
-            type="button"
-            className="text-left text-xs font-medium text-primary hover:text-primary/80 hover:underline w-fit"
+          <TextActionButtonV3
+            size="sm"
             onClick={onManageRecurringRules}
           >
             Gerir recorrências automáticas
-          </button>
+          </TextActionButtonV3>
         ) : null}
-      </div>
-
-      <div
-        className={
-          mobileFooter
-            ? "sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 border-t border-border bg-card/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md"
-            : "mt-1 flex gap-2 pt-2"
-        }
-      >
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-xl flex-1 border-border bg-input-background text-foreground hover:bg-surface-soft"
-          onClick={onClose}
-        >
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          disabled={
-            saving
-            || !description
-            || !amount
-            || !canWriteFinancial
-            || (type === "income" ? !incomeCategoryId : !expenseCategoryId)
-          }
-          className="rounded-xl flex-1 bg-brand-gradient text-primary-foreground border-0"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
-        </Button>
       </div>
     </form>
   );
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-        <SheetContent
-          side="bottom"
-          className="right-auto left-1/2 w-[calc(100%-1rem)] max-w-[430px] -translate-x-1/2 max-h-[92vh] rounded-[20px] border border-border/80 bg-card/95 p-0 shadow-overlay backdrop-blur-xl"
-        >
-          <SheetHeader className="px-4 pt-3 pb-2 text-left">
-            <SheetTitle className="text-base">Novo Lançamento</SheetTitle>
-            <SheetDescription className="sr-only">
-              Formulário para criar um novo lançamento manual.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="max-h-[calc(92vh-4.5rem)] overflow-y-auto px-4 pb-4">
-            {formContent(true)}
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="p-0 border border-border/80 bg-card/95 shadow-overlay backdrop-blur-xl rounded-[20px] overflow-hidden sm:max-w-lg">
-        <DialogHeader className="px-5 pt-5 pb-3 text-left">
-          <DialogTitle className="text-base text-foreground">Novo Lançamento</DialogTitle>
-          <DialogDescription className="sr-only">
+    <ResponsiveOverlay open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <OverlayContent density="form">
+        <OverlayHeader>
+          <OverlayTitle>Novo Lançamento</OverlayTitle>
+          <OverlayDescription className="sr-only">
             Formulário para criar um novo lançamento manual.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="px-5 pb-5">
-          {formContent(false)}
-        </div>
-      </DialogContent>
-    </Dialog>
+          </OverlayDescription>
+        </OverlayHeader>
+        <OverlayBody className="max-h-[calc(92vh-8rem)] overflow-y-auto pt-0">
+          {formContent}
+        </OverlayBody>
+        <OverlayFooter sticky>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 rounded-xl border-border bg-input-background text-foreground hover:bg-surface-soft"
+            onClick={onClose}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="add-transaction-form"
+            disabled={isSubmitDisabled}
+            className="flex-1 rounded-xl"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
+          </Button>
+        </OverlayFooter>
+      </OverlayContent>
+    </ResponsiveOverlay>
   );
 }
 
@@ -1292,7 +1254,7 @@ function IncomeCategoriesDialog({
           </OverlayHeader>
           <OverlayBody className="pt-0">
             <div className="flex flex-col gap-3">
-              <div className="rounded-2xl border border-border bg-card p-2.5 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Input
                   className="h-10 rounded-xl border-border bg-input-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring-soft"
                   placeholder="Nova categoria..."
@@ -1320,63 +1282,61 @@ function IncomeCategoriesDialog({
                 </Button>
               </div>
 
-              <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-1">
+              <div className="max-h-[45vh] overflow-y-auto divide-y divide-border/60 border-y border-border/60">
                 {sortedCategories.map((category) => {
                   const rowBusy = busyCategoryId === category.id;
                   return (
-                    <Card key={category.id} className="p-2.5 border border-border bg-card shadow-none">
-                      <div className="flex items-center gap-2 justify-between">
-                        <div className="min-w-0">
-                          <p className="text-sm text-foreground truncate">{category.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {category.isDefault && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info-soft text-info-foreground">
-                                Default
-                              </span>
-                            )}
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                category.active
-                                  ? "bg-success-soft text-status-success"
-                                  : "bg-surface-soft text-muted-foreground"
-                              }`}
-                            >
-                              {category.active ? "Ativa" : "Inativa"}
+                    <div key={category.id} className="flex items-center justify-between gap-2 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-foreground">{category.name}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          {category.isDefault && (
+                            <span className="rounded-full bg-info-soft px-1.5 py-0.5 text-[10px] text-info-foreground">
+                              Default
                             </span>
-                          </div>
+                          )}
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                              category.active
+                                ? "bg-success-soft text-status-success"
+                                : "bg-surface-soft text-muted-foreground"
+                            }`}
+                          >
+                            {category.active ? "Ativa" : "Inativa"}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1">
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 rounded-xl border-border bg-input-background px-2 text-xs text-foreground hover:bg-surface-soft"
+                          disabled={!canWriteFinancial || rowBusy}
+                          onClick={() => {
+                            void handleRename(category);
+                          }}
+                        >
+                          Renomear
+                        </Button>
+                        {!category.isDefault && (
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-8 rounded-lg px-2 text-xs border-border bg-input-background text-foreground hover:bg-surface-soft"
+                            className="h-9 rounded-xl border-border bg-input-background px-2 text-xs text-foreground hover:bg-surface-soft"
                             disabled={!canWriteFinancial || rowBusy}
                             onClick={() => {
-                              void handleRename(category);
+                              if (category.active) {
+                                void handleToggleActive(category);
+                                return;
+                              }
+                              void handleActivate(category);
                             }}
                           >
-                            Renomear
+                            {rowBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : category.active ? "Desativar" : "Ativar"}
                           </Button>
-                          {!category.isDefault && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 rounded-lg px-2 text-xs border-border bg-input-background text-foreground hover:bg-surface-soft"
-                              disabled={!canWriteFinancial || rowBusy}
-                              onClick={() => {
-                                if (category.active) {
-                                  void handleToggleActive(category);
-                                  return;
-                                }
-                                void handleActivate(category);
-                              }}
-                            >
-                              {rowBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : category.active ? "Desativar" : "Ativar"}
-                            </Button>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    </Card>
+                    </div>
                   );
                 })}
                 {sortedCategories.length === 0 && (

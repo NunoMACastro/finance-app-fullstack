@@ -66,6 +66,18 @@ Normativa:
   - `default` (`h-11`) para seletor principal de página
   - `compact` (`h-9`) para uso inline denso
 
+### Botões e Interações
+- `MUST` usar `<Button>` por defeito para ações explícitas (CTA, submit, confirmar, cancelar, remover, navegar por ação).
+- `<button>` nativo `MAY` ser usado apenas dentro de primitives de interação dedicadas.
+- Primárias `MUST` usar gradiente (`bg-brand-gradient`) com `text-primary-foreground` e `border-0`.
+- Secundárias (`outline`/`ghost`/`link`) `MUST` manter `rounded-xl`.
+- Primitives recomendadas:
+  - `IconActionButtonV3` para ações de ícone (normal/danger, `default|compact`)
+  - `TextActionButtonV3` para ações textuais inline
+  - `RowActionButtonV3` para linhas full-width clicáveis
+  - `SelectableTileButtonV3` para opções tipo tile/template
+  - `SeriesToggleButtonV3` para toggles de série em gráficos
+
 ### Lists e Movimentos
 - `MUST` priorizar lista full-width para conteúdo principal.
 - `SHOULD` usar linhas compactas antes de novos cartões.

@@ -4,6 +4,7 @@ import {
   type StatsDriver,
   type StatsDriverStatus,
 } from "./stats-view-model";
+import { RowActionButtonV3 } from "./v3/interaction-primitives-v3";
 
 function statusTextClass(status: StatsDriverStatus): string {
   if (status === "exceeded") return "text-status-danger";
@@ -56,43 +57,44 @@ export function StatsDriversList({
             const remaining = driver.budgeted - driver.actual;
             const barWidth = Math.max(0, Math.min(driver.usedPercent, 100));
             return (
-              <button
+              <RowActionButtonV3
                 key={driver.categoryId}
-                type="button"
-                className="w-full py-3 text-left"
                 onClick={() => onSelectDriver(driver)}
-                data-testid={`stats-driver-row-${driver.categoryId}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-foreground">{driver.categoryName}</p>
-                    <span
-                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] ${statusSoftClass(
-                        driver.status,
-                      )} ${statusTextClass(driver.status)}`}
-                    >
-                      {getDriverStatusLabel(driver.status)}
-                    </span>
+                className="px-0"
+                content={(
+                  <div data-testid={`stats-driver-row-${driver.categoryId}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-foreground">{driver.categoryName}</p>
+                        <span
+                          className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] ${statusSoftClass(
+                            driver.status,
+                          )} ${statusTextClass(driver.status)}`}
+                        >
+                          {getDriverStatusLabel(driver.status)}
+                        </span>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm tabular-nums text-foreground">
+                          {formatCurrency(driver.actual)} / {formatCurrency(driver.budgeted)}
+                        </p>
+                        <p className={`text-xs tabular-nums ${statusTextClass(driver.status)}`}>
+                          {remaining < 0
+                            ? `${formatCurrency(Math.abs(remaining))} excedido`
+                            : `${formatCurrency(remaining)} restante`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full ${statusBarClass(driver.status)}`}
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm tabular-nums text-foreground">
-                      {formatCurrency(driver.actual)} / {formatCurrency(driver.budgeted)}
-                    </p>
-                    <p className={`text-xs tabular-nums ${statusTextClass(driver.status)}`}>
-                      {remaining < 0
-                        ? `${formatCurrency(Math.abs(remaining))} excedido`
-                        : `${formatCurrency(remaining)} restante`}
-                    </p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full ${statusBarClass(driver.status)}`}
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-              </button>
+                )}
+                trailing={<ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground" />}
+              />
             );
           })}
         </div>
