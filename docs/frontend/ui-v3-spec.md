@@ -23,6 +23,8 @@ Normativa:
 - Radius permitido (`MUST`):
   - Controlo: `12px` (`rounded-xl`)
   - Superfície: `16px` (`rounded-2xl`)
+- CTAs primárias e secundárias (`MUST`) usar `rounded-xl` (não `rounded-full`).
+- `rounded-full` (`MAY`) apenas para badges/chips, dots decorativos e barras/progress.
 - Exceções de radius (`MAY`): overlays/sheets/dialogs até `20px`, com justificação funcional.
 - Elevação (`MUST`): `0` por defeito; sombra apenas para overlays/dialogs/sheets.
 - Touch targets (`MUST`): mínimo equivalente a `44px`.
@@ -54,6 +56,16 @@ Normativa:
 - `SHOULD` privilegiar superfícies simples com borda sem sombras de cartão.
 - `MUST` evitar card dentro de card sem necessidade funcional.
 
+### Page Headers
+- `MUST` usar `PageHeaderV3` nas páginas com padrão repetido de header (título + subtítulo + ações).
+- `MUST` normalizar título de página para `text-base`.
+
+### Segmented Controls
+- `MUST` usar `SegmentedControlV3` para seletores segmentados (evitar implementações ad-hoc).
+- tamanhos permitidos:
+  - `default` (`h-11`) para seletor principal de página
+  - `compact` (`h-9`) para uso inline denso
+
 ### Lists e Movimentos
 - `MUST` priorizar lista full-width para conteúdo principal.
 - `SHOULD` usar linhas compactas antes de novos cartões.
@@ -81,6 +93,8 @@ Normativa:
 
 ## 5. Regras por Página
 
+- páginas autenticadas `MUST` usar stack base `pageStack` (`flex flex-col gap-6 pb-6`).
+
 ### Month
 - `MUST` ter topo contextual do mês + navegação mensal compacta.
 - `MUST` ter um bloco único contínuo (`Month Financial Stack`) para leitura macro + categorias.
@@ -101,10 +115,12 @@ Normativa:
 - `MUST` evitar grelhas KPI densas e painéis analíticos redundantes.
 - `MUST` usar drilldown de categoria em `sheet` contextual (não inline expandido).
 - `MUST` manter projeção com seletor `3M/6M` e nota de confiança.
+  - o seletor de período e projeção `MUST` usar `SegmentedControlV3`.
 
 ### Budget Editor
 - `MUST` apresentar templates em lista compacta.
 - `MUST` manter fluxo contínuo de edição (menos cartões intermédios).
+- `MUST` evitar wrappers V2 (`SectionCardV2`, `ActionRailV2`) no fluxo principal.
 
 ### Profile
 - `MUST` usar `hub + subpáginas`:
@@ -122,6 +138,7 @@ Normativa:
   - subrotas: `/profile/shared/accounts`, `/profile/shared/create`, `/profile/shared/join`, `/profile/shared/members`
   - comportamento de voltar em `shared/*`: regressa para `/profile/shared`
 - `SHOULD` reduzir padding e wrappers decorativos.
+- CTAs principais em perfil `MUST` usar `rounded-xl`.
 
 ## 6. Clutter Budget (mensurável)
 

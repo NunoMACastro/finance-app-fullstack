@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { getIntegrationApp } from "./harness.js";
 
 function monthKeyFromNow() {
   const now = new Date();
@@ -8,40 +8,10 @@ function monthKeyFromNow() {
 }
 
 describe("income categories integration", () => {
-  let mongo: MongoMemoryReplSet;
-  let app: import("express").Express;
-  let disconnectDb: (() => Promise<void>) | undefined;
-
-  beforeAll(async () => {
-    mongo = await MongoMemoryReplSet.create({
-      replSet: { count: 1 },
-      instanceOpts: [{ ip: "127.0.0.1" }],
-    });
-    process.env.NODE_ENV = "test";
-    process.env.CRON_ENABLED = "false";
-    process.env.MONGODB_URI = mongo.getUri();
-
-    const db = await import("../../config/db.js");
-    const appModule = await import("../../app.js");
-
-    await db.connectDb();
-    disconnectDb = db.disconnectDb;
-    app = appModule.createApp();
-  });
-
-  afterAll(async () => {
-    if (disconnectDb) {
-      await disconnectDb();
-    }
-    if (mongo) {
-      await mongo.stop();
-    }
-  });
-
   test("default category protection and income validation", async () => {
     const month = monthKeyFromNow();
 
-    const registerRes = await request(app).post("/api/v1/auth/register").send({
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Income User",
       email: "income@example.com",
       password: "123456",
@@ -50,7 +20,7 @@ describe("income categories integration", () => {
     expect(registerRes.status).toBe(201);
     const accessToken = registerRes.body.tokens.accessToken as string;
 
-    const budgetRes = await request(app)
+    const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -63,7 +33,7 @@ describe("income categories integration", () => {
 
     expect(budgetRes.status).toBe(200);
 
-    const listRes = await request(app)
+    const listRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`);
 
@@ -72,7 +42,7 @@ describe("income categories integration", () => {
 
     const defaultCategoryId = listRes.body[0]?.id as string;
 
-    const disableDefault = await request(app)
+    const disableDefault = await request(getIntegrationApp())
       .patch(`/api/v1/income-categories/${defaultCategoryId}`)
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ active: false });
@@ -80,14 +50,14 @@ describe("income categories integration", () => {
     expect(disableDefault.status).toBe(422);
     expect(disableDefault.body.code).toBe("INCOME_CATEGORY_DEFAULT_PROTECTED");
 
-    const deleteDefault = await request(app)
+    const deleteDefault = await request(getIntegrationApp())
       .delete(`/api/v1/income-categories/${defaultCategoryId}`)
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(deleteDefault.status).toBe(422);
     expect(deleteDefault.body.code).toBe("INCOME_CATEGORY_DEFAULT_PROTECTED");
 
-    const createCategory = await request(app)
+    const createCategory = await request(getIntegrationApp())
       .post("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ name: "Freelance" });
@@ -95,7 +65,7 @@ describe("income categories integration", () => {
     expect(createCategory.status).toBe(201);
     const freelanceCategoryId = createCategory.body.id as string;
 
-    const incomeSuccess = await request(app)
+    const incomeSuccess = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -110,7 +80,7 @@ describe("income categories integration", () => {
 
     expect(incomeSuccess.status).toBe(201);
 
-    const disableFreelance = await request(app)
+    const disableFreelance = await request(getIntegrationApp())
       .patch(`/api/v1/income-categories/${freelanceCategoryId}`)
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ active: false });
@@ -118,7 +88,7 @@ describe("income categories integration", () => {
     expect(disableFreelance.status).toBe(200);
     expect(disableFreelance.body.active).toBe(false);
 
-    const incomeInactiveCategory = await request(app)
+    const incomeInactiveCategory = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -134,7 +104,7 @@ describe("income categories integration", () => {
     expect(incomeInactiveCategory.status).toBe(422);
     expect(incomeInactiveCategory.body.code).toBe("INCOME_CATEGORY_INACTIVE");
 
-    const incomeWithoutCategory = await request(app)
+    const incomeWithoutCategory = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({

@@ -88,7 +88,7 @@ export function ProfileSecurityPage() {
         </div>
         <Button
           type="button"
-          className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
+          className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
           disabled={savingPassword || !currentPassword || !newPassword}
           onClick={async () => {
             setSavingPassword(true);

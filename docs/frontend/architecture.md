@@ -67,10 +67,14 @@ Pontos chave:
 
 ### StatsPage
 Responsabilidades:
-- carregar stats (`statsApi.getSemester`/`getYear`)
+- carregar stats em 2 fases (`statsApi.getSemester`/`getYear`)
+  - fase 1: snapshot base com `includeInsight=false` (render imediato da pagina)
+  - fase 2: enrichment opcional com `includeInsight=true` (apenas bloco de insight)
 - manter escopo account-scoped via conta ativa (sem agregação global no v1)
 - compor stack v3 (`Pulse`, `Drivers`, `Tendência`, `Projeção`)
 - usar `stats-view-model` para derivar métricas e estados semânticos
+- usar insight textual vindo do backend (`snapshot.insight`) quando disponivel
+- manter fallback deterministico local (`buildPulseInsight`) quando insight IA nao vier no payload
 - suportar detalhe por categoria em `StatsCategoryInsightSheet`
 - tratar erros com retry
 

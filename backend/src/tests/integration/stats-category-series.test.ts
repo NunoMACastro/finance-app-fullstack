@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { getIntegrationApp } from "./harness.js";
 
 function monthKeyFromNow() {
   const now = new Date();
@@ -8,38 +8,8 @@ function monthKeyFromNow() {
 }
 
 describe("stats integration", () => {
-  let mongo: MongoMemoryReplSet;
-  let app: import("express").Express;
-  let disconnectDb: (() => Promise<void>) | undefined;
-
-  beforeAll(async () => {
-    mongo = await MongoMemoryReplSet.create({
-      replSet: { count: 1 },
-      instanceOpts: [{ ip: "127.0.0.1" }],
-    });
-    process.env.NODE_ENV = "test";
-    process.env.CRON_ENABLED = "false";
-    process.env.MONGODB_URI = mongo.getUri();
-
-    const db = await import("../../config/db.js");
-    const appModule = await import("../../app.js");
-
-    await db.connectDb();
-    disconnectDb = db.disconnectDb;
-    app = appModule.createApp();
-  });
-
-  afterAll(async () => {
-    if (disconnectDb) {
-      await disconnectDb();
-    }
-    if (mongo) {
-      await mongo.stop();
-    }
-  });
-
   test("returns deterministic categorySeries without random values", async () => {
-    const registerRes = await request(app).post("/api/v1/auth/register").send({
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Stats User",
       email: "stats@example.com",
       password: "123456",
@@ -49,7 +19,7 @@ describe("stats integration", () => {
     const accessToken = registerRes.body.tokens.accessToken as string;
     const month = monthKeyFromNow();
 
-    const incomeCategoriesRes = await request(app)
+    const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`);
 
@@ -57,7 +27,7 @@ describe("stats integration", () => {
     const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
     expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
 
-    const budgetRes = await request(app)
+    const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -70,7 +40,7 @@ describe("stats integration", () => {
 
     expect(budgetRes.status).toBe(200);
 
-    const incomeRes = await request(app)
+    const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -85,7 +55,7 @@ describe("stats integration", () => {
 
     expect(incomeRes.status).toBe(201);
 
-    const expenseA = await request(app)
+    const expenseA = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -98,7 +68,7 @@ describe("stats integration", () => {
         categoryId: "cat_despesas",
       });
 
-    const expenseB = await request(app)
+    const expenseB = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -114,14 +84,14 @@ describe("stats integration", () => {
     expect(expenseA.status).toBe(201);
     expect(expenseB.status).toBe(201);
 
-    const statsResA = await request(app)
+    const statsResA = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
       .set("Authorization", `Bearer ${accessToken}`);
 
-    const statsResB = await request(app)
+    const statsResB = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
       .set("Authorization", `Bearer ${accessToken}`);
-    const statsResForecastWindow = await request(app)
+    const statsResForecastWindow = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
       .query({ forecastWindow: 6 })
       .set("Authorization", `Bearer ${accessToken}`);

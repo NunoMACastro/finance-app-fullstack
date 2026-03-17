@@ -32,7 +32,6 @@ import {
   Plus,
   Trash2,
   ArrowUpRight,
-  ArrowDownRight,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
@@ -66,12 +65,11 @@ import type {
 } from "../lib/types";
 import { toast } from "sonner";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
-import { ActionRailV2 } from "./v2/action-rail-v2";
-import { EmptyStateV2 } from "./v2/empty-state-v2";
-import { SectionCardV2 } from "./v2/section-card-v2";
 import { MonthFinancialRuler } from "./month-financial-ruler";
 import { MonthExpenseCategoryRow } from "./month-expense-category-row";
 import { CategoryExpensesSheet } from "./category-expenses-sheet";
+import { SegmentedControlV3 } from "./v3/segmented-control-v3";
+import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 function getDaysRemainingInMonth(monthKey: string): number {
   const [y, m] = monthKey.split("-");
@@ -505,7 +503,7 @@ export function MonthPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="month">
+    <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="month">
       <div className="-mx-4 flex items-center justify-between" data-tour="month-budget-select">
         <Button
           variant="ghost"
@@ -550,9 +548,8 @@ export function MonthPage() {
 
       {canWriteFinancial ? (
         isBudgetReady ? (
-          <ActionRailV2
-            className="mb-0"
-            primary={(
+          <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+            <div className="min-w-0">
               <Button
                 data-tour="month-add-transaction"
                 className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground"
@@ -563,8 +560,8 @@ export function MonthPage() {
                 <Plus className="w-4 h-4" />
                 Novo lançamento
               </Button>
-            )}
-            secondary={(
+            </div>
+            <div className="shrink-0">
               <Button
                 data-tour="month-budget-button"
                 variant="ghost"
@@ -573,8 +570,8 @@ export function MonthPage() {
               >
                 Editar orçamento
               </Button>
-            )}
-          />
+            </div>
+          </div>
         ) : (
           <Button
             data-tour="month-budget-button"
@@ -588,22 +585,22 @@ export function MonthPage() {
       ) : null}
 
       {!isBudgetReady && canWriteFinancial ? (
-        <SectionCardV2 tone="control" className="border-warning/35 bg-warning-soft/80 px-1 py-1">
+        <section className="rounded-xl border border-warning/35 bg-warning-soft/80 px-1 py-1">
           <div className="px-2 py-1 text-center">
             <p className="text-xs text-warning-foreground">
               Ainda sem orçamento para este mês. Cria um orçamento para continuar.
             </p>
           </div>
-        </SectionCardV2>
+        </section>
       ) : null}
 
       {!canWriteFinancial && (
-          <SectionCardV2 tone="control" className="bg-info-soft">
+          <section className="rounded-xl border border-border/70 bg-info-soft">
             <div className="p-3 text-xs text-info-foreground">
               Modo leitura ({getAccountRoleLabel(activeAccountRole)}): não tens permissão para criar ou editar
               lançamentos/orçamento.
             </div>
-          </SectionCardV2>
+          </section>
         )}
 
       {loading ? (
@@ -691,11 +688,15 @@ export function MonthPage() {
                 </div>
 
                 {budget.categories.length === 0 ? (
-                  <EmptyStateV2
-                    icon={<ShoppingCart className="w-5 h-5" />}
-                    title="Sem categorias de despesas neste mês"
-                    description="Cria um orçamento para começares a registar despesas."
-                    action={(
+                  <div className="rounded-2xl border border-dashed border-border/70 bg-surface-soft/70 px-4 py-6 text-center">
+                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-card/80 text-muted-foreground">
+                      <ShoppingCart className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm text-foreground">Sem categorias de despesas neste mês</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Cria um orçamento para começares a registar despesas.
+                    </p>
+                    <div className="mt-3 flex justify-center">
                       <Button
                         onClick={() => navigate(`/budget/${currentMonth}/edit`)}
                         disabled={!canWriteFinancial}
@@ -703,8 +704,8 @@ export function MonthPage() {
                       >
                         Criar orçamento
                       </Button>
-                    )}
-                  />
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -1016,32 +1017,16 @@ function AddTransactionDialog({
 
   const formContent = (mobileFooter = false) => (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex gap-2 rounded-2xl border border-border bg-surface-soft p-1">
-        <button
-          type="button"
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
-            type === "expense"
-              ? "bg-card text-status-danger ring-1 ring-danger/25"
-              : "text-muted-foreground hover:bg-card"
-          }`}
-          onClick={() => setType("expense")}
-        >
-          <ArrowDownRight className="w-4 h-4" />
-          Despesa
-        </button>
-        <button
-          type="button"
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
-            type === "income"
-              ? "bg-card text-status-success ring-1 ring-success/25"
-              : "text-muted-foreground hover:bg-card"
-          }`}
-          onClick={() => setType("income")}
-        >
-          <ArrowUpRight className="w-4 h-4" />
-          Receita
-        </button>
-      </div>
+      <SegmentedControlV3
+        value={type}
+        onChange={setType}
+        options={[
+          { value: "expense", label: "Despesa" },
+          { value: "income", label: "Receita" },
+        ]}
+        size="default"
+        ariaLabel="Selecionar tipo de lançamento"
+      />
 
       <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3">
         <div className="flex flex-col gap-1.5">

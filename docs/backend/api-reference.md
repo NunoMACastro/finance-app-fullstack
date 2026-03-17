@@ -166,6 +166,11 @@ Se a sessão já estiver revogada, o mesmo endpoint remove-a do histórico (clea
 
 Response `204`.
 
+### DELETE `/auth/sessions/revoked`
+Auth obrigatoria. Remove do histórico todas as sessões já revogadas.
+
+Response `204`.
+
 ### POST `/auth/sessions/revoke-all`
 Auth obrigatoria. Revoga todas as sessões do user.
 
@@ -512,13 +517,19 @@ Response `200`:
 
 Requer auth + account context.
 
-### GET `/stats/semester?endingMonth=YYYY-MM&forecastWindow=3|6`
+### GET `/stats/semester?endingMonth=YYYY-MM&forecastWindow=3|6&includeInsight=true|false`
 - `endingMonth` opcional.
 - `forecastWindow` opcional (`3` por default).
+- `includeInsight` opcional (`true` por default).
+  - `true`: tenta enriquecer com insight IA (quando OpenAI configurado).
+  - `false`: devolve snapshot base sem tentar IA (latencia menor).
 
-### GET `/stats/year?year=YYYY&forecastWindow=3|6`
+### GET `/stats/year?year=YYYY&forecastWindow=3|6&includeInsight=true|false`
 - `year` opcional.
 - `forecastWindow` opcional (`3` por default).
+- `includeInsight` opcional (`true` por default).
+  - `true`: tenta enriquecer com insight IA (quando OpenAI configurado).
+  - `false`: devolve snapshot base sem tentar IA (latencia menor).
 
 Response `200` (`StatsSnapshot`):
 ```json
@@ -537,6 +548,7 @@ Response `200` (`StatsSnapshot`):
     {
       "categoryId": "cat1",
       "categoryName": "Despesas",
+      "categoryKind": "expense",
       "budgeted": 5000,
       "actual": 5200,
       "difference": -200
@@ -546,6 +558,7 @@ Response `200` (`StatsSnapshot`):
     {
       "categoryId": "cat1",
       "categoryName": "Despesas",
+      "categoryKind": "expense",
       "monthly": [
         { "month": "2026-01", "budgeted": 800, "actual": 850 }
       ]
@@ -558,9 +571,19 @@ Response `200` (`StatsSnapshot`):
     "windowMonths": 3,
     "sampleSize": 3,
     "confidence": "high"
+  },
+  "insight": {
+    "text": "As despesas em C1 estão acima do ritmo esperado. Reduz 10% em despesas discricionárias esta semana para recuperar margem.",
+    "source": "ai",
+    "generatedAt": "2026-03-17T11:20:00.000Z",
+    "model": "gpt-4.1-mini"
   }
 }
 ```
+
+Notas:
+- `insight` e opcional.
+- se OpenAI estiver indisponivel/sem chave/timeout, os endpoints continuam `200` e devolvem apenas `StatsSnapshot` sem `insight`.
 
 ### GET `/stats/compare-budget?from=YYYY-MM&to=YYYY-MM`
 Compara budgeted vs actual no intervalo.

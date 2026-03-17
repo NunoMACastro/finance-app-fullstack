@@ -33,6 +33,8 @@ import {
   OverlayTitle,
   ResponsiveOverlay,
 } from "./ui/responsive-overlay";
+import { PageHeaderV3 } from "./v3/page-header-v3";
+import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 type OriginFilter = "all" | "manual" | "recurring";
 type SortOption = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
@@ -307,22 +309,22 @@ export function CategoryMovementsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-6" data-ui-v3-page="category-movements">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 rounded-xl"
-          onClick={() => navigate(`/?month=${month}`)}
-          aria-label="Voltar para o mês"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="min-w-0">
-          <h2 className="truncate text-base text-foreground">Despesas · {categoryName}</h2>
-          <p className="text-xs capitalize text-muted-foreground">{monthLabel}</p>
-        </div>
-      </div>
+    <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="category-movements">
+      <PageHeaderV3
+        title={`Despesas · ${categoryName}`}
+        subtitle={monthLabel}
+        leading={(
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 rounded-xl"
+            onClick={() => navigate(`/?month=${month}`)}
+            aria-label="Voltar para o mês"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-10">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { motion } from "motion/react";
 import { ArrowLeft, Check, Loader2, Percent, Plus, Trash2, Wallet, AlertTriangle } from "lucide-react";
@@ -12,11 +12,11 @@ import { nextCategoryColorSlot, resolveCategoryColorSlot } from "../lib/category
 import { normalizeBudgetCategoriesKind, normalizeBudgetCategoryKind } from "../lib/category-kind";
 import type { BudgetCategory, BudgetTemplate, MonthBudget } from "../lib/types";
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
-import { ActionRailV2 } from "./v2/action-rail-v2";
-import { SectionCardV2 } from "./v2/section-card-v2";
+import { PageHeaderV3 } from "./v3/page-header-v3";
+import { SegmentedControlV3 } from "./v3/segmented-control-v3";
+import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 const CATEGORY_COLORS = [
   { gradient: "bg-category-gradient-1" },
@@ -191,23 +191,25 @@ export function BudgetEditorPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="budget-editor">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={handleBack}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h2 className="text-base text-foreground">Editar Orçamento</h2>
-          <p className="text-xs text-muted-foreground capitalize">{getMonthLabel(month)}</p>
-        </div>
-      </div>
+    <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="budget-editor">
+      <PageHeaderV3
+        title="Editar Orçamento"
+        subtitle={getMonthLabel(month)}
+        leading={(
+          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-accent" onClick={handleBack}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+        )}
+      />
 
       {loading ? (
-        <SectionCardV2 tone="section" className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        </SectionCardV2>
+        <section className="rounded-2xl border border-border/70 bg-card p-8">
+          <div className="flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        </section>
       ) : loadError ? (
-        <SectionCardV2 tone="control" className="border-warning/40 bg-warning-soft">
+        <section className="rounded-xl border border-warning/40 bg-warning-soft">
           <div className="p-4 flex flex-col gap-3">
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-status-warning mt-0.5 shrink-0" />
@@ -221,19 +223,19 @@ export function BudgetEditorPage() {
               Tentar novamente
             </Button>
           </div>
-        </SectionCardV2>
+        </section>
       ) : budget ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={UI_V3_CLASS.sectionStack}>
           {!canWriteFinancial && (
-            <SectionCardV2 tone="control" className="border-border bg-info-soft">
+            <section className="rounded-xl border border-border/70 bg-info-soft">
               <div className="p-3 text-xs text-info-foreground">
                 Modo leitura: sem permissão para editar o orçamento.
               </div>
-            </SectionCardV2>
+            </section>
           )}
 
           {templates.length > 0 && (
-            <SectionCardV2 tone="section" className="p-4 flex flex-col gap-3">
+            <section className="rounded-2xl border border-border/70 bg-card p-4 flex flex-col gap-3">
               <label className="text-sm text-muted-foreground">Templates</label>
               <div className="grid grid-cols-1 gap-2">
                 {templates.map((template) => (
@@ -262,10 +264,10 @@ export function BudgetEditorPage() {
                   <p className="text-[10px] text-muted-foreground mt-0.5">Começar com categorias vazias</p>
                 </button>
               </div>
-            </SectionCardV2>
+            </section>
           )}
 
-          <SectionCardV2 tone="section" className="p-4 flex flex-col gap-4">
+          <section className="rounded-2xl border border-border/70 bg-card p-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-muted-foreground">Orçamento Total (EUR)</label>
               <div className="relative opacity-80">
@@ -347,31 +349,14 @@ export function BudgetEditorPage() {
                     </Button>
                   </div>
                   <div className="flex items-center justify-end">
-                    <div
-                      className="inline-flex rounded-full bg-muted p-0.5"
-                      role="group"
-                      aria-label={`Tipo da categoria ${category.name}`}
-                    >
-                      {CATEGORY_KIND_OPTIONS.map((option) => {
-                        const isActive = (category.kind ?? "expense") === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            className={`h-7 rounded-full px-2.5 text-[11px] transition-colors ${
-                              isActive
-                                ? "bg-background text-foreground"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                            onClick={() => updateCategory(category.id, "kind", option.value)}
-                            disabled={!canWriteFinancial}
-                            aria-pressed={isActive}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <SegmentedControlV3
+                      value={(category.kind ?? "expense") as "expense" | "reserve"}
+                      onChange={(nextKind) => updateCategory(category.id, "kind", nextKind)}
+                      options={CATEGORY_KIND_OPTIONS}
+                      size="compact"
+                      className="rounded-xl"
+                      ariaLabel={`Tipo da categoria ${category.name}`}
+                    />
                   </div>
                   <div className="grid grid-cols-[1fr_auto] items-center gap-2">
                     <div className="relative">
@@ -438,16 +423,16 @@ export function BudgetEditorPage() {
                 </div>
               </div>
             </div>
-          </SectionCardV2>
+          </section>
 
           <div className="sticky bottom-0 bg-background/95 border-t border-border/70 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <ActionRailV2
-              primary={(
+            <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+              <div className="min-w-0">
                 <Button variant="outline" className="w-full rounded-xl" onClick={handleBack}>
                   Cancelar
                 </Button>
-              )}
-              secondary={(
+              </div>
+              <div className="shrink-0">
                 <Button
                   className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
                   onClick={handleSave}
@@ -461,8 +446,8 @@ export function BudgetEditorPage() {
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   Guardar
                 </Button>
-              )}
-            />
+              </div>
+            </div>
           </div>
         </motion.div>
       ) : null}

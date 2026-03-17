@@ -1,5 +1,7 @@
 import { ChevronRight, Palette, Shield, UserCog, Users } from "lucide-react";
 import { useNavigate } from "react-router";
+import { PageHeaderV3 } from "./v3/page-header-v3";
+import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 const PROFILE_SECTIONS = [
   {
@@ -36,11 +38,11 @@ export function ProfilePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-4 pb-6" data-ui-v3-page="profile">
-      <div className="space-y-1">
-        <h2 className="text-base text-foreground">Perfil e configurações</h2>
-        <p className="text-xs text-muted-foreground">Ajusta a tua conta e preferências num fluxo simples.</p>
-      </div>
+    <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="profile">
+      <PageHeaderV3
+        title="Perfil e configurações"
+        subtitle="Ajusta a tua conta e preferências num fluxo simples."
+      />
 
       <div className="divide-y divide-border/60 border-y border-border/60">
         {PROFILE_SECTIONS.map((section) => {

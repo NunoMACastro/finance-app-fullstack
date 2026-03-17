@@ -23,6 +23,7 @@ Servidor local default: `http://localhost:3001`
 npm run dev
 npm run build
 npm run start
+npm run seed
 npm run migrate:accounts
 npm run test:unit
 npm run test:integration
@@ -44,6 +45,10 @@ Definidas em `src/config/env.ts`.
 - `RATE_LIMIT_WINDOW_MS`: janela rate limit global
 - `RATE_LIMIT_MAX`: max pedidos por janela
 - `AUTH_RATE_LIMIT_MAX`: max pedidos auth por janela
+- `OPENAI_API_KEY`: chave OpenAI (opcional, usada para enriquecer stats com insight IA)
+- `OPENAI_INSIGHT_MODEL`: modelo OpenAI para insight de stats (default `gpt-4.1-mini`)
+- `OPENAI_INSIGHT_TIMEOUT_MS`: timeout da chamada OpenAI em ms (default `2500`)
+- `OPENAI_INSIGHT_CACHE_TTL_SECONDS`: TTL do cache em memoria para insights IA (default `300`)
 - `CRON_ENABLED`: ativa scheduler
 - `TIMEZONE`: timezone cron (ex: `Europe/Lisbon`)
 
@@ -67,4 +72,3 @@ Em `NODE_ENV=production`:
 
 - URI Mongo e sanitizada em logs (`***@`) para nao expor credenciais.
 - Nunca commitar `.env` com segredos.
-

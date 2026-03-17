@@ -26,5 +26,23 @@ module.exports = {
       "warn",
       { allowConstantExport: true }
     ]
-  }
+  },
+  overrides: [
+    {
+      files: [
+        "src/app/components/ui/badge.tsx",
+        "src/app/components/ui/button.tsx",
+        "src/app/components/ui/form.tsx",
+        "src/app/components/ui/navigation-menu.tsx",
+        "src/app/components/ui/sidebar.tsx",
+        "src/app/components/ui/toggle.tsx",
+        "src/app/lib/account-context.tsx",
+        "src/app/lib/auth-context.tsx",
+        "src/app/lib/theme-preferences.tsx",
+      ],
+      rules: {
+        "react-refresh/only-export-components": "off",
+      },
+    },
+  ],
 };

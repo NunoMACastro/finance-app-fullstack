@@ -15,21 +15,25 @@ import { StatsTrendPanel, type StatsTrendPoint } from "./stats-trend-panel";
 import {
   buildPulseInsight,
   buildStatsViewModel,
+  mapInsightAliasesToCategoryNames,
   type StatsDriver,
 } from "./stats-view-model";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
+import { PageHeaderV3 } from "./v3/page-header-v3";
+import { SegmentedControlV3 } from "./v3/segmented-control-v3";
+import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 function StatsLoadingSkeleton() {
   return (
     <div className="flex flex-col gap-4 pb-6">
-      <div className="rounded-2xl border border-border/70 bg-surface-soft/50 p-4">
+      <div className="rounded-xl bg-surface-soft/50 p-4">
         <Skeleton className="h-3 w-28" />
         <Skeleton className="mt-3 h-10 w-44" />
         <Skeleton className="mt-4 h-2.5 w-full rounded-full" />
         <Skeleton className="mt-3 h-4 w-full" />
       </div>
-      <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+      <div className="rounded-xl bg-surface-soft/50 p-4">
         <Skeleton className="h-4 w-36" />
         <div className="mt-3 space-y-3">
           <Skeleton className="h-14 w-full" />
@@ -37,11 +41,11 @@ function StatsLoadingSkeleton() {
           <Skeleton className="h-14 w-full" />
         </div>
       </div>
-      <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+      <div className="rounded-xl bg-surface-soft/50 p-4">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="mt-3 h-44 w-full" />
       </div>
-      <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+      <div className="rounded-xl bg-surface-soft/50 p-4">
         <Skeleton className="h-4 w-24" />
         <div className="mt-3 grid grid-cols-1 gap-2">
           <Skeleton className="h-12 w-full" />
@@ -72,8 +76,11 @@ export function StatsPage() {
   const [forecastWindow, setForecastWindow] = useState<3 | 6>(3);
   const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof statsApi.getSemester>> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [insightLoading, setInsightLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const hasSnapshotRef = useRef(false);
   const [selectedDriver, setSelectedDriver] = useState<StatsDriver | null>(null);
   const [insightOpen, setInsightOpen] = useState(false);
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
@@ -90,28 +97,60 @@ export function StatsPage() {
 
   const loadStats = useCallback(async () => {
     const requestId = ++requestIdRef.current;
-    setLoading(true);
+    const hasSnapshot = hasSnapshotRef.current;
+    if (hasSnapshot) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setLoadError(null);
+    setInsightLoading(false);
     setInsightOpen(false);
     setSelectedDriver(null);
     setSelectedTrendIndex(null);
     try {
       const data =
         period === "semester"
-          ? await statsApi.getSemester(undefined, forecastWindow)
-          : await statsApi.getYear(undefined, forecastWindow);
+          ? await statsApi.getSemester(undefined, forecastWindow, { includeInsight: false })
+          : await statsApi.getYear(undefined, forecastWindow, { includeInsight: false });
       if (requestId !== requestIdRef.current) return;
       setSnapshot(data);
+      setInsightLoading(true);
+
+      void (period === "semester"
+        ? statsApi.getSemester(undefined, forecastWindow, { includeInsight: true })
+        : statsApi.getYear(undefined, forecastWindow, { includeInsight: true }))
+        .then((enrichedData) => {
+          if (requestId !== requestIdRef.current) return;
+          if (!enrichedData.insight) return;
+          setSnapshot((current) => (current ? { ...current, insight: enrichedData.insight } : current));
+        })
+        .catch(() => {
+          // Degrada graciosamente para fallback local sem bloquear a UI.
+        })
+        .finally(() => {
+          if (requestId === requestIdRef.current) {
+            setInsightLoading(false);
+          }
+        });
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
-      setSnapshot(null);
+      if (!hasSnapshot) {
+        setSnapshot(null);
+      }
       setLoadError(getErrorMessage(error, "Não foi possível carregar estatísticas"));
+      setInsightLoading(false);
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
+        setRefreshing(false);
       }
     }
   }, [period, forecastWindow, activeAccountId]);
+
+  useEffect(() => {
+    hasSnapshotRef.current = snapshot !== null;
+  }, [snapshot]);
 
   useEffect(() => {
     void loadStats();
@@ -134,34 +173,56 @@ export function StatsPage() {
   }, [model, user]);
 
   const periodLabel = period === "semester" ? "Últimos 6 meses" : "Últimos 12 meses";
-  const insightMessage = model ? buildPulseInsight(model, formatCurrency) : "";
+  const budgetDeltaLabel =
+    model && model.budgetDelta < 0
+      ? "Ultrapassagem no orçamento"
+      : model && model.budgetDelta > 0
+        ? "Margem no orçamento"
+        : "Alinhado com orçamento";
+  const budgetDeltaDisplay =
+    model && model.budgetDelta < 0
+      ? formatCurrency(Math.abs(model.budgetDelta))
+      : model
+        ? formatCurrency(model.budgetDelta)
+        : formatCurrency(0);
+  const aiInsightText = snapshot?.insight?.text
+    ? mapInsightAliasesToCategoryNames(snapshot, snapshot.insight.text)
+    : null;
+  const insightMessage = model
+    ? aiInsightText ?? buildPulseInsight(model, formatCurrency)
+    : "";
+  const periodOptions = [
+    { value: "semester" as const, label: "6M" },
+    { value: "year" as const, label: "12M" },
+  ];
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="stats">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-foreground">Estatísticas</h2>
-            <p className="text-sm text-muted-foreground">{periodLabel}</p>
-            <p className="text-xs text-muted-foreground">A mostrar dados da conta ativa</p>
-          </div>
-          <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-            <button type="button" className="h-8 rounded-lg bg-card px-2 text-xs text-foreground">
-              6M
-            </button>
-            <button type="button" className="h-8 rounded-lg px-2 text-xs text-muted-foreground">
-              12M
-            </button>
-          </div>
-        </div>
+      <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="stats">
+        <PageHeaderV3
+          title="Estatísticas"
+          subtitle={periodLabel}
+          caption="A mostrar dados da conta ativa"
+          trailing={(
+            <SegmentedControlV3
+              value={period}
+              onChange={() => {
+                // No-op no estado de loading.
+              }}
+              options={periodOptions.map((option) => ({ ...option, disabled: true }))}
+              size="default"
+              ariaLabel="Selecionar período"
+            />
+          )}
+        />
         <StatsLoadingSkeleton />
       </div>
     );
   }
 
-  if (loadError) {
+  if (loadError && !snapshot) {
     return (
-      <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="stats">
+      <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="stats">
         <div className="rounded-2xl border border-warning/40 bg-warning-soft p-4">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
@@ -186,45 +247,47 @@ export function StatsPage() {
   if (!snapshot || !model) return null;
 
   return (
-    <div className="flex flex-col gap-6 pb-6" data-ui-v3-page="stats">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-foreground">Estatísticas</h2>
-          <p className="text-sm text-muted-foreground">{periodLabel}</p>
-          <p className="text-xs text-muted-foreground">A mostrar dados da conta ativa</p>
+    <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="stats">
+      <PageHeaderV3
+        title="Estatísticas"
+        subtitle={periodLabel}
+        caption="A mostrar dados da conta ativa"
+        trailing={(
+          <SegmentedControlV3
+            value={period}
+            onChange={setPeriod}
+            options={periodOptions}
+            size="default"
+            ariaLabel="Selecionar período"
+            dataTour="stats-period-tabs"
+          />
+        )}
+      />
+
+      {refreshing ? (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          A atualizar estatísticas...
+        </p>
+      ) : null}
+
+      {loadError ? (
+        <div className="rounded-xl bg-warning-soft px-3 py-2">
+          <p className="text-xs text-warning-foreground">{loadError}</p>
         </div>
-        <div className="flex items-center gap-1 rounded-xl bg-muted p-1" data-tour="stats-period-tabs">
-          <button
-            type="button"
-            className={`h-8 rounded-lg px-2 text-xs ${
-              period === "semester" ? "bg-card text-foreground" : "text-muted-foreground"
-            }`}
-            onClick={() => setPeriod("semester")}
-          >
-            6M
-          </button>
-          <button
-            type="button"
-            className={`h-8 rounded-lg px-2 text-xs ${
-              period === "year" ? "bg-card text-foreground" : "text-muted-foreground"
-            }`}
-            onClick={() => setPeriod("year")}
-          >
-            12M
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       <StatsPulsePanel
         periodLabel={periodLabel}
         totalBalance={formatCurrency(model.totalBalance)}
         totalIncome={formatCurrency(model.totalIncome)}
         totalExpense={formatCurrency(model.totalExpense)}
-        budgetDelta={formatCurrency(model.budgetDelta)}
+        budgetDeltaLabel={budgetDeltaLabel}
+        budgetDelta={budgetDeltaDisplay}
         savingsRate={formatPercent(model.savingsRate)}
         budgetUsePercent={model.budgetUsePercent}
         pulseTone={model.pulseTone}
         insight={insightMessage}
+        insightLoading={insightLoading && !aiInsightText}
       />
 
       <StatsDriversList

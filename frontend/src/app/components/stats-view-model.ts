@@ -173,3 +173,42 @@ export function buildPulseInsight(
 
   return "Ritmo frágil. Define um teto semanal para recuperar controlo das despesas.";
 }
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildInsightAliasMap(snapshot: StatsSnapshot): Map<string, string> {
+  const map = new Map<string, string>();
+
+  const expenseNameById = new Map(
+    (snapshot.budgetVsActual ?? []).map((item) => [item.categoryId, item.categoryName]),
+  );
+  const expenseIds = Array.from(expenseNameById.keys()).sort((a, b) => a.localeCompare(b));
+  expenseIds.forEach((categoryId, index) => {
+    map.set(`C${index + 1}`, expenseNameById.get(categoryId) ?? `C${index + 1}`);
+  });
+
+  const incomeNameById = new Map(
+    (snapshot.incomeByCategory ?? []).map((item) => [item.categoryId, item.categoryName]),
+  );
+  const incomeIds = Array.from(incomeNameById.keys()).sort((a, b) => a.localeCompare(b));
+  incomeIds.forEach((categoryId, index) => {
+    map.set(`I${index + 1}`, incomeNameById.get(categoryId) ?? `I${index + 1}`);
+  });
+
+  return map;
+}
+
+export function mapInsightAliasesToCategoryNames(snapshot: StatsSnapshot, insightText: string): string {
+  const normalizedText = insightText.trim();
+  if (!normalizedText) return normalizedText;
+
+  const aliasEntries = Array.from(buildInsightAliasMap(snapshot).entries()).sort(
+    (a, b) => b[0].length - a[0].length,
+  );
+
+  return aliasEntries.reduce((text, [alias, categoryName]) => {
+    return text.replace(new RegExp(`\\b${escapeRegExp(alias)}\\b`, "g"), categoryName);
+  }, normalizedText);
+}

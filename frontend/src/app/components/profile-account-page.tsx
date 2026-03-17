@@ -81,7 +81,7 @@ export function ProfileAccountPage() {
 
         <Button
           type="button"
-          className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
+          className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
           disabled={savingProfile}
           onClick={async () => {
             setSavingProfile(true);
@@ -190,7 +190,7 @@ export function ProfileAccountPage() {
           />
           <Button
             type="button"
-            className="h-12 w-full rounded-full bg-danger text-danger-foreground hover:bg-danger/90"
+            className="h-12 w-full rounded-xl bg-danger text-danger-foreground hover:bg-danger/90"
             disabled={deleteConfirm !== "APAGAR" || !deletePassword}
             onClick={() => setConfirmDeleteOpen(true)}
           >

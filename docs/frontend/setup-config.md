@@ -20,7 +20,7 @@ Dev server default: `http://localhost:5173`
 
 Lidas em `src/app/lib/config.ts`.
 
-Nota: a app corre apenas em `UI v2` (o fallback `v1` foi removido).
+Nota: a app corre apenas em `UI v3` (os fallbacks antigos foram removidos).
 As regras de estrutura visual e coerencia estao em `docs/frontend/ui-v3-spec.md`.
 
 - `VITE_USE_MOCK`

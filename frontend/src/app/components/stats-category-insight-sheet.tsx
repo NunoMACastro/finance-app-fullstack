@@ -136,7 +136,7 @@ export function StatsCategoryInsightSheet({
         <OverlayFooter sticky>
           <Button
             type="button"
-            className="rounded-full border-0 bg-primary text-primary-foreground"
+            className="rounded-xl border-0 bg-primary text-primary-foreground"
             onClick={onOpenMovements}
             disabled={!driver || !hasMovements}
           >

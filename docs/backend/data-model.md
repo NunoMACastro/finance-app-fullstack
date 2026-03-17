@@ -73,6 +73,13 @@ Campos chave:
   - `id`
   - `name`
   - `percent`
+  - `colorSlot` (1..9)
+  - `kind` (`expense|reserve`)
+
+Invariantes de categoria de budget:
+- `colorSlot` e normalizado para slot valido de tema (1..9).
+- `kind` e normalizado para `expense` ou `reserve`.
+- payloads legados sem `colorSlot`/`kind` continuam aceites via normalizacao lazy.
 
 Indice unico:
 - `{ accountId: 1, month: 1 }`

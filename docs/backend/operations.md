@@ -92,6 +92,17 @@ Causa:
 Acoes:
 - criar/ajustar budget ate 100%
 
+### Stats sem insight IA
+Causa:
+- `OPENAI_API_KEY` ausente/invalida
+- timeout no provider (`OPENAI_INSIGHT_TIMEOUT_MS`)
+- erro temporario da API OpenAI
+- chamada com `includeInsight=false` (cliente pediu snapshot base sem IA)
+
+Comportamento esperado:
+- endpoints `/stats/semester` e `/stats/year` continuam a responder `200`
+- payload de stats vem sem campo `insight` (fallback gracioso no frontend)
+
 ## Checklist pre-producao backend
 
 - Variaveis obrigatorias em producao configuradas

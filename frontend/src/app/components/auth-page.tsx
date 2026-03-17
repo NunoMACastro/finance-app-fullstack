@@ -181,7 +181,7 @@ export function AuthPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
+                  className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
                 </Button>
@@ -276,7 +276,7 @@ export function AuthPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="h-12 rounded-full border-0 bg-primary text-primary-foreground hover:opacity-95"
+                  className="h-12 rounded-xl border-0 bg-primary text-primary-foreground hover:opacity-95"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
                 </Button>

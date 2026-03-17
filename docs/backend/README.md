@@ -42,6 +42,7 @@ Pasta fonte: `backend/src`
   - CRUD de regras recorrentes + generate
 - `stats`
   - semestre, ano, compare-budget, snapshot materialization
+  - enrichment opcional de insight IA (OpenAI) com fallback gracioso
 
 ## Middleware de seguranca e observabilidade
 

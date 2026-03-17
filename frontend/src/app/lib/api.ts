@@ -1023,29 +1023,43 @@ export const budgetApi = {
 };
 
 export const statsApi = {
-  async getSemester(endingMonth?: string, forecastWindow: 3 | 6 = 3): Promise<StatsSnapshot> {
+  async getSemester(
+    endingMonth?: string,
+    forecastWindow: 3 | 6 = 3,
+    options?: { includeInsight?: boolean },
+  ): Promise<StatsSnapshot> {
     if (config.useMock) {
-      await delay(350);
+      await delay(options?.includeInsight === false ? 150 : 350);
       return getStatsSnapshot("semester", forecastWindow);
     }
     const { data } = await httpClient.get<StatsSnapshot>("/stats/semester", {
       params: {
         ...(endingMonth ? { endingMonth } : {}),
         forecastWindow,
+        ...(options?.includeInsight !== undefined
+          ? { includeInsight: options.includeInsight }
+          : {}),
       },
     });
     return data;
   },
 
-  async getYear(year?: number, forecastWindow: 3 | 6 = 3): Promise<StatsSnapshot> {
+  async getYear(
+    year?: number,
+    forecastWindow: 3 | 6 = 3,
+    options?: { includeInsight?: boolean },
+  ): Promise<StatsSnapshot> {
     if (config.useMock) {
-      await delay(350);
+      await delay(options?.includeInsight === false ? 150 : 350);
       return getStatsSnapshot("year", forecastWindow);
     }
     const { data } = await httpClient.get<StatsSnapshot>("/stats/year", {
       params: {
         ...(year ? { year } : {}),
         forecastWindow,
+        ...(options?.includeInsight !== undefined
+          ? { includeInsight: options.includeInsight }
+          : {}),
       },
     });
     return data;

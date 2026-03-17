@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { getIntegrationApp } from "./harness.js";
 
 function monthKeyFromNow() {
   const now = new Date();
@@ -8,47 +8,17 @@ function monthKeyFromNow() {
 }
 
 describe("accounts flow integration", () => {
-  let mongo: MongoMemoryReplSet;
-  let app: import("express").Express;
-  let disconnectDb: (() => Promise<void>) | undefined;
-
-  beforeAll(async () => {
-    mongo = await MongoMemoryReplSet.create({
-      replSet: { count: 1 },
-      instanceOpts: [{ ip: "127.0.0.1" }],
-    });
-    process.env.NODE_ENV = "test";
-    process.env.CRON_ENABLED = "false";
-    process.env.MONGODB_URI = mongo.getUri();
-
-    const db = await import("../../config/db.js");
-    const appModule = await import("../../app.js");
-
-    await db.connectDb();
-    disconnectDb = db.disconnectDb;
-    app = appModule.createApp();
-  });
-
-  afterAll(async () => {
-    if (disconnectDb) {
-      await disconnectDb();
-    }
-    if (mongo) {
-      await mongo.stop();
-    }
-  });
-
   test("shared account supports invite/join, role permissions and dataset isolation", async () => {
     const month = monthKeyFromNow();
 
-    const ownerRegister = await request(app).post("/api/v1/auth/register").send({
+    const ownerRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Owner",
       email: "owner@example.com",
       password: "123456",
     });
     expect(ownerRegister.status).toBe(201);
 
-    const memberRegister = await request(app).post("/api/v1/auth/register").send({
+    const memberRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Member",
       email: "member@example.com",
       password: "123456",
@@ -58,7 +28,7 @@ describe("accounts flow integration", () => {
     const ownerToken = ownerRegister.body.tokens.accessToken as string;
     const memberToken = memberRegister.body.tokens.accessToken as string;
 
-    const createShared = await request(app)
+    const createShared = await request(getIntegrationApp())
       .post("/api/v1/accounts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ name: "Família Silva" });
@@ -66,7 +36,7 @@ describe("accounts flow integration", () => {
     expect(createShared.status).toBe(201);
     const sharedAccountId = createShared.body.id as string;
 
-    const inviteRes = await request(app)
+    const inviteRes = await request(getIntegrationApp())
       .post(`/api/v1/accounts/${sharedAccountId}/invite-codes`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({});
@@ -74,7 +44,7 @@ describe("accounts flow integration", () => {
     expect(inviteRes.status).toBe(200);
     expect(inviteRes.body.code).toBeTypeOf("string");
 
-    const joinRes = await request(app)
+    const joinRes = await request(getIntegrationApp())
       .post("/api/v1/accounts/join")
       .set("Authorization", `Bearer ${memberToken}`)
       .send({ code: inviteRes.body.code });
@@ -82,7 +52,7 @@ describe("accounts flow integration", () => {
     expect(joinRes.status).toBe(200);
     expect(joinRes.body.role).toBe("viewer");
 
-    const viewerWriteBlocked = await request(app)
+    const viewerWriteBlocked = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${memberToken}`)
       .set("X-Account-Id", sharedAccountId)
@@ -99,7 +69,7 @@ describe("accounts flow integration", () => {
     expect(viewerWriteBlocked.status).toBe(403);
     expect(viewerWriteBlocked.body.code).toBe("ACCOUNT_ROLE_FORBIDDEN");
 
-    const promoteEditor = await request(app)
+    const promoteEditor = await request(getIntegrationApp())
       .patch(`/api/v1/accounts/${sharedAccountId}/members/${memberRegister.body.user.id}/role`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ role: "editor" });
@@ -107,7 +77,7 @@ describe("accounts flow integration", () => {
     expect(promoteEditor.status).toBe(200);
     expect(promoteEditor.body.role).toBe("editor");
 
-    const budgetRes = await request(app)
+    const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${memberToken}`)
       .set("X-Account-Id", sharedAccountId)
@@ -124,7 +94,7 @@ describe("accounts flow integration", () => {
     expect(budgetRes.status).toBe(200);
     expect(budgetRes.body.isReady).toBe(true);
 
-    const incomeCategoriesRes = await request(app)
+    const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
       .set("Authorization", `Bearer ${memberToken}`)
       .set("X-Account-Id", sharedAccountId);
@@ -133,7 +103,7 @@ describe("accounts flow integration", () => {
     const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
     expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
 
-    const incomeRes = await request(app)
+    const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${memberToken}`)
       .set("X-Account-Id", sharedAccountId)
@@ -149,7 +119,7 @@ describe("accounts flow integration", () => {
 
     expect(incomeRes.status).toBe(201);
 
-    const sharedBudget = await request(app)
+    const sharedBudget = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${memberToken}`)
       .set("X-Account-Id", sharedAccountId);
@@ -158,7 +128,7 @@ describe("accounts flow integration", () => {
     expect(sharedBudget.body.totalBudget).toBe(1500);
     expect(sharedBudget.body.categories.length).toBe(4);
 
-    const personalBudget = await request(app)
+    const personalBudget = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${memberToken}`);
 
@@ -166,7 +136,7 @@ describe("accounts flow integration", () => {
     expect(personalBudget.body.totalBudget).toBe(0);
     expect(personalBudget.body.categories).toEqual([]);
 
-    const ownerLeaveBlocked = await request(app)
+    const ownerLeaveBlocked = await request(getIntegrationApp())
       .post(`/api/v1/accounts/${sharedAccountId}/leave`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({});
@@ -174,14 +144,14 @@ describe("accounts flow integration", () => {
     expect(ownerLeaveBlocked.status).toBe(422);
     expect(ownerLeaveBlocked.body.code).toBe("LAST_OWNER_CANNOT_LEAVE");
 
-    const promoteOwner = await request(app)
+    const promoteOwner = await request(getIntegrationApp())
       .patch(`/api/v1/accounts/${sharedAccountId}/members/${memberRegister.body.user.id}/role`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ role: "owner" });
 
     expect(promoteOwner.status).toBe(200);
 
-    const ownerLeave = await request(app)
+    const ownerLeave = await request(getIntegrationApp())
       .post(`/api/v1/accounts/${sharedAccountId}/leave`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({});

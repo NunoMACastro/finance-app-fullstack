@@ -57,13 +57,16 @@ Campos chave:
 - `accountId`
 - `month` (`YYYY-MM`)
 - `totalBudget` (derivado de receitas)
-- `categories[]` (`id`, `name`, `percent`)
+- `categories[]` (`id`, `name`, `percent`, `colorSlot`, `kind`)
 
 Invariantes:
 - unico por `(accountId, month)`
 - `isReady` (calculado):
   - `categories.length >= 1`
   - soma percentagens = 100 (tolerancia 0.01)
+- cada categoria tem `colorSlot` valido (1..9) para coerencia visual.
+- cada categoria tem `kind` em `expense|reserve` (normalizado no backend).
+- payloads antigos sem `colorSlot`/`kind` mantem compatibilidade via normalizacao.
 
 ### Transaction
 Lancamento financeiro.

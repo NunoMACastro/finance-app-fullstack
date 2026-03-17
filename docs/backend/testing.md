@@ -28,6 +28,10 @@ npm run test
   - garante comportamento UTC em fronteiras de mes
 - `stats-forecast.test.ts`
   - valida calculo de forecast
+- `stats-insight.test.ts`
+  - valida anonimização de payload para IA
+  - valida parsing do output estruturado
+  - valida cache key, TTL e dedupe in-flight
 
 ### Integration tests (`src/tests/integration`)
 
@@ -43,6 +47,14 @@ npm run test
   - profile/self-service (perfil, seguranca, sessoes, export, delete account)
 - `stats-category-series.test.ts`
   - consistencia de `categorySeries`
+- `stats-insight-fallback.test.ts`
+  - garante que `/stats/semester` continua `200` sem `OPENAI_API_KEY`
+
+Harness partilhado:
+- `src/tests/integration/harness.ts` centraliza bootstrap de MongoDB Memory ReplSet, env de teste e `createApp()`.
+- limpeza entre testes via `beforeEach` (deleteMany em todas as colecoes).
+- `npm run test:integration` usa `vitest.integration.config.ts` (`fileParallelism=false`, `isolate=false`, `hook/test timeout=30s`).
+- rate limits ficam elevadas no modo teste para evitar falso negativo entre suites.
 
 ## Boas praticas para novos testes
 

@@ -198,23 +198,19 @@ export function StatsTrendPanel({
 
   return (
     <section
-      className="rounded-2xl border border-border/70 bg-card/70 p-4"
+      className="space-y-3"
       data-tour="stats-trend-chart"
     >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-info-soft">
-            <BarChart3 className="h-4 w-4 text-status-info" />
-          </div>
-          <div>
-            <h3 className="text-sm text-foreground">Tendência mensal</h3>
-            <p className="text-xs text-muted-foreground">Receitas, despesas e saldo.</p>
-          </div>
+      <div className="flex items-center gap-2">
+        <BarChart3 className="h-4 w-4 text-muted-foreground" />
+        <div>
+          <h3 className="text-sm text-foreground">Tendência mensal</h3>
+          <p className="text-[11px] text-muted-foreground">Receitas, despesas e saldo.</p>
         </div>
       </div>
 
       {trend.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl bg-surface-soft/70 px-3 py-4 text-center text-sm text-muted-foreground">
           Ainda sem dados de tendência para este período.
         </p>
       ) : (
@@ -229,7 +225,7 @@ export function StatsTrendPanel({
           <div className="mt-3 flex items-center justify-center gap-2">
             <button
               type="button"
-              className={`h-10 rounded-full px-3 text-xs ${
+              className={`h-10 rounded-xl px-3 text-xs ${
                 visibleSeries.income
                   ? "bg-success-soft text-foreground"
                   : "bg-muted text-muted-foreground"
@@ -240,7 +236,7 @@ export function StatsTrendPanel({
             </button>
             <button
               type="button"
-              className={`h-10 rounded-full px-3 text-xs ${
+              className={`h-10 rounded-xl px-3 text-xs ${
                 visibleSeries.expense
                   ? "bg-danger-soft text-foreground"
                   : "bg-muted text-muted-foreground"
@@ -251,7 +247,7 @@ export function StatsTrendPanel({
             </button>
             <button
               type="button"
-              className={`h-10 rounded-full px-3 text-xs ${
+              className={`h-10 rounded-xl px-3 text-xs ${
                 visibleSeries.balance
                   ? "bg-info-soft text-foreground"
                   : "bg-muted text-muted-foreground"
@@ -263,7 +259,7 @@ export function StatsTrendPanel({
           </div>
 
           {selectedPoint ? (
-            <div className="mt-3 rounded-2xl border border-border/60 bg-surface-soft/70 px-3 py-2">
+            <div className="mt-3 rounded-xl bg-surface-soft/70 px-3 py-2">
               <p className="text-xs text-muted-foreground capitalize">
                 {formatMonthLong(selectedPoint.month, null)}
               </p>

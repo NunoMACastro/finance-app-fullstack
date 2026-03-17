@@ -122,7 +122,9 @@ describe("UI v3 structure smoke", () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelector('[data-ui-v3-page="month"]')).toBeInTheDocument();
+    const root = container.querySelector('[data-ui-v3-page="month"]');
+    expect(root).toBeInTheDocument();
+    expect(root).toHaveClass("gap-6", "pb-6");
     expect(await screen.findByText("Sem categorias de despesas neste mês")).toBeInTheDocument();
   });
 
@@ -135,7 +137,9 @@ describe("UI v3 structure smoke", () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelector('[data-ui-v3-page="budget-editor"]')).toBeInTheDocument();
+    const root = container.querySelector('[data-ui-v3-page="budget-editor"]');
+    expect(root).toBeInTheDocument();
+    expect(root).toHaveClass("gap-6", "pb-6");
     expect(await screen.findByText("Orçamento Total (EUR)")).toBeInTheDocument();
   });
 
@@ -185,7 +189,10 @@ describe("UI v3 structure smoke", () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelector('[data-ui-v3-page="profile"]')).toBeInTheDocument();
+    const root = container.querySelector('[data-ui-v3-page="profile"]');
+    expect(root).toBeInTheDocument();
+    expect(root).toHaveClass("gap-6", "pb-6");
+    expect(screen.getByRole("heading", { name: "Perfil e configurações" })).toHaveClass("text-base");
     expect(screen.getByRole("button", { name: /Conta Perfil, email, exportação e privacidade/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Preferências Tema, privacidade visual e tutorial/i })).toBeInTheDocument();
   });

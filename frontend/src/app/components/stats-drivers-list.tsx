@@ -34,20 +34,20 @@ export function StatsDriversList({
 }) {
   return (
     <section
-      className="rounded-2xl border border-border/70 bg-card/70 p-4"
+      className="space-y-3"
       data-tour="stats-drivers"
     >
-      <div className="mb-3 flex items-end justify-between gap-3">
+      <div className="flex items-end justify-between gap-3">
         <div>
           <h3 className="text-sm text-foreground">Drivers do período</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             As 3 categorias com maior impacto no resultado.
           </p>
         </div>
       </div>
 
       {drivers.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl bg-surface-soft/70 px-3 py-4 text-center text-sm text-muted-foreground">
           Ainda sem categorias com dados para análise.
         </p>
       ) : (

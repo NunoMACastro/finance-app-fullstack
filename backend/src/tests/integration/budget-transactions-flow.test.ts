@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { getIntegrationApp } from "./harness.js";
 
 function monthKeyFromNow() {
   const now = new Date();
@@ -8,38 +8,8 @@ function monthKeyFromNow() {
 }
 
 describe("budget + transactions integration", () => {
-  let mongo: MongoMemoryReplSet;
-  let app: import("express").Express;
-  let disconnectDb: (() => Promise<void>) | undefined;
-
-  beforeAll(async () => {
-    mongo = await MongoMemoryReplSet.create({
-      replSet: { count: 1 },
-      instanceOpts: [{ ip: "127.0.0.1" }],
-    });
-    process.env.NODE_ENV = "test";
-    process.env.CRON_ENABLED = "false";
-    process.env.MONGODB_URI = mongo.getUri();
-
-    const db = await import("../../config/db.js");
-    const appModule = await import("../../app.js");
-
-    await db.connectDb();
-    disconnectDb = db.disconnectDb;
-    app = appModule.createApp();
-  });
-
-  afterAll(async () => {
-    if (disconnectDb) {
-      await disconnectDb();
-    }
-    if (mongo) {
-      await mongo.stop();
-    }
-  });
-
   test("manual transactions require ready budget and budget total follows incomes", async () => {
-    const registerRes = await request(app).post("/api/v1/auth/register").send({
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Ana",
       email: "ana@example.com",
       password: "123456",
@@ -49,7 +19,7 @@ describe("budget + transactions integration", () => {
     const accessToken = registerRes.body.tokens.accessToken;
     const month = monthKeyFromNow();
 
-    const incomeCategoriesRes = await request(app)
+    const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`);
 
@@ -57,7 +27,7 @@ describe("budget + transactions integration", () => {
     const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
     expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
 
-    const blockedRes = await request(app)
+    const blockedRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -73,7 +43,7 @@ describe("budget + transactions integration", () => {
     expect(blockedRes.status).toBe(422);
     expect(blockedRes.body.code).toBe("BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS");
 
-    const budgetRes = await request(app)
+    const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -90,7 +60,7 @@ describe("budget + transactions integration", () => {
     expect(budgetRes.body.isReady).toBe(true);
     expect(budgetRes.body.totalBudget).toBe(0);
 
-    const incomeRes = await request(app)
+    const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -105,20 +75,20 @@ describe("budget + transactions integration", () => {
 
     expect(incomeRes.status).toBe(201);
 
-    const budgetAfterIncome = await request(app)
+    const budgetAfterIncome = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(budgetAfterIncome.status).toBe(200);
     expect(budgetAfterIncome.body.totalBudget).toBe(1200);
 
-    const deleteIncomeRes = await request(app)
+    const deleteIncomeRes = await request(getIntegrationApp())
       .delete(`/api/v1/transactions/${incomeRes.body.id}`)
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(deleteIncomeRes.status).toBe(204);
 
-    const budgetAfterDelete = await request(app)
+    const budgetAfterDelete = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`);
 

@@ -12,6 +12,7 @@ Contem contratos espelho do backend para:
 - transactions
 - recurring rules
 - stats (`categorySeries` incluido)
+  - `StatsSnapshot.insight` opcional (`text`, `source`, `generatedAt`, `model`) quando backend enriquece com IA
 
 Notas de budget:
 - `BudgetCategory` inclui `colorSlot` (1..9) para mapear categorias para slots de cor do tema.
@@ -35,6 +36,8 @@ Modulos:
 - `recurringApi`
 - `budgetApi`
 - `statsApi`
+  - `statsApi.getSemester/getYear` suportam `options.includeInsight?: boolean`
+  - quando `includeInsight=true`, resposta pode vir com `snapshot.insight` inline
 
 Dois modos:
 - real API via `httpClient`
@@ -169,6 +172,10 @@ Arquivo: `app/lib/account-store.ts`
 
 - `useApi` hook usa `callId` para ignorar respostas obsoletas.
 - Stats/Month usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
+- Stats faz carregamento em 2 fases para UX responsiva:
+  - primeiro request com `includeInsight=false` para render imediato do snapshot base
+  - segundo request com `includeInsight=true` para enriquecer apenas o texto de insight
+- narrativa final prioriza `snapshot.insight.text`; fallback local deterministico (`buildPulseInsight`) quando ausente/erro.
 
 ## Formatacao (datas e moeda)
 

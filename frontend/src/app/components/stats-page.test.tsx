@@ -38,7 +38,7 @@ vi.mock("react-router", async () => {
 
 import { StatsPage } from "./stats-page";
 
-function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450) {
+function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450, insightText?: string) {
   const forecastConfidence = windowMonths === 3 ? "high" : "medium";
   return {
     periodType: "semester" as const,
@@ -116,16 +116,32 @@ function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450) {
       sampleSize: 3,
       confidence: forecastConfidence,
     },
+    ...(insightText
+      ? {
+          insight: {
+            text: insightText,
+            source: "ai" as const,
+            generatedAt: "2026-03-17T11:00:00.000Z",
+            model: "gpt-4.1-mini",
+          },
+        }
+      : {}),
   };
 }
 
 describe("StatsPage", () => {
   beforeEach(() => {
     navigateMock.mockReset();
-    statsApiMocks.getSemester.mockImplementation((_, forecastWindow: 3 | 6 = 3) =>
+    statsApiMocks.getSemester.mockImplementation((_, forecastWindow: 3 | 6 = 3, options?: { includeInsight?: boolean }) =>
+      Promise.resolve(
+        options?.includeInsight
+          ? buildSnapshot(forecastWindow, 450, "As despesas de C1 subiram 12%. Ajusta o teto semanal.")
+          : buildSnapshot(forecastWindow),
+      ),
+    );
+    statsApiMocks.getYear.mockImplementation((_, forecastWindow: 3 | 6 = 3, options?: { includeInsight?: boolean }) =>
       Promise.resolve(buildSnapshot(forecastWindow)),
     );
-    statsApiMocks.getYear.mockResolvedValue(buildSnapshot(3));
   });
 
   test("renders pulse and updates forecast window from 3M to 6M", async () => {
@@ -135,14 +151,17 @@ describe("StatsPage", () => {
     expect(container.querySelector('[data-ui-v3-page="stats"]')).toBeInTheDocument();
     expect(screen.getByText("A mostrar dados da conta ativa")).toBeInTheDocument();
 
-    expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3);
+    expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3, { includeInsight: false });
+    expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3, { includeInsight: true });
     expect(screen.getByText("Confiança alta: 3 meses de dados usados.")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Selecionar período" })).toHaveAttribute("data-ui-v3-segmented", "true");
+    expect(screen.getByRole("group", { name: "Selecionar janela da projeção" })).toHaveAttribute("data-ui-v3-segmented", "true");
 
     const sixMonthButtons = screen.getAllByRole("button", { name: "6M" });
     fireEvent.click(sixMonthButtons[sixMonthButtons.length - 1]);
 
     await waitFor(() => {
-      expect(statsApiMocks.getSemester).toHaveBeenLastCalledWith(undefined, 6);
+      expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 6, { includeInsight: false });
     });
 
     expect(screen.getByText("Confiança média: dados limitados (3/6 meses).")).toBeInTheDocument();
@@ -170,5 +189,20 @@ describe("StatsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(await screen.findByText("Pulse do período")).toBeInTheDocument();
+  });
+
+  test("prefers backend insight text when available", async () => {
+    statsApiMocks.getSemester
+      .mockResolvedValueOnce(buildSnapshot(3))
+      .mockResolvedValueOnce(
+        buildSnapshot(3, 450, "As despesas de C1 subiram 12%. Ajusta o teto semanal para recuperar margem."),
+      );
+
+    render(<StatsPage />);
+    expect(
+      await screen.findByText(
+        "As despesas de Despesas subiram 12%. Ajusta o teto semanal para recuperar margem.",
+      ),
+    ).toBeInTheDocument();
   });
 });

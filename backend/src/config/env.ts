@@ -15,6 +15,10 @@ const rawEnvSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(25),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_INSIGHT_MODEL: z.string().default("gpt-4.1-mini"),
+  OPENAI_INSIGHT_TIMEOUT_MS: z.coerce.number().int().positive().default(2500),
+  OPENAI_INSIGHT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   CRON_ENABLED: z
     .string()
     .default("true")
@@ -48,6 +52,7 @@ const jwtAccessSecret =
 const jwtRefreshSecret =
   requireInProduction(raw.JWT_REFRESH_SECRET, "JWT_REFRESH_SECRET") || "dev-refresh-secret";
 const corsOrigin = requireInProduction(raw.CORS_ORIGIN, "CORS_ORIGIN") || "*";
+const openaiApiKey = raw.OPENAI_API_KEY?.trim() ?? "";
 
 if (raw.NODE_ENV === "production" && corsOrigin.trim() === "*") {
   throw new Error("Invalid environment configuration: CORS_ORIGIN='*' is not allowed in production");
@@ -65,6 +70,10 @@ export const env = {
   RATE_LIMIT_WINDOW_MS: raw.RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX: raw.RATE_LIMIT_MAX,
   AUTH_RATE_LIMIT_MAX: raw.AUTH_RATE_LIMIT_MAX,
+  OPENAI_API_KEY: openaiApiKey,
+  OPENAI_INSIGHT_MODEL: raw.OPENAI_INSIGHT_MODEL,
+  OPENAI_INSIGHT_TIMEOUT_MS: raw.OPENAI_INSIGHT_TIMEOUT_MS,
+  OPENAI_INSIGHT_CACHE_TTL_SECONDS: raw.OPENAI_INSIGHT_CACHE_TTL_SECONDS,
   CRON_ENABLED: raw.CRON_ENABLED,
   TIMEZONE: raw.TIMEZONE,
 } as const;

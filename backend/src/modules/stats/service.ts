@@ -4,6 +4,7 @@ import { StatsSnapshotModel } from "../../models/stats-snapshot.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import { lastNMonthsEndingAt, monthFromDate } from "../../lib/month.js";
 import { Types } from "mongoose";
+import { generateStatsInsight, type StatsAiInsight } from "./insight.service.js";
 
 interface TrendItem {
   month: string;
@@ -15,6 +16,7 @@ interface TrendItem {
 interface BudgetVsActualItem {
   categoryId: string;
   categoryName: string;
+  categoryKind?: "expense" | "reserve";
   budgeted: number;
   actual: number;
   difference: number;
@@ -29,6 +31,7 @@ interface CategorySeriesMonthItem {
 interface CategorySeriesItem {
   categoryId: string;
   categoryName: string;
+  categoryKind?: "expense" | "reserve";
   monthly: CategorySeriesMonthItem[];
 }
 
@@ -50,7 +53,7 @@ interface IncomeCategorySeriesItem {
   monthly: IncomeCategorySeriesMonthItem[];
 }
 
-interface StatsSnapshotDto {
+export interface StatsSnapshotDto {
   periodType: "semester" | "year";
   periodKey: string;
   totals: {
@@ -71,6 +74,7 @@ interface StatsSnapshotDto {
     sampleSize: number;
     confidence: "low" | "medium" | "high";
   };
+  insight?: StatsAiInsight;
 }
 
 interface BudgetCompareDto {
@@ -155,6 +159,7 @@ async function buildStats(
   const actualByCategoryMonth = new Map<string, number>();
   const budgetByCategoryMonth = new Map<string, number>();
   const expenseCategoryNames = new Map<string, string>();
+  const expenseCategoryKinds = new Map<string, "expense" | "reserve">();
   const expenseCategoryIds = new Set<string>();
   const incomeByCategoryMonth = new Map<string, number>();
   const incomeCategoryIds = new Set<string>();
@@ -181,6 +186,7 @@ async function buildStats(
       const key = categoryMonthKey(category.id, budget.month);
 
       expenseCategoryNames.set(category.id, category.name);
+      expenseCategoryKinds.set(category.id, category.kind === "reserve" ? "reserve" : "expense");
       budgetByCategoryMonth.set(key, (budgetByCategoryMonth.get(key) ?? 0) + budgetedAmount);
       expenseCategoryIds.add(category.id);
     }
@@ -232,6 +238,7 @@ async function buildStats(
     return {
       categoryId,
       categoryName: expenseCategoryNames.get(categoryId) ?? categoryId,
+      categoryKind: expenseCategoryKinds.get(categoryId) ?? "expense",
       budgeted,
       actual,
       difference: round(budgeted - actual),
@@ -243,6 +250,7 @@ async function buildStats(
   const categorySeries: CategorySeriesItem[] = budgetVsActual.map((item) => ({
     categoryId: item.categoryId,
     categoryName: item.categoryName,
+    categoryKind: item.categoryKind,
     monthly: months.map((month) => ({
       month,
       budgeted: round(budgetByCategoryMonth.get(categoryMonthKey(item.categoryId, month)) ?? 0),
@@ -298,26 +306,49 @@ export async function getSemesterStats(
   accountId: string,
   endingMonth?: string,
   forecastWindow: 3 | 6 = 3,
+  includeInsight = true,
 ): Promise<StatsSnapshotDto> {
   const anchor = endingMonth ?? monthFromDate(new Date());
   const months = lastNMonthsEndingAt(anchor, 6);
   const periodKey = semesterKey(anchor);
-  return buildStats(accountId, "semester", periodKey, months, forecastWindow);
+  const snapshot = await buildStats(accountId, "semester", periodKey, months, forecastWindow);
+
+  if (!includeInsight) {
+    return snapshot;
+  }
+
+  const insight = await generateStatsInsight({
+    accountId,
+    forecastWindow,
+    snapshot,
+  });
+  return insight ? { ...snapshot, insight } : snapshot;
 }
 
 export async function getYearStats(
   accountId: string,
   year?: number,
   forecastWindow: 3 | 6 = 3,
+  includeInsight = true,
 ): Promise<StatsSnapshotDto> {
-  if (year) {
-    return buildStats(accountId, "year", String(year), monthsForYear(year), forecastWindow);
+  const snapshot = await (async () => {
+    if (year) {
+      return buildStats(accountId, "year", String(year), monthsForYear(year), forecastWindow);
+    }
+    const anchor = monthFromDate(new Date());
+    return buildStats(accountId, "year", anchor.slice(0, 4), lastNMonthsEndingAt(anchor, 12), forecastWindow);
+  })();
+
+  if (!includeInsight) {
+    return snapshot;
   }
 
-  const anchor = monthFromDate(new Date());
-  const months = lastNMonthsEndingAt(anchor, 12);
-  const periodKey = anchor.slice(0, 4);
-  return buildStats(accountId, "year", periodKey, months, forecastWindow);
+  const insight = await generateStatsInsight({
+    accountId,
+    forecastWindow,
+    snapshot,
+  });
+  return insight ? { ...snapshot, insight } : snapshot;
 }
 
 export async function compareBudget(accountId: string, from: string, to: string): Promise<BudgetCompareDto> {
@@ -355,8 +386,8 @@ export async function compareBudget(accountId: string, from: string, to: string)
 
 export async function materializeCurrentSnapshots(accountId: string): Promise<void> {
   const nowMonth = monthFromDate(new Date());
-  const semesterStats = await getSemesterStats(accountId, nowMonth);
-  const yearStats = await getYearStats(accountId);
+  const semesterStats = await getSemesterStats(accountId, nowMonth, 3, false);
+  const yearStats = await getYearStats(accountId, undefined, 3, false);
 
   await StatsSnapshotModel.findOneAndUpdate(
     {

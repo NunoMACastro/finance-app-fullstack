@@ -19,6 +19,7 @@ statsRouter.get(
       req.auth!.accountId!,
       query.endingMonth,
       (query.forecastWindow as 3 | 6 | undefined) ?? 3,
+      query.includeInsight ?? true,
     );
     res.status(200).json(data);
   }),
@@ -33,6 +34,7 @@ statsRouter.get(
       req.auth!.accountId!,
       query.year,
       (query.forecastWindow as 3 | 6 | undefined) ?? 3,
+      query.includeInsight ?? true,
     );
     res.status(200).json(data);
   }),

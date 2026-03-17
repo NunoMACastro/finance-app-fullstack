@@ -1,42 +1,11 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { UserModel } from "../../models/user.model.js";
+import { getIntegrationApp } from "./harness.js";
 
 describe("profile flow integration", () => {
-  let mongo: MongoMemoryReplSet;
-  let app: import("express").Express;
-  let disconnectDb: (() => Promise<void>) | undefined;
-
-  beforeAll(async () => {
-    mongo = await MongoMemoryReplSet.create({
-      replSet: { count: 1 },
-      instanceOpts: [{ ip: "127.0.0.1" }],
-    });
-
-    process.env.NODE_ENV = "test";
-    process.env.CRON_ENABLED = "false";
-    process.env.MONGODB_URI = mongo.getUri();
-
-    const db = await import("../../config/db.js");
-    const appModule = await import("../../app.js");
-
-    await db.connectDb();
-    disconnectDb = db.disconnectDb;
-    app = appModule.createApp();
-  });
-
-  afterAll(async () => {
-    if (disconnectDb) {
-      await disconnectDb();
-    }
-    if (mongo) {
-      await mongo.stop();
-    }
-  });
-
   test("profile update, security endpoints and export", async () => {
-    const registerRes = await request(app).post("/api/v1/auth/register").send({
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Profile User",
       email: "profile@example.com",
       password: "123456",
@@ -51,7 +20,7 @@ describe("profile flow integration", () => {
       { $unset: { status: "", deletedAt: "" } },
     );
 
-    const updateProfileRes = await request(app)
+    const updateProfileRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/profile")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
@@ -78,33 +47,33 @@ describe("profile flow integration", () => {
     expect((persistedUser?.profile as Record<string, unknown> | undefined)?.locale).toBeUndefined();
     expect((persistedUser?.profile as Record<string, unknown> | undefined)?.timezone).toBeUndefined();
 
-    const wrongEmailRes = await request(app)
+    const wrongEmailRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/email")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ currentPassword: "wrong", newEmail: "profile-new@example.com" });
     expect(wrongEmailRes.status).toBe(401);
     expect(wrongEmailRes.body.code).toBe("CURRENT_PASSWORD_INVALID");
 
-    const updateEmailRes = await request(app)
+    const updateEmailRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/email")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ currentPassword: "123456", newEmail: "profile-new@example.com" });
     expect(updateEmailRes.status).toBe(200);
     expect(updateEmailRes.body.email).toBe("profile-new@example.com");
 
-    const wrongPasswordRes = await request(app)
+    const wrongPasswordRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/password")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ currentPassword: "wrong", newPassword: "abcdef" });
     expect(wrongPasswordRes.status).toBe(401);
 
-    const updatePasswordRes = await request(app)
+    const updatePasswordRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/password")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({ currentPassword: "123456", newPassword: "abcdef" });
     expect(updatePasswordRes.status).toBe(204);
 
-    const loginRes = await request(app).post("/api/v1/auth/login").send({
+    const loginRes = await request(getIntegrationApp()).post("/api/v1/auth/login").send({
       email: "profile-new@example.com",
       password: "abcdef",
     });
@@ -112,7 +81,7 @@ describe("profile flow integration", () => {
 
     const secondToken = loginRes.body.tokens.accessToken as string;
 
-    const sessionsRes = await request(app)
+    const sessionsRes = await request(getIntegrationApp())
       .get("/api/v1/auth/sessions")
       .set("Authorization", `Bearer ${secondToken}`);
     expect(sessionsRes.status).toBe(200);
@@ -120,41 +89,41 @@ describe("profile flow integration", () => {
     expect(sessionsRes.body.length).toBeGreaterThanOrEqual(2);
 
     const jti = sessionsRes.body[0]?.jti as string;
-    const revokeOneRes = await request(app)
+    const revokeOneRes = await request(getIntegrationApp())
       .delete(`/api/v1/auth/sessions/${jti}`)
       .set("Authorization", `Bearer ${secondToken}`);
     expect(revokeOneRes.status).toBe(204);
 
-    const deleteRevokedRes = await request(app)
+    const deleteRevokedRes = await request(getIntegrationApp())
       .delete(`/api/v1/auth/sessions/${jti}`)
       .set("Authorization", `Bearer ${secondToken}`);
     expect(deleteRevokedRes.status).toBe(204);
 
-    const revokeAllRes = await request(app)
+    const revokeAllRes = await request(getIntegrationApp())
       .post("/api/v1/auth/sessions/revoke-all")
       .set("Authorization", `Bearer ${secondToken}`)
       .send({});
     expect(revokeAllRes.status).toBe(204);
 
-    const removeRevokedRes = await request(app)
+    const removeRevokedRes = await request(getIntegrationApp())
       .delete("/api/v1/auth/sessions/revoked")
       .set("Authorization", `Bearer ${secondToken}`);
     expect(removeRevokedRes.status).toBe(204);
 
-    const sessionsAfterCleanupRes = await request(app)
+    const sessionsAfterCleanupRes = await request(getIntegrationApp())
       .get("/api/v1/auth/sessions")
       .set("Authorization", `Bearer ${secondToken}`);
     expect(sessionsAfterCleanupRes.status).toBe(200);
     expect(sessionsAfterCleanupRes.body).toEqual([]);
 
-    const resetTutorialRes = await request(app)
+    const resetTutorialRes = await request(getIntegrationApp())
       .post("/api/v1/auth/tutorial/reset")
       .set("Authorization", `Bearer ${secondToken}`)
       .send({});
     expect(resetTutorialRes.status).toBe(200);
     expect(resetTutorialRes.body.tutorialSeenAt).toBeNull();
 
-    const exportRes = await request(app)
+    const exportRes = await request(getIntegrationApp())
       .get("/api/v1/auth/export")
       .set("Authorization", `Bearer ${secondToken}`);
     expect(exportRes.status).toBe(200);
@@ -164,12 +133,12 @@ describe("profile flow integration", () => {
   });
 
   test("delete account blocks last owner and deactivates user", async () => {
-    const ownerRes = await request(app).post("/api/v1/auth/register").send({
+    const ownerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Owner User",
       email: "owner-delete@example.com",
       password: "123456",
     });
-    const memberRes = await request(app).post("/api/v1/auth/register").send({
+    const memberRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Member User",
       email: "member-delete@example.com",
       password: "123456",
@@ -178,45 +147,45 @@ describe("profile flow integration", () => {
     const ownerToken = ownerRes.body.tokens.accessToken as string;
     const memberToken = memberRes.body.tokens.accessToken as string;
 
-    const sharedAccountRes = await request(app)
+    const sharedAccountRes = await request(getIntegrationApp())
       .post("/api/v1/accounts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ name: "Shared Delete Test" });
     expect(sharedAccountRes.status).toBe(201);
     const sharedAccountId = sharedAccountRes.body.id as string;
 
-    const inviteRes = await request(app)
+    const inviteRes = await request(getIntegrationApp())
       .post(`/api/v1/accounts/${sharedAccountId}/invite-codes`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({});
     expect(inviteRes.status).toBe(200);
 
-    const joinRes = await request(app)
+    const joinRes = await request(getIntegrationApp())
       .post("/api/v1/accounts/join")
       .set("Authorization", `Bearer ${memberToken}`)
       .send({ code: inviteRes.body.code });
     expect(joinRes.status).toBe(200);
 
-    const blockedDeleteRes = await request(app)
+    const blockedDeleteRes = await request(getIntegrationApp())
       .delete("/api/v1/auth/me")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ currentPassword: "123456" });
     expect(blockedDeleteRes.status).toBe(422);
     expect(blockedDeleteRes.body.code).toBe("LAST_OWNER_CANNOT_DELETE_ACCOUNT");
 
-    const promoteMemberRes = await request(app)
+    const promoteMemberRes = await request(getIntegrationApp())
       .patch(`/api/v1/accounts/${sharedAccountId}/members/${memberRes.body.user.id}/role`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ role: "owner" });
     expect(promoteMemberRes.status).toBe(200);
 
-    const deleteOkRes = await request(app)
+    const deleteOkRes = await request(getIntegrationApp())
       .delete("/api/v1/auth/me")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ currentPassword: "123456" });
     expect(deleteOkRes.status).toBe(204);
 
-    const meAfterDeleteRes = await request(app)
+    const meAfterDeleteRes = await request(getIntegrationApp())
       .get("/api/v1/auth/me")
       .set("Authorization", `Bearer ${ownerToken}`);
     expect(meAfterDeleteRes.status).toBe(401);

@@ -1,40 +1,10 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import request from "supertest";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { getIntegrationApp } from "./harness.js";
 
 describe("auth flow integration", () => {
-  let mongo: MongoMemoryReplSet;
-  let app: import("express").Express;
-  let disconnectDb: (() => Promise<void>) | undefined;
-
-  beforeAll(async () => {
-    mongo = await MongoMemoryReplSet.create({
-      replSet: { count: 1 },
-      instanceOpts: [{ ip: "127.0.0.1" }],
-    });
-    process.env.NODE_ENV = "test";
-    process.env.CRON_ENABLED = "false";
-    process.env.MONGODB_URI = mongo.getUri();
-
-    const db = await import("../../config/db.js");
-    const appModule = await import("../../app.js");
-
-    await db.connectDb();
-    disconnectDb = db.disconnectDb;
-    app = appModule.createApp();
-  });
-
-  afterAll(async () => {
-    if (disconnectDb) {
-      await disconnectDb();
-    }
-    if (mongo) {
-      await mongo.stop();
-    }
-  });
-
   test("register -> login -> me", async () => {
-    const registerRes = await request(app).post("/api/v1/auth/register").send({
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Joao",
       email: "joao@example.com",
       password: "123456",
@@ -45,7 +15,7 @@ describe("auth flow integration", () => {
     expect(registerRes.body?.user?.tutorialSeenAt).toBeNull();
     expect(registerRes.body?.user?.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
 
-    const loginRes = await request(app).post("/api/v1/auth/login").send({
+    const loginRes = await request(getIntegrationApp()).post("/api/v1/auth/login").send({
       email: "joao@example.com",
       password: "123456",
     });
@@ -53,7 +23,7 @@ describe("auth flow integration", () => {
     expect(loginRes.status).toBe(200);
     const accessToken = loginRes.body.tokens.accessToken;
 
-    const meRes = await request(app)
+    const meRes = await request(getIntegrationApp())
       .get("/api/v1/auth/me")
       .set("Authorization", `Bearer ${accessToken}`);
 
@@ -62,7 +32,7 @@ describe("auth flow integration", () => {
     expect(meRes.body.tutorialSeenAt).toBeNull();
     expect(meRes.body.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
 
-    const tutorialRes = await request(app)
+    const tutorialRes = await request(getIntegrationApp())
       .post("/api/v1/auth/tutorial/complete")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({});
@@ -73,14 +43,14 @@ describe("auth flow integration", () => {
 
     const parallelMe = await Promise.all(
       Array.from({ length: 5 }, () =>
-        request(app).get("/api/v1/auth/me").set("Authorization", `Bearer ${accessToken}`),
+        request(getIntegrationApp()).get("/api/v1/auth/me").set("Authorization", `Bearer ${accessToken}`),
       ),
     );
     for (const res of parallelMe) {
       expect(res.status).toBe(200);
     }
 
-    const accountsRes = await request(app)
+    const accountsRes = await request(getIntegrationApp())
       .get("/api/v1/accounts")
       .set("Authorization", `Bearer ${accessToken}`);
 
@@ -90,7 +60,7 @@ describe("auth flow integration", () => {
     );
     expect(personalAccounts).toHaveLength(1);
 
-    const incomeCategoriesRes = await request(app)
+    const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`);
 
