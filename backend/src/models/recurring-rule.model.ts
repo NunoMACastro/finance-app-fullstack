@@ -54,6 +54,15 @@ const recurringRuleSchema = new Schema(
       default: true,
       index: true,
     },
+    lastGenerationAt: {
+      type: Date,
+      default: null,
+    },
+    lastGenerationStatus: {
+      type: String,
+      enum: ["ok", "fallback"],
+      default: null,
+    },
   },
   {
     timestamps: true,

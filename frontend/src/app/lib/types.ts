@@ -137,6 +137,8 @@ export interface Transaction {
   description: string;
   amount: number;
   categoryId: string; // links to BudgetCategory.id
+  categoryResolution?: "direct" | "fallback";
+  requestedCategoryId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,6 +176,9 @@ export interface RecurringRule {
   startMonth: MonthKey;
   endMonth?: MonthKey;
   active: boolean;
+  lastGenerationAt?: string;
+  lastGenerationStatus?: "ok" | "fallback";
+  pendingFallbackCount?: number;
 }
 
 export interface CreateRecurringRuleDto {
@@ -193,6 +198,16 @@ export interface UpdateRecurringRuleDto {
   categoryId?: string;
   endMonth?: MonthKey;
   active?: boolean;
+}
+
+export interface ReassignRecurringCategoryDto {
+  categoryId: string;
+  migratePastFallbackTransactions: boolean;
+}
+
+export interface ReassignRecurringCategoryResult {
+  rule: RecurringRule;
+  migratedTransactions: number;
 }
 
 // ── Summaries / Stats ─────────────────────────────────────

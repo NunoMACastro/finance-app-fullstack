@@ -9,6 +9,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import {
   createRecurringSchema,
   generateRecurringQuerySchema,
+  reassignRecurringCategorySchema,
   recurringIdParamSchema,
   updateRecurringSchema,
 } from "./validators.js";
@@ -61,6 +62,22 @@ recurringRouter.delete(
     const params = recurringIdParamSchema.parse(req.params);
     await recurringService.deleteRule(req.auth!.accountId!, params.id);
     res.status(204).send();
+  }),
+);
+
+recurringRouter.post(
+  "/:id/reassign-category",
+  requireFinancialWriteAccess,
+  asyncHandler(async (req, res) => {
+    const params = recurringIdParamSchema.parse(req.params);
+    const body = reassignRecurringCategorySchema.parse(req.body);
+    const result = await recurringService.reassignRuleCategory(
+      req.auth!.accountId!,
+      req.auth!.userId,
+      params.id,
+      body,
+    );
+    res.status(200).json(result);
   }),
 );
 

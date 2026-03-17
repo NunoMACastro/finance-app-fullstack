@@ -18,6 +18,8 @@ interface TransactionDto {
   description: string;
   amount: number;
   categoryId: string;
+  categoryResolution: "direct" | "fallback";
+  requestedCategoryId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +45,8 @@ function toTransactionDto(doc: {
   description: string;
   amount: number;
   categoryId: string;
+  categoryResolution?: "direct" | "fallback";
+  requestedCategoryId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): TransactionDto {
@@ -58,6 +62,8 @@ function toTransactionDto(doc: {
     description: doc.description,
     amount: doc.amount,
     categoryId: doc.categoryId,
+    categoryResolution: doc.categoryResolution ?? "direct",
+    ...(doc.requestedCategoryId ? { requestedCategoryId: doc.requestedCategoryId } : {}),
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -164,6 +170,8 @@ export async function createTransaction(
     description: input.description,
     amount: input.amount,
     categoryId,
+    categoryResolution: "direct",
+    requestedCategoryId: null,
   });
 
   if (transaction.type === "income") {
@@ -225,6 +233,10 @@ export async function updateTransaction(
     transaction.categoryId = ensuredCategoryId;
   } else if (nextType === "income") {
     transaction.categoryId = ensuredCategoryId;
+  }
+  if (input.categoryId !== undefined || input.type !== undefined) {
+    transaction.categoryResolution = "direct";
+    transaction.requestedCategoryId = null;
   }
 
   transaction.userId = new Types.ObjectId(actorUserId);

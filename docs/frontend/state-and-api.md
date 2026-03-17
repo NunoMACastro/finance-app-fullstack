@@ -11,8 +11,12 @@ Contem contratos espelho do backend para:
 - income categories
 - transactions
 - recurring rules
+- recurring rules (inclui metadados operacionais: `lastGenerationAt`, `lastGenerationStatus`, `pendingFallbackCount`)
 - stats (`categorySeries` incluido)
   - `StatsSnapshot.insight` opcional (`text`, `source`, `generatedAt`, `model`) quando backend enriquece com IA
+- transactions incluem metadados de categoria recorrente:
+  - `categoryResolution?: direct | fallback`
+  - `requestedCategoryId?` quando houve fallback
 
 Notas de budget:
 - `BudgetCategory` inclui `colorSlot` (1..9) para mapear categorias para slots de cor do tema.
@@ -34,6 +38,9 @@ Modulos:
 - `incomeCategoriesApi`
 - `transactionsApi`
 - `recurringApi`
+  - `list/create/update/delete`
+  - `generate(month)` para corrida manual de geracao recorrente
+  - `reassignCategory(id, { categoryId, migratePastFallbackTransactions })`
 - `budgetApi`
 - `statsApi`
   - `statsApi.getSemester/getYear` suportam `options.includeInsight?: boolean`

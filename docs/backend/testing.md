@@ -32,6 +32,9 @@ npm run test
   - valida anonimização de payload para IA
   - valida parsing do output estruturado
   - valida cache key, TTL e dedupe in-flight
+- `recurring-due-date.test.ts`
+  - valida semantica de vencimento (mes passado/atual/futuro)
+  - valida clamp de dia para meses curtos
 
 ### Integration tests (`src/tests/integration`)
 
@@ -49,6 +52,10 @@ npm run test
   - consistencia de `categorySeries`
 - `stats-insight-fallback.test.ts`
   - garante que `/stats/semester` continua `200` sem `OPENAI_API_KEY`
+- `recurring-fallback-flow.test.ts`
+  - fallback automatico em recorrencias (`income` e `expense`)
+  - categoria tecnica protegida de fallback em budget
+  - reatribuicao de categoria com migracao opcional de historico fallback
 
 Harness partilhado:
 - `src/tests/integration/harness.ts` centraliza bootstrap de MongoDB Memory ReplSet, env de teste e `createApp()`.

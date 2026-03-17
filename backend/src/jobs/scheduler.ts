@@ -17,8 +17,16 @@ export function startScheduler(): void {
       const month = monthFromDate(new Date());
       logger.info({ month }, "Starting daily recurring/stats job");
 
-      const totalCreated = await recurringService.generateForAllAccountsMonth(month);
-      logger.info({ month, totalCreated }, "Recurring generation complete");
+      const recurringResult = await recurringService.generateForAllAccountsMonth(month, new Date());
+      logger.info(
+        {
+          month,
+          totalCreated: recurringResult.totalCreated,
+          totalFallbackCreated: recurringResult.totalFallbackCreated,
+          totalProcessedRules: recurringResult.totalProcessedRules,
+        },
+        "Recurring generation complete",
+      );
 
       const accounts = await AccountModel.find({}, { _id: 1 }).lean();
       for (const account of accounts) {

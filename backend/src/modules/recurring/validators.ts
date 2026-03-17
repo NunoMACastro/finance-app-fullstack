@@ -37,3 +37,8 @@ export const updateRecurringSchema = z
 export const generateRecurringQuerySchema = z.object({
   month: monthKey,
 });
+
+export const reassignRecurringCategorySchema = z.object({
+  categoryId: z.string().trim().min(1).max(120),
+  migratePastFallbackTransactions: z.boolean().default(false),
+});

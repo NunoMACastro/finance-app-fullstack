@@ -22,8 +22,13 @@ Arquivo: `src/jobs/scheduler.ts`
 
 Fluxo do job diario:
 1. calcula mes atual (`monthFromDate`, UTC)
-2. gera transacoes recorrentes para todas as contas
+2. gera transacoes recorrentes para todas as contas (vencidas ate ao dia UTC atual)
 3. materializa snapshots de stats (`semester` e `year`) para cada conta
+
+Metrica/log de recorrencias:
+- `totalCreated`
+- `totalFallbackCreated`
+- `totalProcessedRules`
 
 ## Migracao de contas
 
@@ -91,6 +96,15 @@ Causa:
 
 Acoes:
 - criar/ajustar budget ate 100%
+
+### Recorrencias com fallback pendente
+Causa:
+- regra recorrente com `pendingFallbackCount > 0`
+- tipicamente categoria removida/inativa (`income`) ou ausente no budget (`expense`)
+
+Acoes:
+- usar `POST /recurring-rules/:id/reassign-category`
+- decidir se migra historico (`migratePastFallbackTransactions=true`) ou apenas futuras geracoes.
 
 ### Stats sem insight IA
 Causa:

@@ -34,6 +34,7 @@ const CATEGORY_KIND_OPTIONS = [
   { value: "expense", label: "Despesa" },
   { value: "reserve", label: "Reserva" },
 ] as const;
+const RECURRING_EXPENSE_FALLBACK_CATEGORY_ID = "fallback_recurring_expense";
 
 function getCatColor(colorSlot?: number, fallbackIndex = 0) {
   const resolvedSlot = colorSlot ?? ((fallbackIndex % CATEGORY_COLORS.length) + 1);
@@ -326,6 +327,11 @@ export function BudgetEditorPage() {
               <label className="text-sm text-muted-foreground">Categorias</label>
               {budget.categories.map((category, index) => (
                 <div key={category.id} className="rounded-xl border border-border/60 bg-muted/20 p-2.5 flex flex-col gap-2">
+                  {category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID ? (
+                    <span className="inline-flex w-fit rounded-full bg-warning-soft px-2 py-0.5 text-[10px] text-warning-foreground">
+                      Categoria técnica protegida
+                    </span>
+                  ) : null}
                   <div className="flex items-center gap-2">
                       <div
                         className={`w-3 h-3 rounded-full ${getCatColor(resolveCategoryColorSlot(category, index), index).gradient} shrink-0`}
@@ -335,7 +341,7 @@ export function BudgetEditorPage() {
                       value={category.name}
                       onChange={(event) => updateCategory(category.id, "name", event.target.value)}
                       placeholder="Nome da categoria"
-                      disabled={!canWriteFinancial}
+                      disabled={!canWriteFinancial || category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID}
                     />
                     <Button
                       variant="ghost"
@@ -343,7 +349,7 @@ export function BudgetEditorPage() {
                       className="shrink-0 text-muted-foreground hover:text-destructive rounded-xl h-9 w-9"
                       onClick={() => setPendingRemoveCategoryId(category.id)}
                       aria-label={`Remover categoria ${category.name}`}
-                      disabled={!canWriteFinancial}
+                      disabled={!canWriteFinancial || category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -352,7 +358,11 @@ export function BudgetEditorPage() {
                     <SegmentedControlV3
                       value={(category.kind ?? "expense") as "expense" | "reserve"}
                       onChange={(nextKind) => updateCategory(category.id, "kind", nextKind)}
-                      options={CATEGORY_KIND_OPTIONS}
+                      options={CATEGORY_KIND_OPTIONS.map((option) => ({
+                        ...option,
+                        disabled:
+                          !canWriteFinancial || category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+                      }))}
                       size="compact"
                       className="rounded-xl"
                       ariaLabel={`Tipo da categoria ${category.name}`}
@@ -368,7 +378,7 @@ export function BudgetEditorPage() {
                         className="w-full h-9 rounded-xl text-sm text-right pr-7"
                         value={category.percent}
                         onChange={(event) => updateCategory(category.id, "percent", event.target.value)}
-                        disabled={!canWriteFinancial}
+                        disabled={!canWriteFinancial || category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID}
                       />
                       <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                     </div>

@@ -66,9 +66,20 @@ Comportamento:
 - remover (soft-delete) categoria (`incomeCategoriesApi.remove`)
 - categoria default existe sempre e nao pode ser removida/desativada
 
-### Fluxo de recorrencias
-- criar/editar/apagar regra recorrente
-- gerar no mes atual
+### Fluxo de recorrencias (ecrã dedicado)
+Entrada principal:
+- no dialog `Novo lançamento`, atalho `Gerir recorrências automáticas`
+
+Entrada secundaria:
+- hub de `Profile` via linha `Recorrências`
+
+Fluxo:
+1. abrir `/recurring`
+2. listar regras ativas/pausadas com estado de saude (`ok`/`fallback`)
+3. criar/editar/pausar/apagar regra
+4. opcionalmente executar `Gerar agora` para o mes atual
+5. se houver fallback pendente, usar `Reatribuir categoria`
+6. toggle opcional `Migrar histórico em fallback` para corrigir transacoes antigas da regra
 
 ### Fluxo de categorias de despesa (Month Financial Stack)
 1. utilizador toca numa linha de categoria
@@ -127,6 +138,7 @@ Arquitetura de navegacao:
 - `/profile/account`
 - `/profile/security`
 - `/profile/preferences`
+- `/recurring` (gestao dedicada de recorrencias)
 - `/profile/shared` (hub de partilha)
 - `/profile/shared/accounts`
 - `/profile/shared/create`

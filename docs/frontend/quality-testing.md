@@ -39,6 +39,7 @@ Suites atuais (resumo por area):
 - auth/session: `auth-page.test.tsx`, `login-patch-notes.test.ts`
 - account/layout: `layout.account-select.test.tsx`
 - month e movimentos: `month-page.financial-ruler.test.tsx`, `month-financial-ruler.test.tsx`, `month-expense-category-row.test.tsx`, `category-expenses-sheet.test.tsx`, `category-movements-page.test.tsx`
+- recorrencias: `recurring-rules-page.test.tsx`
 - stats/ui v3: `stats-page.test.tsx`, `ui-v3-structure.test.tsx`, `ui-v3-contracts.test.ts`, `v3/page-header-v3.test.tsx`, `v3/segmented-control-v3.test.tsx`, `v3/bottom-nav-v3.test.tsx`
 - dialogos e overlays: `confirm-action-dialog.test.tsx`, `responsive-overlay.test.tsx`
 - onboarding/manutencao/mobile: `tutorial-tour.test.tsx`, `maintenance-page.test.tsx`

@@ -889,6 +889,10 @@ export function MonthPage() {
           setShowAddDialog(false);
           setShowIncomeCategoriesDialog(true);
         }}
+        onManageRecurringRules={() => {
+          setShowAddDialog(false);
+          navigate("/recurring", { state: { from: "/" } });
+        }}
         onRefreshIncomeCategories={reloadIncomeCategories}
       />
       <IncomeCategoriesDialog
@@ -931,6 +935,7 @@ function AddTransactionDialog({
   incomeCategories,
   canWriteFinancial,
   onManageIncomeCategories,
+  onManageRecurringRules,
   onRefreshIncomeCategories,
 }: {
   open: boolean;
@@ -941,6 +946,7 @@ function AddTransactionDialog({
   incomeCategories: IncomeCategory[];
   canWriteFinancial: boolean;
   onManageIncomeCategories: () => void;
+  onManageRecurringRules: () => void;
   onRefreshIncomeCategories: () => Promise<void>;
 }) {
   const isMobile = useIsMobile();
@@ -1105,6 +1111,16 @@ function AddTransactionDialog({
             </button>
           )}
         </div>
+
+        {canWriteFinancial ? (
+          <button
+            type="button"
+            className="text-left text-xs font-medium text-primary hover:text-primary/80 hover:underline w-fit"
+            onClick={onManageRecurringRules}
+          >
+            Gerir recorrências automáticas
+          </button>
+        ) : null}
       </div>
 
       <div

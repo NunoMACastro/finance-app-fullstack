@@ -41,6 +41,8 @@ const CATEGORY_COLOR_MIN = 1;
 const CATEGORY_COLOR_MAX = 9;
 const CATEGORY_COLOR_COUNT = CATEGORY_COLOR_MAX - CATEGORY_COLOR_MIN + 1;
 const RESERVE_CATEGORY_NAME_KEYS = new Set(["poupanca", "investimento"]);
+export const RECURRING_EXPENSE_FALLBACK_CATEGORY_ID = "fallback_recurring_expense";
+export const RECURRING_EXPENSE_FALLBACK_CATEGORY_NAME = "Sem categoria (recorrente)";
 
 const BUDGET_TEMPLATES: BudgetTemplateDto[] = [
   {
@@ -104,6 +106,33 @@ function inferCategoryKindByName(name: string): BudgetCategoryKind {
 export function normalizeCategoryKind(kind: string | null | undefined, name: string): BudgetCategoryKind {
   if (isBudgetCategoryKind(kind)) return kind;
   return inferCategoryKindByName(name);
+}
+
+function buildRecurringExpenseFallbackCategory(
+  existing?: Partial<Pick<BudgetCategoryInput, "colorSlot">>,
+): BudgetCategoryInput {
+  return {
+    id: RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+    name: RECURRING_EXPENSE_FALLBACK_CATEGORY_NAME,
+    percent: 0,
+    colorSlot: existing?.colorSlot ?? CATEGORY_COLOR_MAX,
+    kind: "expense",
+  };
+}
+
+export function isProtectedBudgetCategoryId(categoryId: string): boolean {
+  return categoryId === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID;
+}
+
+function upsertProtectedBudgetCategories(categories: BudgetCategoryInput[]): BudgetCategoryInput[] {
+  const fallbackIndex = categories.findIndex((category) => category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID);
+  if (fallbackIndex === -1) {
+    return categories;
+  }
+
+  const next = [...categories];
+  next[fallbackIndex] = buildRecurringExpenseFallbackCategory(next[fallbackIndex]);
+  return next;
 }
 
 function hashCategoryIdToColorSlot(categoryId: string): number {
@@ -282,13 +311,15 @@ export async function getBudget(accountId: string, month: string): Promise<Month
   }
 
   const normalizedCategories = assignCategoryColorSlots(
-    budget.categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      percent: category.percent,
-      colorSlot: category.colorSlot,
-      kind: normalizeCategoryKind(category.kind, category.name),
-    })),
+    upsertProtectedBudgetCategories(
+      budget.categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        percent: category.percent,
+        colorSlot: category.colorSlot,
+        kind: normalizeCategoryKind(category.kind, category.name),
+      })),
+    ),
   );
   const shouldPersistCategoryMetadata = hasCategoryMetadataDrift(budget.categories, normalizedCategories);
   const shouldSyncTotal = Math.abs(budget.totalBudget - totalBudget) > BUDGET_TOLERANCE;
@@ -318,7 +349,18 @@ export async function saveBudget(
   input: { totalBudget: number; categories: BudgetCategoryInput[] },
   actorUserId: string,
 ): Promise<MonthBudgetDto> {
-  const categoriesWithSlots = assignCategoryColorSlots(input.categories);
+  const existingBudget = await BudgetModel.findOne({ accountId, month }).lean();
+  const inputWithProtected = upsertProtectedBudgetCategories(input.categories);
+  const hasFallbackInInput = inputWithProtected.some(
+    (category) => category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+  );
+  const existingFallbackCategory = existingBudget?.categories.find(
+    (category) => category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+  );
+  const categoriesWithFallback = !hasFallbackInInput && existingFallbackCategory
+    ? [...inputWithProtected, buildRecurringExpenseFallbackCategory(existingFallbackCategory)]
+    : inputWithProtected;
+  const categoriesWithSlots = assignCategoryColorSlots(categoriesWithFallback);
   validateBudgetPercentages(categoriesWithSlots);
 
   const totalBudget = await sumIncomeForMonth(accountId, month);
@@ -365,15 +407,17 @@ export async function addCategory(
     colorSlot: category.colorSlot,
     kind: normalizeCategoryKind(category.kind, category.name),
   }));
-  const categoriesWithSlots = assignCategoryColorSlots([
-    ...existingCategories,
-    {
-      id: categoryId,
-      name: input.name,
-      percent: input.percent,
-      kind: input.kind,
-    },
-  ]);
+  const categoriesWithSlots = assignCategoryColorSlots(
+    upsertProtectedBudgetCategories([
+      ...existingCategories,
+      {
+        id: categoryId,
+        name: input.name,
+        percent: input.percent,
+        kind: input.kind,
+      },
+    ]),
+  );
   budget.set("categories", categoriesWithSlots);
 
   budget.userId = new Types.ObjectId(actorUserId);
@@ -388,6 +432,10 @@ export async function removeCategory(
   categoryId: string,
   actorUserId: string,
 ): Promise<MonthBudgetDto> {
+  if (isProtectedBudgetCategoryId(categoryId)) {
+    unprocessable("Categoria protegida não pode ser removida", "BUDGET_CATEGORY_PROTECTED");
+  }
+
   const budget = await BudgetModel.findOne({ accountId, month });
   if (!budget) {
     const totalBudget = await sumIncomeForMonth(accountId, month);
@@ -395,15 +443,17 @@ export async function removeCategory(
   }
 
   const categoriesWithSlots = assignCategoryColorSlots(
-    budget.categories
-      .filter((c) => c.id !== categoryId)
-      .map((category) => ({
-        id: category.id,
-        name: category.name,
-        percent: category.percent,
-        colorSlot: category.colorSlot,
-        kind: normalizeCategoryKind(category.kind, category.name),
-      })),
+    upsertProtectedBudgetCategories(
+      budget.categories
+        .filter((c) => c.id !== categoryId)
+        .map((category) => ({
+          id: category.id,
+          name: category.name,
+          percent: category.percent,
+          colorSlot: category.colorSlot,
+          kind: normalizeCategoryKind(category.kind, category.name),
+        })),
+    ),
   );
   budget.set("categories", categoriesWithSlots);
   budget.userId = new Types.ObjectId(actorUserId);
@@ -433,13 +483,15 @@ export async function copyBudgetFromMonth(
         userId: actorUserId,
         totalBudget,
         categories: assignCategoryColorSlots(
-          source.categories.map((c) => ({
-            id: c.id,
-            name: c.name,
-            percent: c.percent,
-            colorSlot: c.colorSlot,
-            kind: normalizeCategoryKind(c.kind, c.name),
-          })),
+          upsertProtectedBudgetCategories(
+            source.categories.map((c) => ({
+              id: c.id,
+              name: c.name,
+              percent: c.percent,
+              colorSlot: c.colorSlot,
+              kind: normalizeCategoryKind(c.kind, c.name),
+            })),
+          ),
         ),
       },
     },
@@ -455,4 +507,56 @@ export async function copyBudgetFromMonth(
 
 export async function syncBudgetTotalFromTransactions(accountId: string, month: string): Promise<void> {
   await syncBudgetTotal(accountId, month);
+}
+
+export async function ensureRecurringExpenseFallbackCategory(
+  accountId: string,
+  month: string,
+  actorUserId: string,
+): Promise<string> {
+  const budget = await BudgetModel.findOne({ accountId, month });
+  const totalBudget = await sumIncomeForMonth(accountId, month);
+
+  if (!budget) {
+    await BudgetModel.create({
+      accountId,
+      userId: actorUserId,
+      month,
+      totalBudget,
+      categories: assignCategoryColorSlots([buildRecurringExpenseFallbackCategory()]),
+    });
+    return RECURRING_EXPENSE_FALLBACK_CATEGORY_ID;
+  }
+
+  const currentCategories = budget.categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    percent: category.percent,
+    colorSlot: category.colorSlot,
+    kind: normalizeCategoryKind(category.kind, category.name),
+  }));
+  const hasFallbackCategory = currentCategories.some(
+    (category) => category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+  );
+  const nextCategories = hasFallbackCategory
+    ? assignCategoryColorSlots(upsertProtectedBudgetCategories(currentCategories))
+    : assignCategoryColorSlots([
+        ...upsertProtectedBudgetCategories(currentCategories),
+        buildRecurringExpenseFallbackCategory(),
+      ]);
+  const shouldPersistCategoryMetadata = hasCategoryMetadataDrift(budget.categories, nextCategories);
+  const shouldSyncTotal = Math.abs(budget.totalBudget - totalBudget) > BUDGET_TOLERANCE;
+
+  if (shouldPersistCategoryMetadata) {
+    budget.set("categories", nextCategories);
+  }
+  if (shouldSyncTotal) {
+    budget.totalBudget = totalBudget;
+  }
+  if (shouldPersistCategoryMetadata || shouldSyncTotal) {
+    budget.userId = new Types.ObjectId(actorUserId);
+    await budget.save();
+  }
+
+  return RECURRING_EXPENSE_FALLBACK_CATEGORY_ID;
 }

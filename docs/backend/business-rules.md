@@ -95,6 +95,37 @@ Sincronizacao:
   - `endMonth` ausente ou `endMonth >= month`
 - Geracao usa upsert por `(accountId, recurringRuleId, month)` para idempotencia.
 - `dayOfMonth` e ajustado ao ultimo dia real do mes.
+- Semantica de vencimento:
+  - mes atual: gera apenas regras vencidas ate ao dia UTC corrente,
+  - meses passados: gera todas as regras ativas do mes,
+  - meses futuros: nao gera.
+
+### 9.1) Fallback de categoria na geracao
+
+- `income`:
+  - se categoria da regra estiver invalida/inativa, backend usa categoria default de receita da conta.
+- `expense`:
+  - se categoria da regra nao existir no budget do mes, backend usa categoria tecnica:
+    - id: `fallback_recurring_expense`
+    - nome: `Sem categoria (recorrente)`
+    - `kind=expense`, `percent=0`
+    - protegida contra remocao por endpoint de remover categoria.
+
+Rastreabilidade:
+- transacao recorrente inclui:
+  - `categoryResolution` (`direct|fallback`)
+  - `requestedCategoryId` quando houve fallback.
+
+Saude operacional por regra:
+- `lastGenerationAt`
+- `lastGenerationStatus` (`ok|fallback`)
+- `pendingFallbackCount` (contagem atual de lancamentos recorrentes em fallback).
+
+### 9.2) Reatribuicao
+
+- endpoint `POST /recurring-rules/:id/reassign-category`:
+  - atualiza categoria da regra para geracoes futuras;
+  - opcao `migratePastFallbackTransactions` migra historico em fallback dessa regra para a nova categoria.
 
 ## 10) Stats
 

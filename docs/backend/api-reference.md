@@ -435,7 +435,25 @@ Response `200` (`MonthSummary`):
   "totalIncome": 3000,
   "totalExpense": 1200,
   "balance": 1800,
-  "incomeTransactions": [],
+  "incomeTransactions": [
+    {
+      "id": "...",
+      "accountId": "...",
+      "userId": "...",
+      "month": "2026-03",
+      "date": "2026-03-01",
+      "type": "income",
+      "origin": "recurring",
+      "recurringRuleId": "...",
+      "description": "Salário",
+      "amount": 1000,
+      "categoryId": "...",
+      "categoryResolution": "fallback",
+      "requestedCategoryId": "...",
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-03-01T00:00:00.000Z"
+    }
+  ],
   "expenseTransactions": []
 }
 ```
@@ -459,6 +477,9 @@ Request:
 Notas:
 - `origin=manual` exige budget valido no mes.
 - `origin=recurring` pode incluir `recurringRuleId`.
+- todas as transacoes expõem metadados de resolução de categoria:
+  - `categoryResolution`: `direct | fallback`
+  - `requestedCategoryId`: preenchido quando houve fallback.
 
 ### PUT `/transactions/:id`
 Atualiza campos permitidos.
@@ -484,6 +505,27 @@ Requer auth + account context.
 ### GET `/recurring-rules`
 Lista regras.
 
+Response `200`:
+```json
+[
+  {
+    "id": "...",
+    "accountId": "...",
+    "userId": "...",
+    "type": "expense",
+    "name": "Renda",
+    "amount": 750,
+    "dayOfMonth": 1,
+    "categoryId": "hab",
+    "startMonth": "2026-01",
+    "active": true,
+    "lastGenerationAt": "2026-03-15T00:10:00.000Z",
+    "lastGenerationStatus": "fallback",
+    "pendingFallbackCount": 2
+  }
+]
+```
+
 ### POST `/recurring-rules`
 Cria regra.
 
@@ -508,9 +550,51 @@ Apaga regra.
 ### POST `/recurring-rules/generate?month=YYYY-MM`
 Gera transacoes recorrentes para o mes e conta ativa.
 
+Semantica:
+- no mes atual, gera apenas regras vencidas (`dayOfMonth <= dia UTC atual`, com clamp para meses curtos),
+- em meses passados, gera todas as regras ativas desse mes,
+- em meses futuros, nao gera.
+
 Response `200`:
 ```json
-{ "created": 3 }
+{
+  "created": 3,
+  "fallbackCreated": 1,
+  "processedRules": 5
+}
+```
+
+### POST `/recurring-rules/:id/reassign-category`
+Reatribui categoria da regra para geracoes futuras.
+
+Request:
+```json
+{
+  "categoryId": "cat_casa",
+  "migratePastFallbackTransactions": true
+}
+```
+
+Response `200`:
+```json
+{
+  "rule": {
+    "id": "...",
+    "accountId": "...",
+    "userId": "...",
+    "type": "expense",
+    "name": "Renda",
+    "amount": 750,
+    "dayOfMonth": 1,
+    "categoryId": "cat_casa",
+    "startMonth": "2026-01",
+    "active": true,
+    "lastGenerationAt": "2026-03-15T00:10:00.000Z",
+    "lastGenerationStatus": "fallback",
+    "pendingFallbackCount": 0
+  },
+  "migratedTransactions": 4
+}
 ```
 
 ## Stats

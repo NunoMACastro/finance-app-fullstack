@@ -1,4 +1,4 @@
-import { ChevronRight, Palette, Shield, UserCog, Users } from "lucide-react";
+import { ChevronRight, Palette, Repeat, Shield, UserCog, Users } from "lucide-react";
 import { useNavigate } from "react-router";
 import { PageHeaderV3 } from "./v3/page-header-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
@@ -24,6 +24,13 @@ const PROFILE_SECTIONS = [
     description: "Tema, privacidade visual e tutorial",
     to: "/profile/preferences",
     icon: Palette,
+  },
+  {
+    id: "recurring",
+    title: "Recorrências",
+    description: "Regras automáticas de receitas e despesas",
+    to: "/recurring",
+    icon: Repeat,
   },
   {
     id: "shared",

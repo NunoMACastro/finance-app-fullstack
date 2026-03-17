@@ -24,6 +24,13 @@ export function createAppRouter() {
           },
         },
         {
+          path: "recurring",
+          lazy: async () => {
+            const mod = await import("./components/recurring-rules-page");
+            return { Component: mod.RecurringRulesPage };
+          },
+        },
+        {
           path: "budget/:month/edit",
           lazy: async () => {
             const mod = await import("./components/budget-editor-page");

@@ -54,6 +54,16 @@ const transactionSchema = new Schema(
       required: true,
       index: true,
     },
+    categoryResolution: {
+      type: String,
+      enum: ["direct", "fallback"],
+      required: true,
+      default: "direct",
+    },
+    requestedCategoryId: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

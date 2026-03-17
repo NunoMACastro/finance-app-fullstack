@@ -15,6 +15,8 @@ import type {
   MonthBudget,
   MonthSummary,
   RecurringRule,
+  ReassignRecurringCategoryDto,
+  ReassignRecurringCategoryResult,
   SaveBudgetDto,
   StatsSnapshot,
   ThemePalette,
@@ -223,6 +225,23 @@ export const recurringApi = {
 
   async delete(id: string): Promise<void> {
     await httpClient.delete(`/recurring-rules/${id}`);
+  },
+
+  async generate(month: string): Promise<{ created: number; fallbackCreated: number; processedRules: number }> {
+    const { data } = await httpClient.post<{ created: number; fallbackCreated: number; processedRules: number }>(
+      "/recurring-rules/generate",
+      undefined,
+      { params: { month } },
+    );
+    return data;
+  },
+
+  async reassignCategory(id: string, dto: ReassignRecurringCategoryDto): Promise<ReassignRecurringCategoryResult> {
+    const { data } = await httpClient.post<ReassignRecurringCategoryResult>(
+      `/recurring-rules/${id}/reassign-category`,
+      dto,
+    );
+    return data;
   },
 };
 
