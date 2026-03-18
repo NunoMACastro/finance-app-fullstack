@@ -6,7 +6,7 @@ Stack:
 - Vite
 - Axios
 - React Router (lazy routes)
-- Motion + componentes UI (Radix + MUI no bundle)
+- Motion + componentes UI (Radix e primitives internas)
 
 Pasta fonte: `frontend/src`
 
@@ -24,7 +24,7 @@ UI mobile-first para:
 
 - `main.tsx`: bootstrap
 - `app/App.tsx`: providers, gating de auth, maintenance mode, aviso desktop
-- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/budget/:month/edit`, `/profile`, `/profile/*`, `/month/:month/category/:categoryId/movements`)
+- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/recurring/*`, `/profile`, `/profile/*`, `/budget/:month/edit`, `/month/:month/category/:categoryId/movements`)
 - `app/components/*`: ecras e layout
 - `app/lib/*`: API client, stores locais, contextos e tipos
 - `styles/*`: tema, tailwind, fontes
@@ -93,8 +93,15 @@ Padrao de perfil v3:
 2. AuthProvider tenta reidratacao de sessao.
 3. ThemePreferencesProvider aplica o tema ativo no `documentElement`.
 4. Se autenticado, AccountProvider resolve contas e conta ativa.
-5. Router renderiza `MonthPage`, `StatsPage`, `BudgetEditorPage` ou `ProfilePage`.
+5. Router renderiza as rotas lazy reais:
+   - `MonthPage` (`/`)
+   - `StatsPage` (`/stats`)
+   - `RecurringRulesPage` (`/profile/recurring` e alias `/recurring/*`)
+   - `BudgetEditorPage` (`/budget/:month/edit`)
+   - `ProfilePage` e subpaginas (`/profile/*`)
+   - `CategoryMovementsPage` (`/month/:month/category/:categoryId/movements`)
 6. Todas as chamadas autenticadas injetam `Authorization` e `X-Account-Id`.
+7. `Analytics` (Vercel) fica montado no root para recolha de page views.
 
 ## Comportamentos de UX importantes
 

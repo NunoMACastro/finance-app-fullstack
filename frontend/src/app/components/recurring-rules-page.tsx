@@ -16,7 +16,10 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
+import { useIsMobile } from "./ui/use-mobile";
 import { ProfileSectionShell } from "./profile-section-shell";
+import { IconActionButtonV3 } from "./v3/interaction-primitives-v3";
+import { OverflowActionsSheetV3 } from "./v3/overflow-actions-sheet-v3";
 import { SegmentedControlV3 } from "./v3/segmented-control-v3";
 
 function getCurrentMonthKey(): string {
@@ -104,6 +107,7 @@ export function RecurringRulesPage() {
     : "/profile";
 
   const currentMonth = useMemo(() => getCurrentMonthKey(), []);
+  const isMobile = useIsMobile();
 
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
@@ -466,6 +470,29 @@ export function RecurringRulesPage() {
               const tone = getRuleStatusTone(rule);
               const statusText = getRuleStatusText(rule);
               const isReassignOpen = reassignRuleId === rule.id;
+              const actionItems = [
+                {
+                  id: "edit",
+                  label: "Editar regra",
+                  icon: <Pencil className="h-4 w-4" />,
+                  onSelect: () => startEdit(rule),
+                },
+                {
+                  id: "toggle",
+                  label: rule.active ? "Pausar regra" : "Ativar regra",
+                  icon: rule.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />,
+                  onSelect: () => {
+                    void toggleRuleActive(rule);
+                  },
+                },
+                {
+                  id: "delete",
+                  label: "Remover regra",
+                  icon: <Trash2 className="h-4 w-4" />,
+                  tone: "danger" as const,
+                  onSelect: () => setPendingDeleteRule(rule),
+                },
+              ];
 
               return (
                 <article key={rule.id} className="space-y-3 py-3">
@@ -484,38 +511,47 @@ export function RecurringRulesPage() {
                       </p>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-11 w-11 rounded-xl"
-                        onClick={() => startEdit(rule)}
-                        disabled={!canWriteFinancial}
-                        aria-label="Editar regra"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-11 w-11 rounded-xl"
-                        onClick={() => void toggleRuleActive(rule)}
-                        disabled={!canWriteFinancial}
-                        aria-label={rule.active ? "Pausar regra" : "Ativar regra"}
-                      >
-                        {rule.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-11 w-11 rounded-xl text-danger"
-                        onClick={() => setPendingDeleteRule(rule)}
-                        disabled={!canWriteFinancial}
-                        aria-label="Remover regra"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {isMobile ? (
+                      <div className="shrink-0">
+                        <OverflowActionsSheetV3
+                          title={rule.name}
+                          description="Seleciona uma ação para esta regra recorrente."
+                          triggerAriaLabel={`Ações da regra ${rule.name}`}
+                          actions={actionItems.map((action) => ({
+                            ...action,
+                            disabled: !canWriteFinancial,
+                          }))}
+                          disabled={!canWriteFinancial}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <IconActionButtonV3
+                          ariaLabel="Editar regra"
+                          onClick={() => startEdit(rule)}
+                          disabled={!canWriteFinancial}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </IconActionButtonV3>
+                        <IconActionButtonV3
+                          ariaLabel={rule.active ? "Pausar regra" : "Ativar regra"}
+                          onClick={() => {
+                            void toggleRuleActive(rule);
+                          }}
+                          disabled={!canWriteFinancial}
+                        >
+                          {rule.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </IconActionButtonV3>
+                        <IconActionButtonV3
+                          ariaLabel="Remover regra"
+                          onClick={() => setPendingDeleteRule(rule)}
+                          tone="danger"
+                          disabled={!canWriteFinancial}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </IconActionButtonV3>
+                      </div>
+                    )}
                   </div>
 
                   {(rule.pendingFallbackCount ?? 0) > 0 && canWriteFinancial ? (

@@ -13,7 +13,7 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
 ## Blocos principais
 
 - Frontend: React + Vite + TypeScript
-  - Renderiza Month, Stats, Profile e Budget Editor
+  - Renderiza Month, Stats, Recorrencias, Budget Editor, Profile (hub + subpaginas) e movimentos por categoria
   - Gerencia autenticacao e conta ativa
   - Injeta `X-Account-Id` em pedidos autenticados
 - Backend: Node.js + Express + TypeScript + Mongoose
@@ -68,11 +68,15 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - injecao de token e `X-Account-Id`
   - refresh token automatico em 401
   - fila para pedidos concorrentes durante refresh
+- Instrumentacao:
+  - `@vercel/analytics/react` montado no root (`App`) para page views
 - Rotas lazy:
   - `/` (Month)
   - `/stats` (Stats)
+  - `/recurring/*` e `/profile/recurring` (gestao de recorrencias)
   - `/budget/:month/edit` (Budget editor)
-  - `/profile` (Profile)
+  - `/profile` e `/profile/*` (hub + subpaginas)
+  - `/month/:month/category/:categoryId/movements` (historico completo de categoria)
 
 ## Decisoes estruturais importantes
 
@@ -97,4 +101,4 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
 - Backend CI:
   - build + unit + integration
 - Frontend CI:
-  - typecheck + lint + tests + build
+  - typecheck + lint + guardrails de tema/tokens + tests + build

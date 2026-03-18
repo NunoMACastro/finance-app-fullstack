@@ -27,7 +27,7 @@ Pasta fonte: `backend/src`
 - `auth`
   - register/login/refresh/logout/me/tutorial
   - update profile/email/password
-  - sessions (list/revoke/revoke-all)
+  - sessions (list/revoke/remover revogadas/revoke-all)
   - export user data
   - delete/deactivate account
 - `accounts`
@@ -39,7 +39,7 @@ Pasta fonte: `backend/src`
 - `transactions`
   - CRUD de lancamentos e resumo mensal
 - `recurring`
-  - CRUD de regras recorrentes + generate
+  - CRUD de regras recorrentes + generate + reassign category
 - `stats`
   - semestre, ano, compare-budget, snapshot materialization
   - enrichment opcional de insight IA (OpenAI) com fallback gracioso

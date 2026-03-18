@@ -16,12 +16,18 @@ App de financas com multi-conta (`account/workspace`) e regras fortes de integri
 - Backend: `backend/src`
   - entrada: `server.ts`, `app.ts`
   - rotas: `routes/index.ts`
-  - dominios: `modules/{auth,accounts,budgets,transactions,recurring,stats}`
+  - dominios: `modules/{auth,accounts,income-categories,budgets,transactions,recurring,stats}`
   - modelos: `models/*`
 - Frontend: `frontend/src`
   - entrada: `main.tsx`, `app/App.tsx`
   - layout global: `app/components/layout.tsx`
-  - paginas: `month-page.tsx`, `stats-page.tsx`
+  - paginas:
+    - `month-page.tsx` (`/`)
+    - `stats-page.tsx` (`/stats`)
+    - `recurring-rules-page.tsx` (`/profile/recurring`, alias `/recurring/*`)
+    - `budget-editor-page.tsx` (`/budget/:month/edit`)
+    - `profile-page.tsx` + subpaginas (`/profile/*`)
+    - `category-movements-page.tsx` (`/month/:month/category/:categoryId/movements`)
   - estado/contextos: `app/lib/auth-context.tsx`, `account-context.tsx`
   - API client: `app/lib/http-client.ts`, `app/lib/api.ts`
 
@@ -62,7 +68,6 @@ Ao criar/editar/apagar income:
 ## 6) Frontend: pontos de atencao
 
 - Nao remover injecao de `X-Account-Id` no `http-client`.
-- Nao regressar para mock por default (`VITE_USE_MOCK` default deve continuar `false`).
 - UI usa tokens semanticos puros (`theme.css` base + `styles/themes/*.css`), sem classes de paleta hardcoded.
 - Mudancas de tema exigem contrato `styles/themes/_template.css` consistente em todos os temas.
 - `theme.css` nao pode conter cores literais.

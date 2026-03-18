@@ -29,9 +29,14 @@ Passos:
 3. `npm ci`
 4. `npm run typecheck`
 5. `npm run lint`
-6. `npm run check:tokens`
-7. `npm run test`
-8. `npm run build`
+6. `npm run check-theme-contract`
+7. `npm run check:tokens`
+8. `npm run test`
+9. `npm run build`
+
+Nota:
+- `npm run lint` ja executa `check-theme-contract` e `check:tokens`.
+- os passos 6 e 7 mantem guardrails explicitos no workflow.
 
 ## Politica recomendada de branch
 

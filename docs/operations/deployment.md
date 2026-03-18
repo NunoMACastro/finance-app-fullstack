@@ -24,6 +24,10 @@ Recomendadas:
 - `RATE_LIMIT_*`
 - `CRON_ENABLED=true`
 - `TIMEZONE=Europe/Lisbon`
+- `OPENAI_API_KEY` (opcional; ativa insight IA em stats)
+- `OPENAI_INSIGHT_MODEL` (opcional; default economico)
+- `OPENAI_INSIGHT_TIMEOUT_MS` (opcional; timeout curto para nao bloquear UX)
+- `OPENAI_INSIGHT_CACHE_TTL_SECONDS` (opcional; cache em memoria para custo/latencia)
 
 Restricoes:
 - `CORS_ORIGIN` nao pode ser `*` em producao.

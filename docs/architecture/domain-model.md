@@ -78,6 +78,8 @@ Campos chave:
 - `origin`: `manual|recurring`
 - `recurringRuleId` (se recorrente)
 - `description`, `amount`, `categoryId`
+- `categoryResolution` (`direct|fallback`)
+- `requestedCategoryId` (preenchido quando fallback de categoria recorrente)
 
 Regras:
 - `month` deriva de `date` em UTC
@@ -90,6 +92,8 @@ Campos chave:
 - `accountId`
 - `type`, `name`, `amount`, `dayOfMonth`, `categoryId`
 - `startMonth`, `endMonth`, `active`
+- `lastGenerationAt`, `lastGenerationStatus` (`ok|fallback`)
+- `pendingFallbackCount` (computado na API para indicar pendencias de fallback)
 
 ### IncomeCategory
 Categoria de classificacao de receitas.
@@ -118,6 +122,7 @@ Payload funcional (shape de `StatsSnapshotDto`):
   - `consumption`, `savings`, `unallocated`, `potentialSavings`
   - `rates.savings`, `rates.unallocated`, `rates.potentialSavings`
 - `trend`, `budgetVsActual`, `categorySeries`, `forecast`
+- `incomeByCategory`, `incomeCategorySeries`
 - `insight` opcional (enriquecimento IA)
 
 Indice unico: `(accountId, periodType, periodKey)`

@@ -91,7 +91,7 @@ export function AppLayout() {
       {showHeaderAccountSelect ? (
         <div className="-mt-1 bg-background px-4 pb-2">
           <div className="mx-auto w-full max-w-[320px]" data-tour="header-account-select">
-            <div className="relative rounded-full bg-surface-soft/80">
+            <div className="relative rounded-xl bg-surface-soft/80">
               <select
                 value={activeAccountId ?? ""}
                 onChange={(event) => setActiveAccount(event.target.value)}

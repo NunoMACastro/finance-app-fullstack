@@ -69,6 +69,7 @@ Normativa:
 ### Botões e Interações
 - `MUST` usar `<Button>` por defeito para ações explícitas (CTA, submit, confirmar, cancelar, remover, navegar por ação).
 - `<button>` nativo `MAY` ser usado apenas dentro de primitives de interação dedicadas.
+- `<Button>` `MUST` usar target default `h-11`; modo compacto (`h-9`) apenas em contextos densos e explícitos.
 - Primárias `MUST` usar gradiente (`bg-brand-gradient`) com `text-primary-foreground` e `border-0`.
 - Secundárias (`outline`/`ghost`/`link`) `MUST` manter `rounded-xl`.
 - Primitives recomendadas:
@@ -77,6 +78,7 @@ Normativa:
   - `RowActionButtonV3` para linhas full-width clicáveis
   - `SelectableTileButtonV3` para opções tipo tile/template
   - `SeriesToggleButtonV3` para toggles de série em gráficos
+  - `OverflowActionsSheetV3` para ações de overflow mobile (`...`) com lista de ações contextual
 
 ### Lists e Movimentos
 - `MUST` priorizar lista full-width para conteúdo principal.
@@ -184,6 +186,7 @@ Uma alteração UI v3 só está pronta quando:
 - [ ] Componentes/ecrãs seguem esta spec (`MUST`/`SHOULD`).
 - [ ] Sem sombras fora de overlays/dialogs/sheets.
 - [ ] `...` funcional em mobile via `OverflowActionsSheetV3`.
+- [ ] Guardrail de interação (`ui-v3-contracts.test.ts`) passa com varrimento de `src/app/**/*.tsx`.
 - [ ] `npm run check-theme-contract` e `npm run check:tokens` verdes.
 - [ ] Testes de UI relevantes atualizados.
 - [ ] README/docs com referências à spec atualizados.

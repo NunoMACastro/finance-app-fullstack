@@ -7,8 +7,9 @@
 `App` (`app/App.tsx`):
 1. verifica maintenance mode
 2. envolve app com `AuthProvider`, `ThemePreferencesProvider` e `AccountProvider`
-3. renderiza `RouterProvider` (`createAppRouter()`) com layout/pages v2
+3. renderiza `RouterProvider` (`createAppRouter()`) com layout/pages v3
 4. injeta `Toaster` global
+5. injeta `Analytics` (`@vercel/analytics/react`) para page views
 
 ## Routing
 
@@ -17,6 +18,8 @@ Arquivo: `app/routes.ts`
 Rotas lazy:
 - `/` -> `MonthPage`
 - `/stats` -> `StatsPage`
+- `/recurring/*` -> `RecurringRulesPage` (entrada dedicada)
+- `/profile/recurring` -> `RecurringRulesPage` (entrada a partir de Profile)
 - `/budget/:month/edit` -> `BudgetEditorPage`
 - `/profile` -> `ProfilePage` (hub)
 - `/profile/account` -> `ProfileAccountPage`
@@ -86,6 +89,14 @@ Responsabilidades:
 - guardar com `budgetApi.save`
 - manter `colorSlot` por categoria para coerencia visual entre editor e vista mensal
 
+### RecurringRulesPage
+Responsabilidades:
+- gerir regras recorrentes em ecrã dedicado
+- suportar CRUD, pausa/reativacao e geracao manual por mes
+- expor estado de saude por regra (`ok`/`fallback`)
+- permitir reatribuicao de categoria com migracao opcional de historico fallback
+- servir tanto `/profile/recurring` como `/recurring/*` (alias)
+
 ### ProfilePage
 Responsabilidades:
 - atuar como hub de configurações (`settings list`) e navegar para secções dedicadas
@@ -101,6 +112,7 @@ Responsabilidades:
 Responsabilidades:
 - alterar password
 - listar/revogar sessões
+- remover sessões já revogadas do histórico
 
 ### ProfilePreferencesPage
 Responsabilidades:
@@ -137,8 +149,12 @@ Arquivo: `app/components/tutorial-tour.tsx`
 
 Caracteristicas:
 - escopo por pagina (`month` ou `stats`)
-- inclui passos de header (conta ativa, acoes, privacidade, menu de utilizador)
+- inclui passos de header (conta ativa, acoes, privacidade, tutorial, logout)
 - inclui passos especificos da pagina
+- em `stats`, separa explicacao de:
+  - saldo do periodo
+  - breakdown do pulse
+  - bloco de analise (IA + fallback local)
 - overlay com highlight do elemento alvo
 - animacoes por fade no local (sem vir do canto)
 - delay de auto-start (feito no `layout.tsx`, 1000ms)

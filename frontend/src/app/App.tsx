@@ -9,6 +9,7 @@ import { ThemePreferencesProvider } from "./lib/theme-preferences";
 import { config } from "./lib/config";
 import { AuthPage } from "./components/auth-page";
 import { MaintenancePage } from "./components/maintenance-page";
+import { Button } from "./components/ui/button";
 import { Loader2, Smartphone, X } from "lucide-react";
 
 const DESKTOP_NOTICE_STORAGE_KEY = "finance_v2.desktop_notice_dismissed";
@@ -78,14 +79,16 @@ function AppContent() {
               <p className="text-xs text-foreground flex-1">
                 Esta app está otimizada para telemóvel. Podes continuar no desktop, mas a melhor experiência é no mobile.
               </p>
-              <button
+              <Button
                 type="button"
-                className="p-1 rounded-md text-muted-foreground hover:bg-muted"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-muted"
                 onClick={dismissDesktopNotice}
                 aria-label="Fechar aviso"
               >
                 <X className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -103,14 +106,16 @@ function AppContent() {
             <p className="text-xs text-foreground flex-1">
               Esta app está otimizada para telemóvel. Podes continuar no desktop, mas a melhor experiência é no mobile.
             </p>
-            <button
+            <Button
               type="button"
-              className="p-1 rounded-md text-muted-foreground hover:bg-muted"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-muted"
               onClick={dismissDesktopNotice}
               aria-label="Fechar aviso"
             >
               <X className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
       )}

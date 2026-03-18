@@ -4,9 +4,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const COMPONENTS_DIR = dirname(fileURLToPath(import.meta.url));
+const APP_DIR = dirname(COMPONENTS_DIR);
 
 function readComponent(relativePath: string): string {
   return readFileSync(join(COMPONENTS_DIR, relativePath), "utf8");
+}
+
+function readAppFile(relativePath: string): string {
+  return readFileSync(join(APP_DIR, relativePath), "utf8");
 }
 
 function collectRuntimeTsxFiles(dirPath: string, basePath = dirPath): string[] {
@@ -102,13 +107,13 @@ describe("UI v3 visual contracts", () => {
 
   test("no direct native button usage outside interaction primitives allowlist", () => {
     const allowList = new Set([
-      "v3/segmented-control-v3.tsx",
+      "components/v3/segmented-control-v3.tsx",
     ]);
-    const runtimeFiles = collectRuntimeTsxFiles(COMPONENTS_DIR);
+    const runtimeFiles = collectRuntimeTsxFiles(APP_DIR);
 
     for (const runtimeFile of runtimeFiles) {
       if (allowList.has(runtimeFile)) continue;
-      const source = readComponent(runtimeFile);
+      const source = readAppFile(runtimeFile);
       expect(source).not.toContain("<button");
     }
   });

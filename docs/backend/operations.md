@@ -117,6 +117,16 @@ Comportamento esperado:
 - endpoints `/stats/semester` e `/stats/year` continuam a responder `200`
 - payload de stats vem sem campo `insight` (fallback gracioso no frontend)
 
+### Exposicao de segredo detetada
+Causa:
+- chave/API token partilhado por engano em commit, log, screenshot ou canal externo.
+
+Acoes:
+- revogar/rodar imediatamente o segredo no provider;
+- atualizar variavel no ambiente de runtime;
+- reiniciar/redeploy da aplicacao;
+- rever historico de logs e acessos do periodo exposto.
+
 ## Checklist pre-producao backend
 
 - Variaveis obrigatorias em producao configuradas

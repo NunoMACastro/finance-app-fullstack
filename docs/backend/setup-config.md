@@ -72,3 +72,4 @@ Em `NODE_ENV=production`:
 
 - URI Mongo e sanitizada em logs (`***@`) para nao expor credenciais.
 - Nunca commitar `.env` com segredos.
+- Se qualquer segredo for exposto (ex: commit acidental, screenshot, log), rodar imediatamente a chave no provider e atualizar o ambiente de runtime.

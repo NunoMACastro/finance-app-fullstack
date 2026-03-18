@@ -103,6 +103,7 @@ Acoes:
 - `listSessions`
 - `revokeSession`
 - `revokeAllSessions`
+- `removeRevokedSessions`
 - `exportData`
 - `deleteMe`
 - `toggleAmountVisibility`

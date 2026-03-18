@@ -1,6 +1,6 @@
 # Documentacao do Projeto
 
-Este diretorio contem a documentacao tecnica oficial do `Finance v2` / `Pouperrimo`.
+Este diretorio contem a documentacao tecnica oficial do `Finance v2` / `Poupérrimo`.
 
 ## Mapa rapido
 

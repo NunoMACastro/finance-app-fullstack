@@ -48,6 +48,8 @@ VITE_MAINTENANCE_MESSAGE=Voltamos em breve. Obrigado pela paciencia.
 npm run dev
 npm run build
 npm run typecheck
+npm run check-theme-contract
+npm run check:tokens
 npm run lint
 npm run test
 npm run test:watch

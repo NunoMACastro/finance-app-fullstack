@@ -97,6 +97,8 @@ Campos chave:
 - `description`
 - `amount`
 - `categoryId` (index)
+- `categoryResolution` (`direct|fallback`, default `direct`)
+- `requestedCategoryId` (nullable, preenchido quando houve fallback)
 
 Indices:
 - `{ accountId: 1, month: 1 }`
@@ -128,6 +130,8 @@ Campos chave:
 - `startMonth` (index)
 - `endMonth` (nullable)
 - `active` (index)
+- `lastGenerationAt` (nullable)
+- `lastGenerationStatus` (`ok|fallback`, nullable)
 
 Indice:
 - `{ accountId: 1, active: 1, startMonth: 1 }`

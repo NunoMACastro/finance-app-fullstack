@@ -418,6 +418,9 @@ Request:
 ### DELETE `/budgets/:month/categories/:categoryId`
 Remove categoria.
 
+Nota:
+- categorias tecnicas protegidas (ex: `fallback_recurring_expense`) nao podem ser removidas; backend responde `422 BUDGET_CATEGORY_PROTECTED`.
+
 ### POST `/budgets/:month/copy-from/:sourceMonth`
 Copia apenas categorias de `sourceMonth` para `month`.
 
@@ -610,6 +613,7 @@ Requer auth + account context.
 
 ### GET `/stats/year?year=YYYY&forecastWindow=3|6&includeInsight=true|false`
 - `year` opcional.
+  - quando omitido, backend devolve janela movel dos ultimos 12 meses a terminar no mes UTC atual.
 - `forecastWindow` opcional (`3` por default).
 - `includeInsight` opcional (`true` por default).
   - `true`: tenta enriquecer com insight IA (quando OpenAI configurado).
@@ -659,6 +663,23 @@ Response `200` (`StatsSnapshot`):
       ]
     }
   ],
+  "incomeByCategory": [
+    {
+      "categoryId": "inc_1",
+      "categoryName": "Salário",
+      "amount": 9800,
+      "percent": 81.67
+    }
+  ],
+  "incomeCategorySeries": [
+    {
+      "categoryId": "inc_1",
+      "categoryName": "Salário",
+      "monthly": [
+        { "month": "2026-01", "amount": 1600 }
+      ]
+    }
+  ],
   "forecast": {
     "projectedIncome": 2200,
     "projectedExpense": 1500,
@@ -689,6 +710,29 @@ Notas:
 
 ### GET `/stats/compare-budget?from=YYYY-MM&to=YYYY-MM`
 Compara budgeted vs actual no intervalo.
+
+Response `200`:
+```json
+{
+  "from": "2026-01",
+  "to": "2026-06",
+  "totals": {
+    "budgeted": 8400,
+    "actual": 8125.5,
+    "difference": 274.5
+  },
+  "items": [
+    {
+      "categoryId": "cat1",
+      "categoryName": "Despesas",
+      "categoryKind": "expense",
+      "budgeted": 5000,
+      "actual": 5200,
+      "difference": -200
+    }
+  ]
+}
+```
 
 ## Codigos de erro comuns
 

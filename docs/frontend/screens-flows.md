@@ -74,7 +74,7 @@ Entrada secundaria:
 - hub de `Profile` via linha `Recorrências`
 
 Fluxo:
-1. abrir `/recurring`
+1. abrir `/profile/recurring` (alias suportado: `/recurring/*`)
 2. listar regras ativas/pausadas com estado de saude (`ok`/`fallback`)
 3. criar/editar/pausar/apagar regra
 4. opcionalmente executar `Gerar agora` para o mes atual
@@ -108,12 +108,12 @@ Ordenacao hibrida da lista:
 
 ### Fluxo de carregamento
 1. escolher periodo (`6M`/`12M`)
-2. chamar endpoint correspondente
-3. renderizar stack v3:
+2. pedir snapshot base (`includeInsight=false`) e renderizar imediatamente:
    - `Pulse do período` (saldo + breakdown financeiro + insight)
    - `Drivers` (top 3 categorias críticas)
    - `Tendência` (receitas/despesas/saldo)
    - `Projeção` (3M/6M + confiança)
+3. em paralelo, pedir enrichment (`includeInsight=true`) e atualizar apenas o bloco de insight quando chegar
 
 Escopo funcional v1:
 - stats são sempre da conta ativa (`account-scoped`), sem agregação global entre contas nesta vaga
@@ -148,7 +148,8 @@ Arquitetura de navegacao:
 - `/profile/account`
 - `/profile/security`
 - `/profile/preferences`
-- `/recurring` (gestao dedicada de recorrencias)
+- `/profile/recurring` (gestao dedicada de recorrencias)
+- `/recurring/*` (alias de compatibilidade para o mesmo ecrã)
 - `/profile/shared` (hub de partilha)
 - `/profile/shared/accounts`
 - `/profile/shared/create`
@@ -157,7 +158,8 @@ Arquitetura de navegacao:
 
 Fluxos:
 - Hub -> secção (tap numa linha)
-- Em cada secção, `Voltar` regressa sempre a `/profile`
+- Em subpáginas de perfil, `Voltar` regressa a `/profile`
+- Exceção: em recorrências, `Voltar` é contextual (`state.from`) e pode regressar a `/` quando entrada veio do Month
 - Em subrotas de partilha (`/profile/shared/*`), `Voltar` regressa sempre a `/profile/shared`
 - `create/join` de conta partilhada existe apenas no hub de perfil/subrotas de partilha (sem duplicação no header/shell)
 
@@ -172,6 +174,7 @@ Conteúdo por secção:
   - listar sessoes
   - revogar sessao individual
   - revogar todas as sessoes
+  - remover sessões já revogadas do histórico
 - Preferences:
   - tema (`brisa|calma|aurora|terra`)
   - ocultar valores por defeito

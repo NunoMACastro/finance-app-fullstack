@@ -32,6 +32,9 @@ npm run test
   - valida anonimização de payload para IA
   - valida parsing do output estruturado
   - valida cache key, TTL e dedupe in-flight
+- `stats-totals-breakdown.test.ts`
+  - valida calculo de `totalsBreakdown` (consumption/savings/unallocated/potentialSavings)
+  - valida taxas quando `totalIncome <= 0`
 - `recurring-due-date.test.ts`
   - valida semantica de vencimento (mes passado/atual/futuro)
   - valida clamp de dia para meses curtos
@@ -89,6 +92,7 @@ Harness partilhado:
 - stats:
   - tendencia e budgetVsActual deterministas
   - categorySeries coerente por mes
+  - totalsBreakdown coerente com totals
 
 ## Execucao em CI
 
