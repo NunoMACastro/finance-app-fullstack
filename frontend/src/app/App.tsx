@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { RouterProvider } from "react-router";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import { createAppRouter } from "./routes";
 import { AuthProvider, useAuth } from "./lib/auth-context";
 import { AccountProvider } from "./lib/account-context";
@@ -129,6 +130,7 @@ export default function App() {
         <AccountProvider>
           <AppContent />
           <Toaster position="top-center" richColors />
+          <Analytics />
         </AccountProvider>
       </ThemePreferencesProvider>
     </AuthProvider>
