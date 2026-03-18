@@ -173,18 +173,27 @@ export function StatsPage() {
   }, [model, user]);
 
   const periodLabel = period === "semester" ? "Últimos 6 meses" : "Últimos 12 meses";
-  const budgetDeltaLabel =
-    model && model.budgetDelta < 0
-      ? "Ultrapassagem no orçamento"
-      : model && model.budgetDelta > 0
-        ? "Margem no orçamento"
-        : "Alinhado com orçamento";
-  const budgetDeltaDisplay =
-    model && model.budgetDelta < 0
-      ? formatCurrency(Math.abs(model.budgetDelta))
+  const budgetAdherenceLabel = "Aderência ao orçamento";
+  const budgetAdherenceDisplay =
+    model && model.budgetedTotal > 0
+      ? formatPercent(model.budgetAdherenceRate)
+      : "n/d";
+  const unallocatedLabel =
+    model && model.unallocated < 0 ? "Valor em falta" : "Valor por alocar";
+  const unallocatedDisplay =
+    model && model.unallocated < 0
+      ? formatCurrency(Math.abs(model.unallocated))
       : model
-        ? formatCurrency(model.budgetDelta)
+        ? formatCurrency(model.unallocated)
         : formatCurrency(0);
+  const unallocatedRateLabel =
+    model && model.unallocatedRate < 0 ? "Taxa em falta" : "Taxa por alocar";
+  const unallocatedRateDisplay =
+    model && model.unallocatedRate < 0
+      ? formatPercent(Math.abs(model.unallocatedRate))
+      : model
+        ? formatPercent(model.unallocatedRate)
+        : formatPercent(0);
   const aiInsightText = snapshot?.insight?.text
     ? mapInsightAliasesToCategoryNames(snapshot, snapshot.insight.text)
     : null;
@@ -280,10 +289,16 @@ export function StatsPage() {
         periodLabel={periodLabel}
         totalBalance={formatCurrency(model.totalBalance)}
         totalIncome={formatCurrency(model.totalIncome)}
-        totalExpense={formatCurrency(model.totalExpense)}
-        budgetDeltaLabel={budgetDeltaLabel}
-        budgetDelta={budgetDeltaDisplay}
+        totalConsumption={formatCurrency(model.consumption)}
+        totalSavings={formatCurrency(model.savings)}
+        unallocatedLabel={unallocatedLabel}
+        unallocatedValue={unallocatedDisplay}
+        budgetAdherenceLabel={budgetAdherenceLabel}
+        budgetAdherence={budgetAdherenceDisplay}
         savingsRate={formatPercent(model.savingsRate)}
+        unallocatedRateLabel={unallocatedRateLabel}
+        unallocatedRate={unallocatedRateDisplay}
+        potentialSavings={formatCurrency(model.potentialSavings)}
         budgetUsePercent={model.budgetUsePercent}
         pulseTone={model.pulseTone}
         insight={insightMessage}

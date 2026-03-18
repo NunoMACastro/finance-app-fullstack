@@ -38,15 +38,41 @@ vi.mock("react-router", async () => {
 
 import { StatsPage } from "./stats-page";
 
-function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450, insightText?: string) {
+function buildSnapshot(
+  windowMonths: 3 | 6,
+  expenseActual = 2400,
+  insightText?: string,
+  overrides?: { totalsBreakdown?: { unallocated: number; unallocatedRate: number } },
+) {
   const forecastConfidence = windowMonths === 3 ? "high" : "medium";
+  const totalIncome = 6000;
+  const savingsActual = 600;
+  const leisureActual = 600;
+  const consumptionActual = expenseActual + leisureActual;
+  const totalExpense = consumptionActual + savingsActual;
+  const unallocated = overrides?.totalsBreakdown?.unallocated ?? totalIncome - totalExpense;
+  const unallocatedRate =
+    overrides?.totalsBreakdown?.unallocatedRate ?? (totalIncome > 0 ? (unallocated / totalIncome) * 100 : 0);
+  const potentialSavings = savingsActual + Math.max(unallocated, 0);
+
   return {
     periodType: "semester" as const,
     periodKey: "2026-S1",
     totals: {
-      totalIncome: 6000,
-      totalExpense: 3600,
-      balance: 2400,
+      totalIncome,
+      totalExpense,
+      balance: totalIncome - totalExpense,
+    },
+    totalsBreakdown: {
+      consumption: consumptionActual,
+      savings: savingsActual,
+      unallocated,
+      potentialSavings,
+      rates: {
+        savings: totalIncome > 0 ? (savingsActual / totalIncome) * 100 : 0,
+        unallocated: unallocatedRate,
+        potentialSavings: totalIncome > 0 ? (potentialSavings / totalIncome) * 100 : 0,
+      },
     },
     trend: [
       { month: "2026-01", income: 1800, expense: 1200, balance: 600 },
@@ -57,16 +83,26 @@ function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450, insightText?: s
       {
         categoryId: "cat1",
         categoryName: "Despesas",
-        budgeted: 1200,
+        categoryKind: "expense" as const,
+        budgeted: 2600,
         actual: expenseActual,
-        difference: 1200 - expenseActual,
+        difference: 2600 - expenseActual,
       },
       {
         categoryId: "cat2",
         categoryName: "Lazer",
-        budgeted: 400,
-        actual: 390,
-        difference: 10,
+        categoryKind: "expense" as const,
+        budgeted: 700,
+        actual: leisureActual,
+        difference: 700 - leisureActual,
+      },
+      {
+        categoryId: "cat3",
+        categoryName: "Poupanca",
+        categoryKind: "reserve" as const,
+        budgeted: 500,
+        actual: savingsActual,
+        difference: 500 - savingsActual,
       },
     ],
     categorySeries: [
@@ -83,9 +119,18 @@ function buildSnapshot(windowMonths: 3 | 6, expenseActual = 450, insightText?: s
         categoryId: "cat2",
         categoryName: "Lazer",
         monthly: [
-          { month: "2026-01", budgeted: 130, actual: 110 },
-          { month: "2026-02", budgeted: 130, actual: 140 },
-          { month: "2026-03", budgeted: 140, actual: 140 },
+          { month: "2026-01", budgeted: 220, actual: 190 },
+          { month: "2026-02", budgeted: 230, actual: 200 },
+          { month: "2026-03", budgeted: 250, actual: 210 },
+        ],
+      },
+      {
+        categoryId: "cat3",
+        categoryName: "Poupanca",
+        monthly: [
+          { month: "2026-01", budgeted: 150, actual: 180 },
+          { month: "2026-02", budgeted: 170, actual: 200 },
+          { month: "2026-03", budgeted: 180, actual: 220 },
         ],
       },
     ],
@@ -164,6 +209,13 @@ describe("StatsPage", () => {
       expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 6, { includeInsight: false });
     });
 
+    expect(screen.getByText("Consumo")).toBeInTheDocument();
+    expect(screen.getByText("Poupanças")).toBeInTheDocument();
+    expect(screen.getByText("Valor por alocar")).toBeInTheDocument();
+    expect(screen.getByText("Aderência ao orçamento")).toBeInTheDocument();
+    expect(screen.getByText("Taxa por alocar")).toBeInTheDocument();
+    expect(screen.getByText("Poupança total potencial")).toBeInTheDocument();
+
     expect(screen.getByText("Confiança média: dados limitados (3/6 meses).")).toBeInTheDocument();
   });
 
@@ -204,5 +256,16 @@ describe("StatsPage", () => {
         "As despesas de Despesas subiram 12%. Ajusta o teto semanal para recuperar margem.",
       ),
     ).toBeInTheDocument();
+  });
+
+  test("shows deficit labels when unallocated is negative", async () => {
+    statsApiMocks.getSemester
+      .mockResolvedValueOnce(buildSnapshot(3, 5000, undefined, { totalsBreakdown: { unallocated: -200, unallocatedRate: -3.33 } }))
+      .mockResolvedValueOnce(buildSnapshot(3, 5000, undefined, { totalsBreakdown: { unallocated: -200, unallocatedRate: -3.33 } }));
+
+    render(<StatsPage />);
+
+    expect(await screen.findByText("Valor em falta")).toBeInTheDocument();
+    expect(screen.getByText("Taxa em falta")).toBeInTheDocument();
   });
 });

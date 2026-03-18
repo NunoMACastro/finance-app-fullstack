@@ -26,10 +26,16 @@ export function StatsPulsePanel({
   periodLabel,
   totalBalance,
   totalIncome,
-  totalExpense,
-  budgetDeltaLabel,
-  budgetDelta,
+  totalConsumption,
+  totalSavings,
+  unallocatedLabel,
+  unallocatedValue,
+  budgetAdherenceLabel,
+  budgetAdherence,
   savingsRate,
+  unallocatedRateLabel,
+  unallocatedRate,
+  potentialSavings,
   budgetUsePercent,
   pulseTone,
   insight,
@@ -38,10 +44,16 @@ export function StatsPulsePanel({
   periodLabel: string;
   totalBalance: string;
   totalIncome: string;
-  totalExpense: string;
-  budgetDeltaLabel: string;
-  budgetDelta: string;
+  totalConsumption: string;
+  totalSavings: string;
+  unallocatedLabel: string;
+  unallocatedValue: string;
+  budgetAdherenceLabel: string;
+  budgetAdherence: string;
   savingsRate: string;
+  unallocatedRateLabel: string;
+  unallocatedRate: string;
+  potentialSavings: string;
   budgetUsePercent: number;
   pulseTone: StatsPulseTone;
   insight: string;
@@ -61,7 +73,7 @@ export function StatsPulsePanel({
       className="space-y-4"
       data-tour="stats-pulse"
     >
-      <div className="text-center">
+      <div className="text-center" data-tour="stats-pulse-balance">
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Pulse do período</p>
         <p className="mt-1 text-[11px] text-muted-foreground">{periodLabel}</p>
         <p className="mt-3 text-sm text-muted-foreground">Saldo do período</p>
@@ -75,26 +87,42 @@ export function StatsPulsePanel({
         />
       </div>
 
-      <div className="divide-y divide-border/60 border-y border-border/60">
+      <div className="divide-y divide-border/60 border-y border-border/60" data-tour="stats-pulse-breakdown">
         <div className="flex items-center justify-between gap-3 py-2.5">
           <span className="text-sm text-muted-foreground">Receitas</span>
           <span className="text-sm tabular-nums text-foreground">{totalIncome}</span>
         </div>
         <div className="flex items-center justify-between gap-3 py-2.5">
-          <span className="text-sm text-muted-foreground">Despesas</span>
-          <span className="text-sm tabular-nums text-foreground">{totalExpense}</span>
+          <span className="text-sm text-muted-foreground">Consumo</span>
+          <span className="text-sm tabular-nums text-foreground">{totalConsumption}</span>
         </div>
         <div className="flex items-center justify-between gap-3 py-2.5">
-          <span className="text-sm text-muted-foreground">{budgetDeltaLabel}</span>
-          <span className={`text-sm tabular-nums ${toneTextClass(pulseTone)}`}>{budgetDelta}</span>
+          <span className="text-sm text-muted-foreground">Poupanças</span>
+          <span className="text-sm tabular-nums text-foreground">{totalSavings}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <span className="text-sm text-muted-foreground">{unallocatedLabel}</span>
+          <span className="text-sm tabular-nums text-foreground">{unallocatedValue}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <span className="text-sm text-muted-foreground">{budgetAdherenceLabel}</span>
+          <span className={`text-sm tabular-nums ${toneTextClass(pulseTone)}`}>{budgetAdherence}</span>
         </div>
         <div className="flex items-center justify-between gap-3 py-2.5">
           <span className="text-sm text-muted-foreground">Taxa de poupança</span>
           <span className="text-sm tabular-nums text-foreground">{savingsRate}</span>
         </div>
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <span className="text-sm text-muted-foreground">{unallocatedRateLabel}</span>
+          <span className="text-sm tabular-nums text-foreground">{unallocatedRate}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <span className="text-sm text-muted-foreground">Poupança total potencial</span>
+          <span className="text-sm tabular-nums text-foreground">{potentialSavings}</span>
+        </div>
       </div>
 
-      <div className={`rounded-xl px-3 py-2 ${toneSoftClass(pulseTone)}`}>
+      <div className={`rounded-xl px-3 py-2 ${toneSoftClass(pulseTone)}`} data-tour="stats-pulse-insight">
         <p className={`flex items-center gap-2 text-sm ${toneTextClass(pulseTone)}`}>
           <Icon className="h-4 w-4 shrink-0" />
           {insightLoading ? (

@@ -16,9 +16,9 @@ import { TransactionModel } from "../models/transaction.model.js";
 import { UserModel } from "../models/user.model.js";
 import { materializeCurrentSnapshots } from "../modules/stats/service.js";
 
-type ThemePalette = "brisa" | "calma" | "aurora" | "terra";
 type BudgetCategoryKind = "expense" | "reserve";
 type TransactionType = "income" | "expense";
+type TransactionOrigin = "manual" | "recurring";
 
 interface BudgetCategorySeed {
   id: string;
@@ -28,38 +28,49 @@ interface BudgetCategorySeed {
   kind: BudgetCategoryKind;
 }
 
-interface SeedAccountActivityInput {
+interface IncomeCategorySeedDoc {
+  _id: Types.ObjectId;
   accountId: Types.ObjectId;
-  actorUserId: Types.ObjectId;
-  months: string[];
-  incomeDefaultCategoryId: Types.ObjectId;
-  incomeSalaryCategoryId: Types.ObjectId;
-  incomeExtraCategoryId: Types.ObjectId;
-  salaryRuleName: string;
-  salaryBase: number;
-  salaryStep: number;
-  fixedExpenseRuleName: string;
-  fixedExpenseBase: number;
-  fixedExpenseStep: number;
-  fixedExpenseCategoryId: string;
-  groceriesCategoryId: string;
-  mobilityCategoryId: string;
-  leisureCategoryId: string;
-  manualExpenseBase: number;
-  extraIncomeLabel: string;
-  extraIncomeBase: number;
+  name: string;
+  nameNormalized: string;
+  active: boolean;
+  isDefault: boolean;
 }
 
-interface SeedUser {
-  id: Types.ObjectId;
-  personalAccountId: Types.ObjectId;
+interface RecurringRuleSeedDoc {
+  _id: Types.ObjectId;
+  accountId: Types.ObjectId;
+  userId: Types.ObjectId;
+  type: TransactionType;
   name: string;
-  email: string;
-  currency: string;
-  themePalette: ThemePalette;
-  hideAmountsByDefault: boolean;
-  tutorialSeenAt: Date | null;
+  amount: number;
+  dayOfMonth: number;
+  categoryId: string;
+  startMonth: string;
+  endMonth: string | null;
+  active: boolean;
+  lastGenerationAt: Date | null;
+  lastGenerationStatus: "ok" | "fallback" | null;
 }
+
+interface TransactionSeedDoc {
+  accountId: Types.ObjectId;
+  userId: Types.ObjectId;
+  month: string;
+  date: Date;
+  type: TransactionType;
+  origin: TransactionOrigin;
+  recurringRuleId: Types.ObjectId | null;
+  description: string;
+  amount: number;
+  categoryId: string;
+  categoryResolution: "direct" | "fallback";
+  requestedCategoryId: string | null;
+}
+
+const SEED_EMAIL = "nunomacastro@gmail.com";
+const SEED_PASSWORD = "123456";
+const RECURRING_EXPENSE_FALLBACK_CATEGORY_ID = "fallback_recurring_expense";
 
 function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100;
@@ -95,14 +106,7 @@ async function clearDatabaseCollections(): Promise<void> {
 }
 
 function addIncomeCategory(
-  docs: Array<{
-    _id: Types.ObjectId;
-    accountId: Types.ObjectId;
-    name: string;
-    nameNormalized: string;
-    active: boolean;
-    isDefault: boolean;
-  }>,
+  docs: IncomeCategorySeedDoc[],
   accountId: Types.ObjectId,
   name: string,
   options?: { active?: boolean; isDefault?: boolean },
@@ -119,187 +123,36 @@ function addIncomeCategory(
   return id;
 }
 
-function seedAccountActivity(
-  input: SeedAccountActivityInput,
-  recurringRules: Array<{
-    _id: Types.ObjectId;
-    accountId: Types.ObjectId;
-    userId: Types.ObjectId;
-    type: TransactionType;
-    name: string;
-    amount: number;
-    dayOfMonth: number;
-    categoryId: string;
-    startMonth: string;
-    endMonth: string | null;
-    active: boolean;
-  }>,
-  transactions: Array<{
+function pushRecurringTransaction(
+  transactions: TransactionSeedDoc[],
+  input: {
     accountId: Types.ObjectId;
     userId: Types.ObjectId;
     month: string;
-    date: Date;
+    day: number;
     type: TransactionType;
-    origin: "manual" | "recurring";
+    origin: TransactionOrigin;
     recurringRuleId: Types.ObjectId | null;
     description: string;
     amount: number;
     categoryId: string;
-  }>,
+    categoryResolution?: "direct" | "fallback";
+    requestedCategoryId?: string | null;
+  },
 ): void {
-  const firstMonth = input.months[0];
-  if (!firstMonth) {
-    throw new Error("No months provided for seed activity");
-  }
-
-  const salaryRuleId = new Types.ObjectId();
-  const fixedExpenseRuleId = new Types.ObjectId();
-  const archivedRuleId = new Types.ObjectId();
-
-  recurringRules.push(
-    {
-      _id: salaryRuleId,
-      accountId: input.accountId,
-      userId: input.actorUserId,
-      type: "income",
-      name: input.salaryRuleName,
-      amount: input.salaryBase,
-      dayOfMonth: 1,
-      categoryId: input.incomeSalaryCategoryId.toString(),
-      startMonth: firstMonth,
-      endMonth: null,
-      active: true,
-    },
-    {
-      _id: fixedExpenseRuleId,
-      accountId: input.accountId,
-      userId: input.actorUserId,
-      type: "expense",
-      name: input.fixedExpenseRuleName,
-      amount: input.fixedExpenseBase,
-      dayOfMonth: 5,
-      categoryId: input.fixedExpenseCategoryId,
-      startMonth: firstMonth,
-      endMonth: null,
-      active: true,
-    },
-    {
-      _id: archivedRuleId,
-      accountId: input.accountId,
-      userId: input.actorUserId,
-      type: "expense",
-      name: "Regra antiga (inativa)",
-      amount: 25,
-      dayOfMonth: 27,
-      categoryId: input.leisureCategoryId,
-      startMonth: shiftMonth(firstMonth, -2),
-      endMonth: shiftMonth(firstMonth, -1),
-      active: false,
-    },
-  );
-
-  input.months.forEach((month, index) => {
-    const salaryAmount = roundCurrency(input.salaryBase + input.salaryStep * index);
-    const fixedExpenseAmount = roundCurrency(input.fixedExpenseBase + input.fixedExpenseStep * index);
-    const groceriesAmount = roundCurrency(input.manualExpenseBase + index * 7);
-    const mobilityAmount = roundCurrency(input.manualExpenseBase * 0.58 + index * 3);
-    const leisureAmount = roundCurrency(input.manualExpenseBase * 0.42 + (index % 3) * 9);
-
-    transactions.push(
-      {
-        accountId: input.accountId,
-        userId: input.actorUserId,
-        month,
-        date: dateForMonth(month, 1),
-        type: "income",
-        origin: "recurring",
-        recurringRuleId: salaryRuleId,
-        description: input.salaryRuleName,
-        amount: salaryAmount,
-        categoryId: input.incomeSalaryCategoryId.toString(),
-      },
-      {
-        accountId: input.accountId,
-        userId: input.actorUserId,
-        month,
-        date: dateForMonth(month, 5),
-        type: "expense",
-        origin: "recurring",
-        recurringRuleId: fixedExpenseRuleId,
-        description: input.fixedExpenseRuleName,
-        amount: fixedExpenseAmount,
-        categoryId: input.fixedExpenseCategoryId,
-      },
-      {
-        accountId: input.accountId,
-        userId: input.actorUserId,
-        month,
-        date: dateForMonth(month, 9),
-        type: "expense",
-        origin: "manual",
-        recurringRuleId: null,
-        description: "Supermercado",
-        amount: groceriesAmount,
-        categoryId: input.groceriesCategoryId,
-      },
-      {
-        accountId: input.accountId,
-        userId: input.actorUserId,
-        month,
-        date: dateForMonth(month, 14),
-        type: "expense",
-        origin: "manual",
-        recurringRuleId: null,
-        description: "Transportes",
-        amount: mobilityAmount,
-        categoryId: input.mobilityCategoryId,
-      },
-      {
-        accountId: input.accountId,
-        userId: input.actorUserId,
-        month,
-        date: dateForMonth(month, 20),
-        type: "expense",
-        origin: "manual",
-        recurringRuleId: null,
-        description: "Lazer",
-        amount: leisureAmount,
-        categoryId: input.leisureCategoryId,
-      },
-    );
-
-    if (index % 2 === 0) {
-      transactions.push({
-        accountId: input.accountId,
-        userId: input.actorUserId,
-        month,
-        date: dateForMonth(month, 18),
-        type: "income",
-        origin: "manual",
-        recurringRuleId: null,
-        description: input.extraIncomeLabel,
-        amount: roundCurrency(input.extraIncomeBase + index * 45),
-        categoryId: input.incomeExtraCategoryId.toString(),
-      });
-    }
-  });
-
-  const latestMonth = input.months[input.months.length - 1];
-  if (!latestMonth) {
-    throw new Error("No latest month found for account seed activity");
-  }
-
   transactions.push({
     accountId: input.accountId,
-    userId: input.actorUserId,
-    month: latestMonth,
-    date: dateForMonth(latestMonth, 26),
-    type: "income",
-    origin: "manual",
-    recurringRuleId: null,
-    description: "Acerto pontual",
-    amount: 95,
-    categoryId: input.incomeDefaultCategoryId.toString(),
+    userId: input.userId,
+    month: input.month,
+    date: dateForMonth(input.month, input.day),
+    type: input.type,
+    origin: input.origin,
+    recurringRuleId: input.recurringRuleId,
+    description: input.description,
+    amount: roundCurrency(input.amount),
+    categoryId: input.categoryId,
+    categoryResolution: input.categoryResolution ?? "direct",
+    requestedCategoryId: input.requestedCategoryId ?? null,
   });
 }
 
@@ -308,7 +161,7 @@ async function run(): Promise<void> {
 
   const now = new Date();
   const currentMonth = monthFromDate(now);
-  const months = lastNMonthsEndingAt(currentMonth, 6);
+  const months = lastNMonthsEndingAt(currentMonth, 12);
   const firstMonth = months[0];
   if (!firstMonth) {
     throw new Error("Could not determine first month for seed");
@@ -316,357 +169,438 @@ async function run(): Promise<void> {
 
   await clearDatabaseCollections();
 
-  const sharedPasswordHash = await hashPassword("123456");
-
-  const userAnaId = new Types.ObjectId();
-  const userBrunoId = new Types.ObjectId();
-  const userCarlaId = new Types.ObjectId();
-
-  const accountAnaPersonalId = new Types.ObjectId();
-  const accountBrunoPersonalId = new Types.ObjectId();
-  const accountCarlaPersonalId = new Types.ObjectId();
-  const accountSharedHomeId = new Types.ObjectId();
-  const accountSharedTripId = new Types.ObjectId();
-
-  const users: SeedUser[] = [
-    {
-      id: userAnaId,
-      personalAccountId: accountAnaPersonalId,
-      name: "Ana Martins",
-      email: "ana.seed@finance.local",
-      currency: "EUR",
-      themePalette: "brisa",
-      hideAmountsByDefault: false,
-      tutorialSeenAt: new Date("2026-02-10T08:00:00.000Z"),
-    },
-    {
-      id: userBrunoId,
-      personalAccountId: accountBrunoPersonalId,
-      name: "Bruno Silva",
-      email: "bruno.seed@finance.local",
-      currency: "EUR",
-      themePalette: "calma",
-      hideAmountsByDefault: true,
-      tutorialSeenAt: null,
-    },
-    {
-      id: userCarlaId,
-      personalAccountId: accountCarlaPersonalId,
-      name: "Carla Sousa",
-      email: "carla.seed@finance.local",
-      currency: "EUR",
-      themePalette: "aurora",
-      hideAmountsByDefault: false,
-      tutorialSeenAt: new Date("2026-01-20T09:30:00.000Z"),
-    },
-  ];
+  const userId = new Types.ObjectId();
+  const personalAccountId = new Types.ObjectId();
+  const sharedAccountId = new Types.ObjectId();
 
   await AccountModel.insertMany([
     {
-      _id: accountAnaPersonalId,
-      name: "Ana Martins (Pessoal)",
+      _id: personalAccountId,
+      name: "Nuno Castro (Pessoal)",
       type: "personal",
-      createdByUserId: userAnaId,
+      createdByUserId: userId,
     },
     {
-      _id: accountBrunoPersonalId,
-      name: "Bruno Silva (Pessoal)",
-      type: "personal",
-      createdByUserId: userBrunoId,
-    },
-    {
-      _id: accountCarlaPersonalId,
-      name: "Carla Sousa (Pessoal)",
-      type: "personal",
-      createdByUserId: userCarlaId,
-    },
-    {
-      _id: accountSharedHomeId,
-      name: "Casa & Familia",
+      _id: sharedAccountId,
+      name: "Casa Nuno",
       type: "shared",
-      createdByUserId: userAnaId,
-    },
-    {
-      _id: accountSharedTripId,
-      name: "Roadtrip Verao 2026",
-      type: "shared",
-      createdByUserId: userBrunoId,
+      createdByUserId: userId,
     },
   ]);
 
-  await UserModel.insertMany(
-    users.map((user) => ({
-      _id: user.id,
-      email: user.email,
-      passwordHash: sharedPasswordHash,
-      profile: {
-        name: user.name,
-        currency: user.currency,
-      },
-      preferences: {
-        themePalette: user.themePalette,
-        hideAmountsByDefault: user.hideAmountsByDefault,
-      },
-      tutorialSeenAt: user.tutorialSeenAt,
-      status: "active",
-      deletedAt: null,
-      personalAccountId: user.personalAccountId,
-    })),
-  );
+  await UserModel.create({
+    _id: userId,
+    email: SEED_EMAIL,
+    passwordHash: await hashPassword(SEED_PASSWORD),
+    profile: {
+      name: "Nuno Castro",
+      currency: "EUR",
+    },
+    preferences: {
+      themePalette: "brisa",
+      hideAmountsByDefault: false,
+    },
+    tutorialSeenAt: new Date("2026-03-01T10:00:00.000Z"),
+    status: "active",
+    deletedAt: null,
+    personalAccountId,
+  });
 
   await AccountMembershipModel.insertMany([
-    { accountId: accountAnaPersonalId, userId: userAnaId, role: "owner", status: "active", leftAt: null },
-    { accountId: accountBrunoPersonalId, userId: userBrunoId, role: "owner", status: "active", leftAt: null },
-    { accountId: accountCarlaPersonalId, userId: userCarlaId, role: "owner", status: "active", leftAt: null },
-    { accountId: accountSharedHomeId, userId: userAnaId, role: "owner", status: "active", leftAt: null },
-    { accountId: accountSharedHomeId, userId: userBrunoId, role: "editor", status: "active", leftAt: null },
-    { accountId: accountSharedHomeId, userId: userCarlaId, role: "viewer", status: "active", leftAt: null },
-    { accountId: accountSharedTripId, userId: userBrunoId, role: "owner", status: "active", leftAt: null },
-    { accountId: accountSharedTripId, userId: userAnaId, role: "editor", status: "active", leftAt: null },
     {
-      accountId: accountSharedTripId,
-      userId: userCarlaId,
-      role: "viewer",
-      status: "inactive",
-      leftAt: new Date("2026-02-01T10:00:00.000Z"),
+      accountId: personalAccountId,
+      userId,
+      role: "owner",
+      status: "active",
+      leftAt: null,
+    },
+    {
+      accountId: sharedAccountId,
+      userId,
+      role: "owner",
+      status: "active",
+      leftAt: null,
     },
   ]);
 
-  const incomeCategoryDocs: Array<{
-    _id: Types.ObjectId;
-    accountId: Types.ObjectId;
-    name: string;
-    nameNormalized: string;
-    active: boolean;
-    isDefault: boolean;
-  }> = [];
+  const incomeCategoryDocs: IncomeCategorySeedDoc[] = [];
 
-  const anaPersonalIncomeDefaultId = addIncomeCategory(
-    incomeCategoryDocs,
-    accountAnaPersonalId,
-    "Outras receitas",
-    { isDefault: true },
-  );
-  const anaPersonalIncomeSalaryId = addIncomeCategory(incomeCategoryDocs, accountAnaPersonalId, "Salario");
-  const anaPersonalIncomeExtraId = addIncomeCategory(incomeCategoryDocs, accountAnaPersonalId, "Freelance");
-  addIncomeCategory(incomeCategoryDocs, accountAnaPersonalId, "Bonus antigo", { active: false });
+  const personalIncomeDefaultId = addIncomeCategory(incomeCategoryDocs, personalAccountId, "Outras receitas", {
+    isDefault: true,
+  });
+  const personalIncomeSalaryId = addIncomeCategory(incomeCategoryDocs, personalAccountId, "Salario");
+  const personalIncomeFreelanceId = addIncomeCategory(incomeCategoryDocs, personalAccountId, "Freelance");
+  addIncomeCategory(incomeCategoryDocs, personalAccountId, "Bonus antigo", { active: false });
 
-  const brunoPersonalIncomeDefaultId = addIncomeCategory(
-    incomeCategoryDocs,
-    accountBrunoPersonalId,
-    "Outras receitas",
-    { isDefault: true },
-  );
-  const brunoPersonalIncomeSalaryId = addIncomeCategory(incomeCategoryDocs, accountBrunoPersonalId, "Salario");
-  const brunoPersonalIncomeExtraId = addIncomeCategory(incomeCategoryDocs, accountBrunoPersonalId, "Consultoria");
-  addIncomeCategory(incomeCategoryDocs, accountBrunoPersonalId, "Comissoes antigas", { active: false });
-
-  const carlaPersonalIncomeDefaultId = addIncomeCategory(
-    incomeCategoryDocs,
-    accountCarlaPersonalId,
-    "Outras receitas",
-    { isDefault: true },
-  );
-  const carlaPersonalIncomeSalaryId = addIncomeCategory(incomeCategoryDocs, accountCarlaPersonalId, "Salario");
-  const carlaPersonalIncomeExtraId = addIncomeCategory(incomeCategoryDocs, accountCarlaPersonalId, "Aulas");
-  addIncomeCategory(incomeCategoryDocs, accountCarlaPersonalId, "Projetos antigos", { active: false });
-
-  const sharedHomeIncomeDefaultId = addIncomeCategory(
-    incomeCategoryDocs,
-    accountSharedHomeId,
-    "Outras receitas",
-    { isDefault: true },
-  );
-  const sharedHomeIncomeSalaryId = addIncomeCategory(incomeCategoryDocs, accountSharedHomeId, "Salarios");
-  const sharedHomeIncomeExtraId = addIncomeCategory(incomeCategoryDocs, accountSharedHomeId, "Reembolsos");
-  addIncomeCategory(incomeCategoryDocs, accountSharedHomeId, "Vendidos em segunda mao");
-
-  const sharedTripIncomeDefaultId = addIncomeCategory(
-    incomeCategoryDocs,
-    accountSharedTripId,
-    "Outras receitas",
-    { isDefault: true },
-  );
-  const sharedTripIncomeSalaryId = addIncomeCategory(incomeCategoryDocs, accountSharedTripId, "Poupanca viagem");
-  const sharedTripIncomeExtraId = addIncomeCategory(incomeCategoryDocs, accountSharedTripId, "Acertos");
-  addIncomeCategory(incomeCategoryDocs, accountSharedTripId, "Patrocinios", { active: false });
+  const sharedIncomeDefaultId = addIncomeCategory(incomeCategoryDocs, sharedAccountId, "Outras receitas", {
+    isDefault: true,
+  });
+  const sharedIncomeContributionId = addIncomeCategory(incomeCategoryDocs, sharedAccountId, "Contribuicao mensal");
+  const sharedIncomeReimburseId = addIncomeCategory(incomeCategoryDocs, sharedAccountId, "Reembolsos");
+  addIncomeCategory(incomeCategoryDocs, sharedAccountId, "Transferencias antigas", { active: false });
 
   await IncomeCategoryModel.insertMany(incomeCategoryDocs);
 
-  const recurringRules: Array<{
-    _id: Types.ObjectId;
-    accountId: Types.ObjectId;
-    userId: Types.ObjectId;
-    type: TransactionType;
-    name: string;
-    amount: number;
-    dayOfMonth: number;
-    categoryId: string;
-    startMonth: string;
-    endMonth: string | null;
-    active: boolean;
-  }> = [];
+  const recurringRules: RecurringRuleSeedDoc[] = [];
 
-  const transactions: Array<{
-    accountId: Types.ObjectId;
-    userId: Types.ObjectId;
-    month: string;
-    date: Date;
-    type: TransactionType;
-    origin: "manual" | "recurring";
-    recurringRuleId: Types.ObjectId | null;
-    description: string;
-    amount: number;
-    categoryId: string;
-  }> = [];
+  const personalSalaryRuleId = new Types.ObjectId();
+  const personalRentRuleId = new Types.ObjectId();
+  const personalSubscriptionRuleId = new Types.ObjectId();
+  const personalInactiveRuleId = new Types.ObjectId();
+  const sharedContributionRuleId = new Types.ObjectId();
+  const sharedUtilitiesRuleId = new Types.ObjectId();
 
-  seedAccountActivity(
+  recurringRules.push(
     {
-      accountId: accountAnaPersonalId,
-      actorUserId: userAnaId,
-      months,
-      incomeDefaultCategoryId: anaPersonalIncomeDefaultId,
-      incomeSalaryCategoryId: anaPersonalIncomeSalaryId,
-      incomeExtraCategoryId: anaPersonalIncomeExtraId,
-      salaryRuleName: "Salario Ana",
-      salaryBase: 2200,
-      salaryStep: 45,
-      fixedExpenseRuleName: "Renda casa Ana",
-      fixedExpenseBase: 780,
-      fixedExpenseStep: 5,
-      fixedExpenseCategoryId: "cat_habitacao",
-      groceriesCategoryId: "cat_mercado",
-      mobilityCategoryId: "cat_mobilidade",
-      leisureCategoryId: "cat_lazer",
-      manualExpenseBase: 300,
-      extraIncomeLabel: "Projeto freelance",
-      extraIncomeBase: 340,
+      _id: personalSalaryRuleId,
+      accountId: personalAccountId,
+      userId,
+      type: "income",
+      name: "Salario",
+      amount: 2950,
+      dayOfMonth: 1,
+      categoryId: personalIncomeSalaryId.toString(),
+      startMonth: firstMonth,
+      endMonth: null,
+      active: true,
+      lastGenerationAt: dateForMonth(currentMonth, 1),
+      lastGenerationStatus: "ok",
     },
-    recurringRules,
-    transactions,
-  );
-
-  seedAccountActivity(
     {
-      accountId: accountBrunoPersonalId,
-      actorUserId: userBrunoId,
-      months,
-      incomeDefaultCategoryId: brunoPersonalIncomeDefaultId,
-      incomeSalaryCategoryId: brunoPersonalIncomeSalaryId,
-      incomeExtraCategoryId: brunoPersonalIncomeExtraId,
-      salaryRuleName: "Salario Bruno",
-      salaryBase: 2500,
-      salaryStep: 35,
-      fixedExpenseRuleName: "Prestacao carro",
-      fixedExpenseBase: 360,
-      fixedExpenseStep: 2,
-      fixedExpenseCategoryId: "cat_mobilidade",
-      groceriesCategoryId: "cat_mercado",
-      mobilityCategoryId: "cat_mobilidade",
-      leisureCategoryId: "cat_lazer",
-      manualExpenseBase: 260,
-      extraIncomeLabel: "Consultoria",
-      extraIncomeBase: 280,
+      _id: personalRentRuleId,
+      accountId: personalAccountId,
+      userId,
+      type: "expense",
+      name: "Renda",
+      amount: 920,
+      dayOfMonth: 5,
+      categoryId: "cat_habitacao",
+      startMonth: firstMonth,
+      endMonth: null,
+      active: true,
+      lastGenerationAt: dateForMonth(currentMonth, 5),
+      lastGenerationStatus: "ok",
     },
-    recurringRules,
-    transactions,
-  );
-
-  seedAccountActivity(
     {
-      accountId: accountCarlaPersonalId,
-      actorUserId: userCarlaId,
-      months,
-      incomeDefaultCategoryId: carlaPersonalIncomeDefaultId,
-      incomeSalaryCategoryId: carlaPersonalIncomeSalaryId,
-      incomeExtraCategoryId: carlaPersonalIncomeExtraId,
-      salaryRuleName: "Salario Carla",
-      salaryBase: 1850,
-      salaryStep: 30,
-      fixedExpenseRuleName: "Renda quarto",
-      fixedExpenseBase: 520,
-      fixedExpenseStep: 4,
-      fixedExpenseCategoryId: "cat_habitacao",
-      groceriesCategoryId: "cat_mercado",
-      mobilityCategoryId: "cat_mobilidade",
-      leisureCategoryId: "cat_lazer",
-      manualExpenseBase: 190,
-      extraIncomeLabel: "Aulas particulares",
-      extraIncomeBase: 160,
+      _id: personalSubscriptionRuleId,
+      accountId: personalAccountId,
+      userId,
+      type: "expense",
+      name: "Subscricoes digitais",
+      amount: 29.99,
+      dayOfMonth: 12,
+      categoryId: "cat_subscriptions",
+      startMonth: firstMonth,
+      endMonth: null,
+      active: true,
+      lastGenerationAt: dateForMonth(currentMonth, 12),
+      lastGenerationStatus: "fallback",
     },
-    recurringRules,
-    transactions,
-  );
-
-  seedAccountActivity(
     {
-      accountId: accountSharedHomeId,
-      actorUserId: userAnaId,
-      months,
-      incomeDefaultCategoryId: sharedHomeIncomeDefaultId,
-      incomeSalaryCategoryId: sharedHomeIncomeSalaryId,
-      incomeExtraCategoryId: sharedHomeIncomeExtraId,
-      salaryRuleName: "Entrada conjunta",
-      salaryBase: 3900,
-      salaryStep: 70,
-      fixedExpenseRuleName: "Prestacao habitacao",
-      fixedExpenseBase: 1350,
-      fixedExpenseStep: 8,
-      fixedExpenseCategoryId: "cat_habitacao",
-      groceriesCategoryId: "cat_mercado",
-      mobilityCategoryId: "cat_mobilidade",
-      leisureCategoryId: "cat_lazer",
-      manualExpenseBase: 520,
-      extraIncomeLabel: "Reembolso despesas",
-      extraIncomeBase: 210,
+      _id: personalInactiveRuleId,
+      accountId: personalAccountId,
+      userId,
+      type: "expense",
+      name: "Regra antiga (inativa)",
+      amount: 18,
+      dayOfMonth: 24,
+      categoryId: "cat_lazer",
+      startMonth: shiftMonth(firstMonth, -2),
+      endMonth: shiftMonth(firstMonth, -1),
+      active: false,
+      lastGenerationAt: null,
+      lastGenerationStatus: null,
     },
-    recurringRules,
-    transactions,
-  );
-
-  seedAccountActivity(
     {
-      accountId: accountSharedTripId,
-      actorUserId: userBrunoId,
-      months,
-      incomeDefaultCategoryId: sharedTripIncomeDefaultId,
-      incomeSalaryCategoryId: sharedTripIncomeSalaryId,
-      incomeExtraCategoryId: sharedTripIncomeExtraId,
-      salaryRuleName: "Poupanca mensal viagem",
-      salaryBase: 700,
-      salaryStep: 20,
-      fixedExpenseRuleName: "Reserva alojamento",
-      fixedExpenseBase: 230,
-      fixedExpenseStep: 6,
-      fixedExpenseCategoryId: "cat_trip_alojamento",
-      groceriesCategoryId: "cat_trip_refeicoes",
-      mobilityCategoryId: "cat_trip_transportes",
-      leisureCategoryId: "cat_trip_experiencias",
-      manualExpenseBase: 140,
-      extraIncomeLabel: "Acerto entre amigos",
-      extraIncomeBase: 90,
+      _id: sharedContributionRuleId,
+      accountId: sharedAccountId,
+      userId,
+      type: "income",
+      name: "Contribuicao para despesas da casa",
+      amount: 1600,
+      dayOfMonth: 1,
+      categoryId: sharedIncomeContributionId.toString(),
+      startMonth: firstMonth,
+      endMonth: null,
+      active: true,
+      lastGenerationAt: dateForMonth(currentMonth, 1),
+      lastGenerationStatus: "ok",
     },
-    recurringRules,
-    transactions,
+    {
+      _id: sharedUtilitiesRuleId,
+      accountId: sharedAccountId,
+      userId,
+      type: "expense",
+      name: "Servicos da casa",
+      amount: 320,
+      dayOfMonth: 8,
+      categoryId: "cat_shared_servicos",
+      startMonth: firstMonth,
+      endMonth: null,
+      active: true,
+      lastGenerationAt: dateForMonth(currentMonth, 8),
+      lastGenerationStatus: "ok",
+    },
   );
 
   await RecurringRuleModel.insertMany(recurringRules);
+
+  const transactions: TransactionSeedDoc[] = [];
+
+  months.forEach((month, index) => {
+    const personalSalary = 2950 + index * 20;
+    const personalRent = 920 + index * 2;
+    const personalSubscription = 29.99 + (index % 4 === 0 ? 2 : 0);
+    const personalGroceries = 350 + index * 6;
+    const personalTransport = 120 + (index % 5) * 4;
+    const personalLeisure = 95 + (index % 3) * 16;
+    const personalReserve = 420 + index * 9;
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 1,
+      type: "income",
+      origin: "recurring",
+      recurringRuleId: personalSalaryRuleId,
+      description: "Salario",
+      amount: personalSalary,
+      categoryId: personalIncomeSalaryId.toString(),
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 5,
+      type: "expense",
+      origin: "recurring",
+      recurringRuleId: personalRentRuleId,
+      description: "Renda",
+      amount: personalRent,
+      categoryId: "cat_habitacao",
+    });
+
+    const shouldFallbackSubscription = index === months.length - 2;
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 12,
+      type: "expense",
+      origin: "recurring",
+      recurringRuleId: personalSubscriptionRuleId,
+      description: "Subscricoes digitais",
+      amount: personalSubscription,
+      categoryId: shouldFallbackSubscription
+        ? RECURRING_EXPENSE_FALLBACK_CATEGORY_ID
+        : "cat_subscriptions",
+      categoryResolution: shouldFallbackSubscription ? "fallback" : "direct",
+      requestedCategoryId: shouldFallbackSubscription ? "cat_subscriptions" : null,
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 9,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Supermercado",
+      amount: personalGroceries,
+      categoryId: "cat_mercado",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 16,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Transportes",
+      amount: personalTransport,
+      categoryId: "cat_mobilidade",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 21,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Lazer",
+      amount: personalLeisure,
+      categoryId: "cat_lazer",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 23,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Transferencia para poupanca",
+      amount: personalReserve,
+      categoryId: "cat_poupanca",
+    });
+
+    if (index % 3 === 0) {
+      pushRecurringTransaction(transactions, {
+        accountId: personalAccountId,
+        userId,
+        month,
+        day: 26,
+        type: "income",
+        origin: "manual",
+        recurringRuleId: null,
+        description: "Projeto freelance",
+        amount: 420 + index * 15,
+        categoryId: personalIncomeFreelanceId.toString(),
+      });
+    }
+
+    const sharedContribution = 1600 + index * 12;
+    const sharedUtilities = 320 + index * 4;
+    const sharedGroceries = 520 + index * 11;
+    const sharedLeisure = 140 + (index % 4) * 20;
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 1,
+      type: "income",
+      origin: "recurring",
+      recurringRuleId: sharedContributionRuleId,
+      description: "Contribuicao para despesas da casa",
+      amount: sharedContribution,
+      categoryId: sharedIncomeContributionId.toString(),
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 8,
+      type: "expense",
+      origin: "recurring",
+      recurringRuleId: sharedUtilitiesRuleId,
+      description: "Servicos da casa",
+      amount: sharedUtilities,
+      categoryId: "cat_shared_servicos",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 14,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Compras da casa",
+      amount: sharedGroceries,
+      categoryId: "cat_shared_mercado",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 19,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Lazer em casa",
+      amount: sharedLeisure,
+      categoryId: "cat_shared_lazer",
+    });
+
+    if (index % 4 === 1) {
+      pushRecurringTransaction(transactions, {
+        accountId: sharedAccountId,
+        userId,
+        month,
+        day: 27,
+        type: "income",
+        origin: "manual",
+        recurringRuleId: null,
+        description: "Reembolso de despesas",
+        amount: 180 + index * 10,
+        categoryId: sharedIncomeReimburseId.toString(),
+      });
+    }
+
+    if (index === months.length - 1) {
+      pushRecurringTransaction(transactions, {
+        accountId: sharedAccountId,
+        userId,
+        month,
+        day: 25,
+        type: "income",
+        origin: "manual",
+        recurringRuleId: null,
+        description: "Acerto mensal",
+        amount: 95,
+        categoryId: sharedIncomeDefaultId.toString(),
+      });
+    }
+
+    if (index === months.length - 1) {
+      pushRecurringTransaction(transactions, {
+        accountId: personalAccountId,
+        userId,
+        month,
+        day: 28,
+        type: "income",
+        origin: "manual",
+        recurringRuleId: null,
+        description: "Acerto pontual",
+        amount: 110,
+        categoryId: personalIncomeDefaultId.toString(),
+      });
+    }
+  });
+
   await TransactionModel.insertMany(transactions);
 
   const personalBudgetCategories: BudgetCategorySeed[] = [
-    { id: "cat_habitacao", name: "Habitacao", percent: 35, colorSlot: 1, kind: "expense" },
-    { id: "cat_mercado", name: "Mercado", percent: 20, colorSlot: 2, kind: "expense" },
+    { id: "cat_habitacao", name: "Habitacao", percent: 32, colorSlot: 1, kind: "expense" },
+    { id: "cat_mercado", name: "Mercado", percent: 18, colorSlot: 2, kind: "expense" },
     { id: "cat_mobilidade", name: "Mobilidade", percent: 10, colorSlot: 3, kind: "expense" },
-    { id: "cat_lazer", name: "Lazer", percent: 10, colorSlot: 4, kind: "expense" },
-    { id: "cat_poupanca", name: "Poupanca", percent: 25, colorSlot: 5, kind: "reserve" },
+    { id: "cat_subscriptions", name: "Subscricoes", percent: 8, colorSlot: 4, kind: "expense" },
+    { id: "cat_lazer", name: "Lazer", percent: 7, colorSlot: 5, kind: "expense" },
+    { id: "cat_poupanca", name: "Poupanca", percent: 25, colorSlot: 6, kind: "reserve" },
+    {
+      id: RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+      name: "Sem categoria (recorrente)",
+      percent: 0,
+      colorSlot: 9,
+      kind: "expense",
+    },
   ];
 
-  const sharedTripBudgetCategories: BudgetCategorySeed[] = [
-    { id: "cat_trip_transportes", name: "Transportes", percent: 30, colorSlot: 6, kind: "expense" },
-    { id: "cat_trip_alojamento", name: "Alojamento", percent: 35, colorSlot: 7, kind: "expense" },
-    { id: "cat_trip_refeicoes", name: "Refeicoes", percent: 15, colorSlot: 8, kind: "expense" },
-    { id: "cat_trip_experiencias", name: "Experiencias", percent: 10, colorSlot: 9, kind: "expense" },
-    { id: "cat_trip_reserva", name: "Reserva", percent: 10, colorSlot: 5, kind: "reserve" },
+  const sharedBudgetCategories: BudgetCategorySeed[] = [
+    { id: "cat_shared_habitacao", name: "Habitacao", percent: 38, colorSlot: 1, kind: "expense" },
+    { id: "cat_shared_mercado", name: "Mercado", percent: 27, colorSlot: 2, kind: "expense" },
+    { id: "cat_shared_servicos", name: "Servicos", percent: 15, colorSlot: 3, kind: "expense" },
+    { id: "cat_shared_lazer", name: "Lazer", percent: 8, colorSlot: 4, kind: "expense" },
+    { id: "cat_shared_reserva", name: "Reserva", percent: 12, colorSlot: 7, kind: "reserve" },
+    {
+      id: RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+      name: "Sem categoria (recorrente)",
+      percent: 0,
+      colorSlot: 9,
+      kind: "expense",
+    },
   ];
 
   const incomeTotalsByAccountMonth = new Map<string, number>();
@@ -679,18 +613,6 @@ async function run(): Promise<void> {
     );
   }
 
-  const accountBudgetTemplates: Array<{
-    accountId: Types.ObjectId;
-    actorUserId: Types.ObjectId;
-    categories: BudgetCategorySeed[];
-  }> = [
-    { accountId: accountAnaPersonalId, actorUserId: userAnaId, categories: personalBudgetCategories },
-    { accountId: accountBrunoPersonalId, actorUserId: userBrunoId, categories: personalBudgetCategories },
-    { accountId: accountCarlaPersonalId, actorUserId: userCarlaId, categories: personalBudgetCategories },
-    { accountId: accountSharedHomeId, actorUserId: userAnaId, categories: personalBudgetCategories },
-    { accountId: accountSharedTripId, actorUserId: userBrunoId, categories: sharedTripBudgetCategories },
-  ];
-
   const budgetDocs: Array<{
     accountId: Types.ObjectId;
     userId: Types.ObjectId;
@@ -699,96 +621,68 @@ async function run(): Promise<void> {
     categories: BudgetCategorySeed[];
   }> = [];
 
-  for (const template of accountBudgetTemplates) {
-    for (const month of months) {
-      const key = keyByAccountMonth(template.accountId, month);
-      budgetDocs.push({
-        accountId: template.accountId,
-        userId: template.actorUserId,
-        month,
-        totalBudget: incomeTotalsByAccountMonth.get(key) ?? 0,
-        categories: template.categories,
-      });
-    }
+  for (const month of months) {
+    budgetDocs.push({
+      accountId: personalAccountId,
+      userId,
+      month,
+      totalBudget: incomeTotalsByAccountMonth.get(keyByAccountMonth(personalAccountId, month)) ?? 0,
+      categories: personalBudgetCategories,
+    });
+
+    budgetDocs.push({
+      accountId: sharedAccountId,
+      userId,
+      month,
+      totalBudget: incomeTotalsByAccountMonth.get(keyByAccountMonth(sharedAccountId, month)) ?? 0,
+      categories: sharedBudgetCategories,
+    });
   }
 
   await BudgetModel.insertMany(budgetDocs);
 
   await AccountInviteCodeModel.insertMany([
     {
-      accountId: accountSharedHomeId,
-      codeHash: sha256("CASAFAM1"),
-      expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      accountId: sharedAccountId,
+      codeHash: sha256("CASANUNO1"),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       revokedAt: null,
-      createdByUserId: userAnaId,
+      createdByUserId: userId,
     },
     {
-      accountId: accountSharedHomeId,
-      codeHash: sha256("CASAOLD1"),
+      accountId: sharedAccountId,
+      codeHash: sha256("CASAARCH1"),
       expiresAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       revokedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      createdByUserId: userAnaId,
-    },
-    {
-      accountId: accountSharedTripId,
-      codeHash: sha256("ROADTRP1"),
-      expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-      revokedAt: null,
-      createdByUserId: userBrunoId,
+      createdByUserId: userId,
     },
   ]);
 
   const tokenExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-  const revokedAt = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+  const revokedAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
   await RefreshTokenModel.insertMany([
     {
-      userId: userAnaId,
-      jti: "seed-ana-active-1",
-      tokenHash: sha256("seed_refresh_token_ana_active"),
+      userId,
+      jti: "seed-nuno-active-1",
+      tokenHash: sha256("seed_refresh_token_nuno_active"),
       expiresAt: tokenExpiry,
       revokedAt: null,
       replacedByJti: null,
       deviceInfo: "Seed iPhone",
     },
     {
-      userId: userAnaId,
-      jti: "seed-ana-revoked-1",
-      tokenHash: sha256("seed_refresh_token_ana_revoked"),
+      userId,
+      jti: "seed-nuno-revoked-1",
+      tokenHash: sha256("seed_refresh_token_nuno_revoked"),
       expiresAt: tokenExpiry,
       revokedAt,
-      replacedByJti: "seed-ana-active-1",
-      deviceInfo: "Seed Chrome",
-    },
-    {
-      userId: userBrunoId,
-      jti: "seed-bruno-active-1",
-      tokenHash: sha256("seed_refresh_token_bruno_active"),
-      expiresAt: tokenExpiry,
-      revokedAt: null,
-      replacedByJti: null,
+      replacedByJti: "seed-nuno-active-1",
       deviceInfo: "Seed MacBook",
-    },
-    {
-      userId: userCarlaId,
-      jti: "seed-carla-active-1",
-      tokenHash: sha256("seed_refresh_token_carla_active"),
-      expiresAt: tokenExpiry,
-      revokedAt: null,
-      replacedByJti: null,
-      deviceInfo: "Seed Android",
     },
   ]);
 
-  const accountIds = [
-    accountAnaPersonalId,
-    accountBrunoPersonalId,
-    accountCarlaPersonalId,
-    accountSharedHomeId,
-    accountSharedTripId,
-  ];
-  for (const accountId of accountIds) {
-    await materializeCurrentSnapshots(accountId.toString());
-  }
+  await materializeCurrentSnapshots(personalAccountId.toString());
+  await materializeCurrentSnapshots(sharedAccountId.toString());
 
   const [
     usersCount,
@@ -818,8 +712,8 @@ async function run(): Promise<void> {
     {
       months,
       credentials: {
-        email: users.map((user) => user.email),
-        password: "123456",
+        email: SEED_EMAIL,
+        password: SEED_PASSWORD,
       },
       totals: {
         users: usersCount,
@@ -834,8 +728,7 @@ async function run(): Promise<void> {
         refreshTokens: refreshTokensCount,
       },
       note: {
-        sharedHomeInviteCodePlain: "CASAFAM1",
-        sharedTripInviteCodePlain: "ROADTRP1",
+        sharedInviteCodePlain: "CASANUNO1",
       },
     },
     "Database seeded successfully",

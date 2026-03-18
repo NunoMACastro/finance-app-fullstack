@@ -112,6 +112,14 @@ Campos chave:
 - `periodKey`
 - `payload`
 
+Payload funcional (shape de `StatsSnapshotDto`):
+- `totals` (income, expense, balance)
+- `totalsBreakdown` opcional:
+  - `consumption`, `savings`, `unallocated`, `potentialSavings`
+  - `rates.savings`, `rates.unallocated`, `rates.potentialSavings`
+- `trend`, `budgetVsActual`, `categorySeries`, `forecast`
+- `insight` opcional (enriquecimento IA)
+
 Indice unico: `(accountId, periodType, periodKey)`
 
 ## Relacoes principais

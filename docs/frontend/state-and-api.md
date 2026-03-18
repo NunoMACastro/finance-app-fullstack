@@ -14,6 +14,9 @@ Contem contratos espelho do backend para:
 - recurring rules (inclui metadados operacionais: `lastGenerationAt`, `lastGenerationStatus`, `pendingFallbackCount`)
 - stats (`categorySeries` incluido)
   - `StatsSnapshot.insight` opcional (`text`, `source`, `generatedAt`, `model`) quando backend enriquece com IA
+  - `StatsSnapshot.totalsBreakdown` opcional:
+    - `consumption`, `savings`, `unallocated`, `potentialSavings`
+    - `rates.savings`, `rates.unallocated`, `rates.potentialSavings`
 - transactions incluem metadados de categoria recorrente:
   - `categoryResolution?: direct | fallback`
   - `requestedCategoryId?` quando houve fallback
@@ -181,6 +184,13 @@ Arquivo: `app/lib/account-store.ts`
   - primeiro request com `includeInsight=false` para render imediato do snapshot base
   - segundo request com `includeInsight=true` para enriquecer apenas o texto de insight
 - narrativa final prioriza `snapshot.insight.text`; fallback local deterministico (`buildPulseInsight`) quando ausente/erro.
+- metricas do `Pulse`:
+  - preferem `snapshot.totalsBreakdown` quando presente
+  - fallback local deterministico (derivado de `budgetVsActual` + `totals`) quando ausente
+  - `Aderência ao orçamento` usa desvio absoluto agregado por categoria (nao e a mesma metrica de `Valor por alocar`)
+  - labels dinamicas para sinal negativo:
+    - `Valor por alocar` / `Valor em falta`
+    - `Taxa por alocar` / `Taxa em falta`
 
 ## Formatacao (datas e moeda)
 

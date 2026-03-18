@@ -625,6 +625,17 @@ Response `200` (`StatsSnapshot`):
     "totalExpense": 8000,
     "balance": 4000
   },
+  "totalsBreakdown": {
+    "consumption": 6200,
+    "savings": 1800,
+    "unallocated": 4000,
+    "potentialSavings": 5800,
+    "rates": {
+      "savings": 15,
+      "unallocated": 33.33,
+      "potentialSavings": 48.33
+    }
+  },
   "trend": [
     { "month": "2026-01", "income": 2000, "expense": 1300, "balance": 700 }
   ],
@@ -667,6 +678,13 @@ Response `200` (`StatsSnapshot`):
 
 Notas:
 - `insight` e opcional.
+- `totalsBreakdown` e opcional (nao-breaking) e separa explicitamente:
+  - `consumption`: soma de `actual` em categorias nao `reserve`;
+  - `savings`: soma de `actual` em categorias `reserve`;
+  - `unallocated`: `totalIncome - consumption - savings` (pode ser negativo);
+  - `potentialSavings`: `savings + max(unallocated, 0)`;
+  - `rates.*`: `value / totalIncome * 100` (se `totalIncome <= 0`, taxa = `0`).
+- `categoryKind` ausente e tratado como `expense` no calculo de `consumption`.
 - se OpenAI estiver indisponivel/sem chave/timeout, os endpoints continuam `200` e devolvem apenas `StatsSnapshot` sem `insight`.
 
 ### GET `/stats/compare-budget?from=YYYY-MM&to=YYYY-MM`

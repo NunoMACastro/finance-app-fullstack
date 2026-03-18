@@ -278,6 +278,17 @@ export interface StatsSnapshot {
   periodType: "semester" | "year";
   periodKey: string;
   totals: StatsTotals;
+  totalsBreakdown?: {
+    consumption: number;
+    savings: number;
+    unallocated: number;
+    potentialSavings: number;
+    rates: {
+      savings: number;
+      unallocated: number;
+      potentialSavings: number;
+    };
+  };
   trend: TrendItem[];
   budgetVsActual: BudgetVsActualItem[];
   categorySeries: CategorySeriesItem[];

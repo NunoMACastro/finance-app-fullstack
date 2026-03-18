@@ -53,6 +53,18 @@ interface IncomeCategorySeriesItem {
   monthly: IncomeCategorySeriesMonthItem[];
 }
 
+export interface StatsTotalsBreakdownDto {
+  consumption: number;
+  savings: number;
+  unallocated: number;
+  potentialSavings: number;
+  rates: {
+    savings: number;
+    unallocated: number;
+    potentialSavings: number;
+  };
+}
+
 export interface StatsSnapshotDto {
   periodType: "semester" | "year";
   periodKey: string;
@@ -61,6 +73,7 @@ export interface StatsSnapshotDto {
     totalExpense: number;
     balance: number;
   };
+  totalsBreakdown?: StatsTotalsBreakdownDto;
   trend: TrendItem[];
   budgetVsActual: BudgetVsActualItem[];
   categorySeries: CategorySeriesItem[];
@@ -105,6 +118,43 @@ function round(value: number): number {
 
 function categoryMonthKey(categoryId: string, month: string): string {
   return `${categoryId}::${month}`;
+}
+
+function resolveRate(value: number, totalIncome: number): number {
+  if (totalIncome <= 0) return 0;
+  return (value / totalIncome) * 100;
+}
+
+export function buildTotalsBreakdown(
+  totals: StatsSnapshotDto["totals"],
+  budgetVsActual: BudgetVsActualItem[],
+): StatsTotalsBreakdownDto {
+  const rawConsumption = budgetVsActual.reduce((sum, item) => {
+    if (item.categoryKind === "reserve") return sum;
+    return sum + item.actual;
+  }, 0);
+
+  const rawSavings = budgetVsActual.reduce((sum, item) => {
+    if (item.categoryKind !== "reserve") return sum;
+    return sum + item.actual;
+  }, 0);
+
+  const consumption = round(rawConsumption);
+  const savings = round(rawSavings);
+  const unallocated = round(totals.totalIncome - consumption - savings);
+  const potentialSavings = round(savings + Math.max(unallocated, 0));
+
+  return {
+    consumption,
+    savings,
+    unallocated,
+    potentialSavings,
+    rates: {
+      savings: round(resolveRate(savings, totals.totalIncome)),
+      unallocated: round(resolveRate(unallocated, totals.totalIncome)),
+      potentialSavings: round(resolveRate(potentialSavings, totals.totalIncome)),
+    },
+  };
 }
 
 export function buildForecast(trend: TrendItem[], windowMonths: 3 | 6 = 3) {
@@ -285,14 +335,18 @@ async function buildStats(
     })),
   }));
 
+  const totals = {
+    totalIncome: round(totalIncome),
+    totalExpense: round(totalExpense),
+    balance: round(totalIncome - totalExpense),
+  };
+  const totalsBreakdown = buildTotalsBreakdown(totals, budgetVsActual);
+
   return {
     periodType,
     periodKey,
-    totals: {
-      totalIncome: round(totalIncome),
-      totalExpense: round(totalExpense),
-      balance: round(totalIncome - totalExpense),
-    },
+    totals,
+    totalsBreakdown,
     trend,
     budgetVsActual,
     categorySeries,

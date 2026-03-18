@@ -134,6 +134,14 @@ Saude operacional por regra:
 - `budgeted` por categoria e calculado com:
   - `% da categoria` x `income real do mes`.
 - Retorna `categorySeries` para detalhe mensal por categoria.
+- Retorna `totalsBreakdown` (opcional, nao-breaking) com semantica explicita:
+  - `consumption = sum(actual where categoryKind != reserve)`
+  - `savings = sum(actual where categoryKind == reserve)`
+  - `unallocated = totalIncome - consumption - savings`
+  - `potentialSavings = savings + max(unallocated, 0)`
+  - `rates.* = value / totalIncome * 100` (se `totalIncome <= 0`, taxa = `0`)
+- `categoryKind` ausente e tratado como `expense` (entra em `consumption`).
+- compatibilidade: `totals.totalExpense` mantem semantica atual (`consumption + savings`).
 
 ## 11) Tutorial
 

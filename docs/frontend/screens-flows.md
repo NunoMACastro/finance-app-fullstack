@@ -110,7 +110,7 @@ Ordenacao hibrida da lista:
 1. escolher periodo (`6M`/`12M`)
 2. chamar endpoint correspondente
 3. renderizar stack v3:
-   - `Pulse do período` (saldo + desvio + insight)
+   - `Pulse do período` (saldo + breakdown financeiro + insight)
    - `Drivers` (top 3 categorias críticas)
    - `Tendência` (receitas/despesas/saldo)
    - `Projeção` (3M/6M + confiança)
@@ -123,6 +123,16 @@ Escopo funcional v1:
 - selecao de ponto no grafico de tendencia
 - tap em driver abre `sheet` contextual de detalhe da categoria
 - no `sheet`, CTA opcional para abrir movimentos da categoria no mês mais recente
+
+Linhas do `Pulse` (ordem fixa):
+1. `Receitas`
+2. `Consumo`
+3. `Poupanças`
+4. `Valor por alocar` (>=0) / `Valor em falta` (<0)
+5. `Aderência ao orçamento` (desvio absoluto agregado por categoria convertido em percentagem)
+6. `Taxa de poupança`
+7. `Taxa por alocar` (>=0) / `Taxa em falta` (<0)
+8. `Poupança total potencial`
 
 ### Empty states e erro
 - loading state com skeletons estáveis
@@ -182,6 +192,10 @@ Comportamento:
   - em `/stats` mostra tour stats
 - passo do seletor de conta é omitido automaticamente quando o seletor não está visível
 - passos cujo alvo não existe no estado atual do ecrã são omitidos automaticamente
+- no escopo `stats`, o tutorial explica separadamente:
+  - saldo do período
+  - breakdown do pulse (consumo, poupanças, por alocar/em falta, aderência, taxas, potencial)
+  - bloco de análise (IA com fallback local)
 - nao faz navegacao forcada
 - marca visto em skip ou done
 

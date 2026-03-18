@@ -23,10 +23,18 @@ export interface StatsViewModel {
   totalIncome: number;
   totalExpense: number;
   totalBalance: number;
+  consumption: number;
+  savings: number;
+  unallocated: number;
+  potentialSavings: number;
   savingsRate: number;
+  unallocatedRate: number;
+  potentialSavingsRate: number;
   budgetedTotal: number;
   budgetActualTotal: number;
   budgetDelta: number;
+  budgetDriftAbs: number;
+  budgetAdherenceRate: number;
   budgetUsePercent: number;
   pulseTone: StatsPulseTone;
   trend: StatsSnapshot["trend"];
@@ -65,14 +73,58 @@ function resolvePulseTone(
   return "neutral";
 }
 
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function resolveRate(value: number, totalIncome: number): number {
+  if (totalIncome <= 0) return 0;
+  return round((value / totalIncome) * 100);
+}
+
+function buildTotalsBreakdownFallback(snapshot: StatsSnapshot) {
+  const consumption = round(
+    (snapshot.budgetVsActual ?? []).reduce((sum, item) => {
+      if (item.categoryKind === "reserve") return sum;
+      return sum + item.actual;
+    }, 0),
+  );
+  const savings = round(
+    (snapshot.budgetVsActual ?? []).reduce((sum, item) => {
+      if (item.categoryKind !== "reserve") return sum;
+      return sum + item.actual;
+    }, 0),
+  );
+  const unallocated = round(snapshot.totals.totalIncome - consumption - savings);
+  const potentialSavings = round(savings + Math.max(unallocated, 0));
+
+  return {
+    consumption,
+    savings,
+    unallocated,
+    potentialSavings,
+    rates: {
+      savings: resolveRate(savings, snapshot.totals.totalIncome),
+      unallocated: resolveRate(unallocated, snapshot.totals.totalIncome),
+      potentialSavings: resolveRate(potentialSavings, snapshot.totals.totalIncome),
+    },
+  };
+}
+
 export function buildStatsViewModel(snapshot: StatsSnapshot): StatsViewModel {
   const trend = snapshot.trend ?? [];
   const monthsCount = trend.length;
   const totalIncome = snapshot.totals.totalIncome;
   const totalExpense = snapshot.totals.totalExpense;
   const totalBalance = snapshot.totals.balance;
-  const savingsRate =
-    totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
+  const totalsBreakdown = snapshot.totalsBreakdown ?? buildTotalsBreakdownFallback(snapshot);
+  const consumption = totalsBreakdown.consumption;
+  const savings = totalsBreakdown.savings;
+  const unallocated = totalsBreakdown.unallocated;
+  const potentialSavings = totalsBreakdown.potentialSavings;
+  const savingsRate = totalsBreakdown.rates.savings;
+  const unallocatedRate = totalsBreakdown.rates.unallocated;
+  const potentialSavingsRate = totalsBreakdown.rates.potentialSavings;
 
   const seriesByCategory = new Map<string, CategorySeriesMonthlyItem[]>(
     (snapshot.categorySeries ?? []).map((series) => [
@@ -108,6 +160,11 @@ export function buildStatsViewModel(snapshot: StatsSnapshot): StatsViewModel {
   const budgetedTotal = drivers.reduce((sum, item) => sum + item.budgeted, 0);
   const budgetActualTotal = drivers.reduce((sum, item) => sum + item.actual, 0);
   const budgetDelta = budgetedTotal - budgetActualTotal;
+  const budgetDriftAbs = drivers.reduce((sum, item) => sum + Math.abs(item.difference), 0);
+  const budgetAdherenceRate =
+    budgetedTotal > 0
+      ? clamp(100 - (budgetDriftAbs / budgetedTotal) * 100, 0, 100)
+      : 0;
   const budgetUsePercent =
     budgetedTotal > 0 ? clamp((budgetActualTotal / budgetedTotal) * 100, 0, 160) : 0;
 
@@ -119,10 +176,18 @@ export function buildStatsViewModel(snapshot: StatsSnapshot): StatsViewModel {
     totalIncome,
     totalExpense,
     totalBalance,
+    consumption,
+    savings,
+    unallocated,
+    potentialSavings,
     savingsRate,
+    unallocatedRate,
+    potentialSavingsRate,
     budgetedTotal,
     budgetActualTotal,
     budgetDelta,
+    budgetDriftAbs,
+    budgetAdherenceRate,
     budgetUsePercent,
     pulseTone: resolvePulseTone(budgetDelta, hasExceededDrivers, hasTightDrivers),
     trend,

@@ -33,8 +33,8 @@ describe("stats integration", () => {
       .send({
         totalBudget: 0,
         categories: [
-          { id: "cat_despesas", name: "Despesas", percent: 60 },
-          { id: "cat_lazer", name: "Lazer", percent: 40 },
+          { id: "cat_despesas", name: "Despesas", percent: 60, kind: "expense" },
+          { id: "cat_lazer", name: "Lazer", percent: 40, kind: "reserve" },
         ],
       });
 
@@ -108,6 +108,21 @@ describe("stats integration", () => {
     expect(Array.isArray(statsResA.body.incomeByCategory)).toBe(true);
     expect(Array.isArray(statsResA.body.incomeCategorySeries)).toBe(true);
     expect(statsResA.body.incomeByCategory.length).toBeGreaterThanOrEqual(1);
+    expect(statsResA.body.totalsBreakdown).toMatchObject({
+      consumption: 500,
+      savings: 120,
+      unallocated: 1380,
+      potentialSavings: 1500,
+      rates: {
+        savings: 6,
+        unallocated: 69,
+        potentialSavings: 75,
+      },
+    });
+    expect(statsResA.body.totals.totalExpense).toBeCloseTo(
+      statsResA.body.totalsBreakdown.consumption + statsResA.body.totalsBreakdown.savings,
+      2,
+    );
     expect(statsResForecastWindow.body.forecast).toMatchObject({
       windowMonths: 6,
       sampleSize: 6,
