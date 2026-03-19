@@ -1,5 +1,7 @@
 # Frontend Qualidade, Testes e Build
 
+Guia central de execucao (backend + frontend + E2E): [`../testing.md`](../testing.md)
+
 ## Scripts de qualidade
 
 ```bash
@@ -9,6 +11,7 @@ npm run check-theme-contract
 npm run check:tokens
 npm run lint
 npm run test
+npm run test:e2e
 npm run build
 ```
 
@@ -23,6 +26,7 @@ Nota:
 - Token guardrail (`scripts/check-tokens.mjs`)
 - ESLint (`@typescript-eslint`, hooks, react-refresh)
 - Vitest + Testing Library + jsdom
+- Playwright (E2E local/manual)
 
 ## Configuracao de testes
 
@@ -49,6 +53,8 @@ Suites atuais (resumo por area):
 - dialogos e overlays: `confirm-action-dialog.test.tsx`, `responsive-overlay.test.tsx`
 - onboarding/manutencao/mobile: `tutorial-tour.test.tsx`, `maintenance-page.test.tsx`
 - estado/lib: `theme-preferences.test.tsx`, `category-color-slot.test.ts`, `category-kind.test.ts`
+- estado/lib (theming): `theme-preferences.test.tsx`, `theme-palette.test.ts`, `theme-palette.contract.test.ts`
+- bootstrap app: `main.test.ts`
 - contract guardrail: `theme-contract.test.ts`
 
 ## CI
@@ -61,6 +67,10 @@ Na pipeline principal:
 - check:tokens
 - tests
 - build
+
+E2E:
+- não corre em PR por defeito nesta vaga;
+- execução manual/local via `npm run test:e2e`.
 
 Falha em qualquer etapa bloqueia merge.
 

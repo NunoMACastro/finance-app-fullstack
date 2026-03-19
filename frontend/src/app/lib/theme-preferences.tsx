@@ -1,10 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./auth-context";
 import type { ThemePalette } from "./types";
-
-const STORAGE_KEY = "finance_v2.theme";
-const LEGACY_STORAGE_KEY = "finance_v2.theme_palette";
-const DEFAULT_PALETTE: ThemePalette = "ciano";
+import {
+  applyThemePaletteToDocument,
+  DEFAULT_THEME_PALETTE,
+  normalizeThemePalette,
+  persistThemePalette,
+  readStoredThemePalette,
+} from "./theme-palette";
 
 interface ThemePreferencesState {
   theme: ThemePalette;
@@ -14,30 +17,9 @@ interface ThemePreferencesState {
 
 const ThemePreferencesContext = createContext<ThemePreferencesState | null>(null);
 
-function normalizeThemePalette(value: string | null | undefined): ThemePalette {
-  if (
-    value === "brisa" ||
-    value === "calma" ||
-    value === "aurora" ||
-    value === "terra" ||
-    value === "mare" ||
-    value === "amber" ||
-    value === "ciano"
-  ) {
-    return value;
-  }
-  if (value === "ocean") return "brisa";
-  if (value === "forest") return "terra";
-  if (value === "sunset") return "aurora";
-  if (value === "graphite") return "calma";
-  if (value === "ambar") return "amber";
-  return DEFAULT_PALETTE;
-}
-
 function readStoredPalette(): ThemePalette {
-  if (typeof window === "undefined") return DEFAULT_PALETTE;
-  const value = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
-  return normalizeThemePalette(value);
+  if (typeof window === "undefined") return DEFAULT_THEME_PALETTE;
+  return readStoredThemePalette(window.localStorage);
 }
 
 export function ThemePreferencesProvider({ children }: { children: React.ReactNode }) {
@@ -49,11 +31,9 @@ export function ThemePreferencesProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.removeAttribute("data-theme-palette");
+    applyThemePaletteToDocument(document, theme);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, theme);
-      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      persistThemePalette(window.localStorage, theme);
     }
   }, [theme]);
 

@@ -37,6 +37,7 @@ Passos:
 Nota:
 - `npm run lint` ja executa `check-theme-contract` e `check:tokens`.
 - os passos 6 e 7 mantem guardrails explicitos no workflow.
+- `npm run test:e2e` (Playwright) esta disponivel para execucao local/manual e nao corre por defeito na CI desta vaga.
 
 ## Politica recomendada de branch
 

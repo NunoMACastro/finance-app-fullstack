@@ -1,3 +1,7 @@
+import type { ThemePalette as ThemePaletteType } from "./theme-palette";
+
+export type ThemePalette = ThemePaletteType;
+
 // ═══════════════════════════════════════════════════════════
 // Shared types — mirrors backend DTOs for seamless integration
 // ═══════════════════════════════════════════════════════════
@@ -38,8 +42,6 @@ export interface UserProfile {
   tutorialSeenAt: string | null;
   personalAccountId: string;
 }
-
-export type ThemePalette = "brisa" | "calma" | "aurora" | "terra" | "mare" | "amber" | "ciano";
 
 export interface UserPreferences {
   themePalette: ThemePalette;

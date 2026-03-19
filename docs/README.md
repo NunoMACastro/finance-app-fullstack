@@ -31,6 +31,7 @@ Este diretorio contem a documentacao tecnica oficial do `Finance v2` / `Poupérr
 - [Deploy](./operations/deployment.md)
 - [CI/CD](./operations/ci-cd.md)
 - [Runbooks e troubleshooting](./operations/runbooks.md)
+- [Guia unico de testes](./testing.md)
 
 ## Convencoes
 

@@ -1,5 +1,7 @@
 # Backend Testes
 
+Guia central de execucao (backend + frontend + E2E): [`../testing.md`](../testing.md)
+
 ## Stack de testes
 
 - Vitest
@@ -38,6 +40,10 @@ npm run test
 - `recurring-due-date.test.ts`
   - valida semantica de vencimento (mes passado/atual/futuro)
   - valida clamp de dia para meses curtos
+- `auth-validators.test.ts`
+  - valida enum de temas suportados no profile
+  - valida normalizacao `ambar -> amber`
+  - valida rejeicao de valores invalidos
 
 ### Integration tests (`src/tests/integration`)
 

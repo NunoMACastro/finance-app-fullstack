@@ -1,14 +1,10 @@
 import type { ThemePalette } from "../lib/types";
+import { THEME_PALETTES, THEME_PALETTE_LABELS } from "../lib/theme-palette";
 
-export const THEME_OPTIONS: Array<{ value: ThemePalette; label: string }> = [
-  { value: "brisa", label: "Brisa" },
-  { value: "calma", label: "Calma" },
-  { value: "aurora", label: "Aurora" },
-  { value: "terra", label: "Terra" },
-  { value: "mare", label: "Maré" },
-  { value: "amber", label: "Ambar" },
-  { value: "ciano", label: "Ciano" },
-];
+export const THEME_OPTIONS: Array<{ value: ThemePalette; label: string }> = THEME_PALETTES.map((value) => ({
+  value,
+  label: THEME_PALETTE_LABELS[value],
+}));
 
 export const CURRENCY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "EUR", label: "EUR - Euro" },
