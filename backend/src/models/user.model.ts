@@ -21,8 +21,8 @@ const userSchema = new Schema(
     preferences: {
       themePalette: {
         type: String,
-        enum: ["brisa", "calma", "aurora", "terra"],
-        default: "brisa",
+        enum: ["brisa", "calma", "aurora", "terra", "mare", "amber", "ciano"],
+        default: "ciano",
       },
       hideAmountsByDefault: {
         type: Boolean,

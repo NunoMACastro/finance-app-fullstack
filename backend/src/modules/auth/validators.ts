@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-const themePaletteSchema = z.enum(["brisa", "calma", "aurora", "terra"]);
+const themePaletteSchema = z
+  .enum(["brisa", "calma", "aurora", "terra", "mare", "amber", "ciano"])
+  .or(z.literal("ambar"))
+  .transform((value) => (value === "ambar" ? "amber" : value));
 
 export const registerSchema = z.object({
   name: z.string().trim().min(1).max(120),

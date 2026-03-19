@@ -18,8 +18,11 @@ Nao e permitido usar:
 ### 2) Um ficheiro por tema
 - Diretoria: `frontend/src/styles/themes/`
 - Ficheiros runtime:
+  - `amber.css`
+  - `ciano.css`
   - `brisa.css`
   - `calma.css`
+  - `mare.css`
   - `aurora.css`
   - `terra.css`
 - Template de contrato:
@@ -28,7 +31,7 @@ Nao e permitido usar:
 
 ### 3) Ativacao de tema
 - O tema ativo e aplicado com `data-theme="<id>"` no `documentElement`.
-- IDs suportados: `brisa`, `calma`, `aurora`, `terra`.
+- IDs suportados: `brisa`, `calma`, `aurora`, `terra`, `mare`, `amber`, `ciano`.
 - Nao existe estado funcional separado de dark/light.
 
 ## Contrato de tokens

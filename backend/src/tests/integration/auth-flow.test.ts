@@ -14,6 +14,7 @@ describe("auth flow integration", () => {
     expect(registerRes.body?.tokens?.accessToken).toBeTypeOf("string");
     expect(registerRes.body?.user?.tutorialSeenAt).toBeNull();
     expect(registerRes.body?.user?.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
+    expect(registerRes.body?.user?.preferences?.themePalette).toBe("ciano");
 
     const loginRes = await request(getIntegrationApp()).post("/api/v1/auth/login").send({
       email: "joao@example.com",
@@ -31,6 +32,7 @@ describe("auth flow integration", () => {
     expect(meRes.body.email).toBe("joao@example.com");
     expect(meRes.body.tutorialSeenAt).toBeNull();
     expect(meRes.body.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
+    expect(meRes.body.preferences?.themePalette).toBe("ciano");
 
     const tutorialRes = await request(getIntegrationApp())
       .post("/api/v1/auth/tutorial/complete")

@@ -19,7 +19,15 @@ describe("theme contract", () => {
       .filter((file) => file.endsWith(".css") && file !== "_template.css")
       .sort();
 
-    expect(themeFiles).toEqual(["aurora.css", "brisa.css", "calma.css", "terra.css"]);
+    expect(themeFiles).toEqual([
+      "amber.css",
+      "aurora.css",
+      "brisa.css",
+      "calma.css",
+      "ciano.css",
+      "mare.css",
+      "terra.css",
+    ]);
 
     for (const fileName of themeFiles) {
       const themeSet = getTokenSet(path.join(THEMES_DIR, fileName));

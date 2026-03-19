@@ -20,7 +20,7 @@ Campos chave:
 - `passwordHash`
 - `profile.name`
 - `profile.currency` (default `EUR`)
-- `preferences.themePalette` (enum: `brisa|calma|aurora|terra`, default `brisa`)
+- `preferences.themePalette` (enum: `brisa|calma|aurora|terra|mare|amber|ciano`, default `ciano`)
 - `preferences.hideAmountsByDefault` (default `false`)
 - `tutorialSeenAt` (nullable)
 - `status` (`active|deleted`, default `active`, index)

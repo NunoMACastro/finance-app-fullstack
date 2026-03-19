@@ -4,7 +4,7 @@ import type { ThemePalette } from "./types";
 
 const STORAGE_KEY = "finance_v2.theme";
 const LEGACY_STORAGE_KEY = "finance_v2.theme_palette";
-const DEFAULT_PALETTE: ThemePalette = "brisa";
+const DEFAULT_PALETTE: ThemePalette = "ciano";
 
 interface ThemePreferencesState {
   theme: ThemePalette;
@@ -15,13 +15,22 @@ interface ThemePreferencesState {
 const ThemePreferencesContext = createContext<ThemePreferencesState | null>(null);
 
 function normalizeThemePalette(value: string | null | undefined): ThemePalette {
-  if (value === "brisa" || value === "calma" || value === "aurora" || value === "terra") {
+  if (
+    value === "brisa" ||
+    value === "calma" ||
+    value === "aurora" ||
+    value === "terra" ||
+    value === "mare" ||
+    value === "amber" ||
+    value === "ciano"
+  ) {
     return value;
   }
   if (value === "ocean") return "brisa";
   if (value === "forest") return "terra";
   if (value === "sunset") return "aurora";
   if (value === "graphite") return "calma";
+  if (value === "ambar") return "amber";
   return DEFAULT_PALETTE;
 }
 

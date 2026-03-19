@@ -22,7 +22,7 @@ import { UserModel } from "../../models/user.model.js";
 import { ensurePersonalAccountForUser } from "../accounts/service.js";
 import { ensureDefaultIncomeCategoryForAccount } from "../income-categories/service.js";
 
-export type ThemePalette = "brisa" | "calma" | "aurora" | "terra";
+export type ThemePalette = "brisa" | "calma" | "aurora" | "terra" | "mare" | "amber" | "ciano";
 
 interface UserPreferences {
   themePalette: ThemePalette;
@@ -80,7 +80,15 @@ interface ExportUserDataDto {
 }
 
 function normalizeThemePalette(value?: string | null): ThemePalette {
-  if (value === "brisa" || value === "calma" || value === "aurora" || value === "terra") {
+  if (
+    value === "brisa" ||
+    value === "calma" ||
+    value === "aurora" ||
+    value === "terra" ||
+    value === "mare" ||
+    value === "amber" ||
+    value === "ciano"
+  ) {
     return value;
   }
 
@@ -89,8 +97,9 @@ function normalizeThemePalette(value?: string | null): ThemePalette {
   if (value === "forest") return "terra";
   if (value === "sunset") return "aurora";
   if (value === "graphite") return "calma";
+  if (value === "ambar") return "amber";
 
-  return "brisa";
+  return "ciano";
 }
 
 function toPlain<T>(value: T): T {
@@ -226,7 +235,7 @@ export async function register(input: {
               currency: "EUR",
             },
             preferences: {
-              themePalette: "brisa",
+              themePalette: "ciano",
               hideAmountsByDefault: false,
             },
             status: "active",
@@ -252,7 +261,7 @@ export async function register(input: {
         currency: "EUR",
       },
       preferences: {
-        themePalette: "brisa",
+        themePalette: "ciano",
         hideAmountsByDefault: false,
       },
       status: "active",
@@ -429,7 +438,7 @@ export async function updateProfile(
   user.profile = profile;
 
   const preferences = user.preferences ?? {
-    themePalette: "brisa",
+    themePalette: "ciano",
     hideAmountsByDefault: false,
   };
   user.preferences = preferences;

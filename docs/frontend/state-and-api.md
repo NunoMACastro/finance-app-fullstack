@@ -128,7 +128,10 @@ Comportamentos:
 - aplica `data-theme` no `documentElement`
 - persiste fallback local quando user nao autenticado
 - semantica funcional: tema unico (sem estado dark/light separado)
+- IDs suportados: `brisa`, `calma`, `aurora`, `terra`, `mare`, `amber`, `ciano`
+- default/fallback: `ciano`
 - normaliza aliases legados (`ocean/forest/sunset/graphite`) para IDs atuais
+- compatibilidade de naming: `ambar` e normalizado para ID canónico `amber`
 - compatibilidade de dados: preferencia continua no campo `preferences.themePalette`
 
 ## Account context

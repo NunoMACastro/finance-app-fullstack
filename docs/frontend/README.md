@@ -67,7 +67,8 @@ Padrao de perfil v3:
 - Cada tema runtime vive em `src/styles/themes/<id>.css`.
 - O contrato completo `--t-*` esta em `src/styles/themes/_template.css`.
 - O runtime aplica `data-theme="<id>"` no `documentElement`.
-- IDs de tema oficiais: `brisa`, `calma`, `aurora`, `terra`.
+- IDs de tema oficiais: `brisa`, `calma`, `aurora`, `terra`, `mare`, `amber`, `ciano`.
+- Labels de UI: `Brisa`, `Calma`, `Aurora`, `Terra`, `Maré`, `Ambar`, `Ciano`.
 - Nao existe modo dark/light separado para o utilizador.
 
 ## Providers globais

@@ -39,7 +39,7 @@ export interface UserProfile {
   personalAccountId: string;
 }
 
-export type ThemePalette = "brisa" | "calma" | "aurora" | "terra";
+export type ThemePalette = "brisa" | "calma" | "aurora" | "terra" | "mare" | "amber" | "ciano";
 
 export interface UserPreferences {
   themePalette: ThemePalette;

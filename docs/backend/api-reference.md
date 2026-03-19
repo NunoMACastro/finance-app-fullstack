@@ -39,7 +39,7 @@ Response `201`:
     "name": "Nuno",
     "currency": "EUR",
     "preferences": {
-      "themePalette": "brisa",
+      "themePalette": "ciano",
       "hideAmountsByDefault": false
     },
     "tutorialSeenAt": null,
@@ -102,6 +102,9 @@ Response `200`: `UserProfile` atualizado (`tutorialSeenAt = null`).
 
 ### PATCH `/auth/me/profile`
 Auth obrigatoria. Atualiza perfil e preferências.
+
+`preferences.themePalette` aceita: `brisa|calma|aurora|terra|mare|amber|ciano`.
+Compatibilidade: `ambar` e normalizado para `amber`.
 
 Request (campos parciais):
 ```json

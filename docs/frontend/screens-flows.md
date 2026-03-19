@@ -176,7 +176,8 @@ Conteúdo por secção:
   - revogar todas as sessoes
   - remover sessões já revogadas do histórico
 - Preferences:
-  - tema (`brisa|calma|aurora|terra`)
+  - tema (`brisa|calma|aurora|terra|mare|amber|ciano`)
+  - labels visiveis no seletor: `Brisa`, `Calma`, `Aurora`, `Terra`, `Maré`, `Ambar`, `Ciano`
   - ocultar valores por defeito
   - reset tutorial
 - Shared:

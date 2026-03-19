@@ -56,13 +56,29 @@ describe("ThemePreferencesProvider", () => {
     expect(window.localStorage.getItem("finance_v2.theme_palette")).toBeNull();
   });
 
+  test("uses ciano as default fallback when no preference is available", async () => {
+    render(
+      <ThemePreferencesProvider>
+        <Probe />
+      </ThemePreferencesProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("theme-value")).toHaveTextContent("ciano");
+    });
+
+    expect(document.documentElement.getAttribute("data-theme")).toBe("ciano");
+    expect(window.localStorage.getItem("finance_v2.theme")).toBe("ciano");
+  });
+
   test("normalizes all supported legacy aliases from storage", async () => {
     const scenarios = [
       { alias: "ocean", expected: "brisa" },
       { alias: "forest", expected: "terra" },
       { alias: "sunset", expected: "aurora" },
       { alias: "graphite", expected: "calma" },
-      { alias: "invalid-theme", expected: "brisa" },
+      { alias: "ambar", expected: "amber" },
+      { alias: "invalid-theme", expected: "ciano" },
     ] as const;
 
     for (const scenario of scenarios) {

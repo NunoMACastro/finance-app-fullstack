@@ -29,7 +29,7 @@ describe("profile flow integration", () => {
         locale: "en-US",
         timezone: "America/New_York",
         preferences: {
-          themePalette: "calma",
+          themePalette: "ambar",
           hideAmountsByDefault: true,
         },
       });
@@ -39,13 +39,14 @@ describe("profile flow integration", () => {
     expect(updateProfileRes.body.currency).toBe("USD");
     expect(updateProfileRes.body.locale).toBeUndefined();
     expect(updateProfileRes.body.timezone).toBeUndefined();
-    expect(updateProfileRes.body.preferences.themePalette).toBe("calma");
+    expect(updateProfileRes.body.preferences.themePalette).toBe("amber");
     expect(updateProfileRes.body.preferences.hideAmountsByDefault).toBe(true);
 
     const persistedUser = await UserModel.findOne({ email: "profile@example.com" }).lean();
     expect(persistedUser?.profile?.currency).toBe("USD");
     expect((persistedUser?.profile as Record<string, unknown> | undefined)?.locale).toBeUndefined();
     expect((persistedUser?.profile as Record<string, unknown> | undefined)?.timezone).toBeUndefined();
+    expect(persistedUser?.preferences?.themePalette).toBe("amber");
 
     const wrongEmailRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/email")

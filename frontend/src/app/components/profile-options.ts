@@ -5,6 +5,9 @@ export const THEME_OPTIONS: Array<{ value: ThemePalette; label: string }> = [
   { value: "calma", label: "Calma" },
   { value: "aurora", label: "Aurora" },
   { value: "terra", label: "Terra" },
+  { value: "mare", label: "Maré" },
+  { value: "amber", label: "Ambar" },
+  { value: "ciano", label: "Ciano" },
 ];
 
 export const CURRENCY_OPTIONS: Array<{ value: string; label: string }> = [
