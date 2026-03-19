@@ -10,7 +10,7 @@ Fluxos:
 - retorno para login via link textual no registo
 
 Estrutura visual:
-- topo (hero) com gradiente do tema + logo/nome centrados
+- topo (hero) com superfície de marca do tema (gradiente ou sólido) + logo/nome centrados
 - separador curvo estatico entre hero e corpo
 - corpo flat sem cards/sombras
 - patch notes no fundo da pagina (quando visiveis), em login e registo

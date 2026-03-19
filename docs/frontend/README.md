@@ -38,7 +38,7 @@ UI mobile-first para:
   - `npm run check:tokens`
 
 Padrao auth v3:
-- login/registo sem tabs, com hero de gradiente + separador curvo
+- login/registo sem tabs, com hero de superfície de marca do tema (gradiente ou sólido) + separador curvo
 - corpo flat sem card (ver regras em [`./ui-v3-spec.md`](./ui-v3-spec.md))
 
 Padrao de detalhe por categoria (Month):
@@ -65,7 +65,8 @@ Padrao de perfil v3:
 
 - `theme.css` e apenas base/contrato semantico (sem cores literais).
 - Cada tema runtime vive em `src/styles/themes/<id>.css`.
-- O contrato completo `--t-*` esta em `src/styles/themes/_template.css`.
+- O contrato obrigatório `--t-*` esta em `src/styles/themes/_template.css`.
+- Tokens de gradiente por tema sao opcionais (`--t-gradient-*`, `--t-category-gradient-*`), com fallback sólido no runtime.
 - O runtime aplica `data-theme="<id>"` no `documentElement`.
 - IDs de tema oficiais: `brisa`, `calma`, `aurora`, `terra`, `mare`, `amber`, `ciano`.
 - Labels de UI: `Brisa`, `Calma`, `Aurora`, `Terra`, `Maré`, `Ambar`, `Ciano`.

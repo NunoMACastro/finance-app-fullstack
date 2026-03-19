@@ -32,10 +32,11 @@ export function TopBarV3({
             variant="ghost"
             onClick={onNavigateHome}
             className="h-11 min-w-0 justify-start gap-2 rounded-xl px-2 py-1 text-primary-foreground/95 hover:bg-primary-foreground/10"
+            style={{ color: "var(--topbar-foreground, currentColor)" }}
             aria-label="Ir para visão mensal"
           >
-            <Wallet className="h-6 w-6 shrink-0 text-primary-foreground" />
-            <span className="truncate text-[1.45rem] leading-none tracking-tight">{appName}</span>
+            <Wallet className="h-6 w-6 shrink-0" />
+            <span className="font-display truncate text-[1.45rem] leading-none tracking-tight">{appName}</span>
           </Button>
 
           <div className="flex items-center justify-end gap-0.5" data-tour="header-icon-actions">
@@ -46,6 +47,7 @@ export function TopBarV3({
               title={isAmountsHidden ? "Mostrar valores" : "Ocultar valores"}
               aria-label={isAmountsHidden ? "Mostrar valores" : "Ocultar valores"}
               className="h-11 w-11 rounded-xl bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+              style={{ color: "var(--topbar-foreground, currentColor)" }}
               data-tour="header-visibility-toggle"
             >
               {isAmountsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -58,6 +60,7 @@ export function TopBarV3({
               aria-label="Abrir tutorial"
               title="Tutorial"
               className="h-11 w-11 rounded-xl bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+              style={{ color: "var(--topbar-foreground, currentColor)" }}
               data-tour="header-help"
             >
               <CircleHelp className="h-4 w-4" />
@@ -70,6 +73,7 @@ export function TopBarV3({
               aria-label="Terminar sessão"
               title="Sair"
               className="h-11 w-11 rounded-xl bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+              style={{ color: "var(--topbar-foreground, currentColor)" }}
               data-tour="header-logout"
             >
               <LogOut className="h-4 w-4" />

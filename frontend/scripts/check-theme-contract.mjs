@@ -9,6 +9,14 @@ const TEMPLATE_FILE = path.join(THEMES_DIR, "_template.css");
 const TOKEN_PATTERN = /--t-[a-z0-9-]+\s*:/g;
 const FILE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css"]);
 const DARK_PATTERN = /\bdark:[^\s"'`]+/g;
+const OPTIONAL_GRADIENT_TOKENS = new Set([
+  "--t-gradient-page",
+  "--t-gradient-brand",
+  "--t-gradient-brand-soft",
+  "--t-gradient-info",
+  "--t-gradient-danger",
+  ...Array.from({ length: 9 }, (_, index) => `--t-category-gradient-${index + 1}`),
+]);
 
 function readTokens(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
@@ -53,7 +61,9 @@ const contractErrors = [];
 for (const themeFile of themeFiles) {
   const tokens = readTokens(themeFile);
   const missing = new Set([...requiredTokens].filter((token) => !tokens.has(token)));
-  const extra = new Set([...tokens].filter((token) => !requiredTokens.has(token)));
+  const extra = new Set(
+    [...tokens].filter((token) => !requiredTokens.has(token) && !OPTIONAL_GRADIENT_TOKENS.has(token)),
+  );
 
   if (missing.size > 0 || extra.size > 0) {
     contractErrors.push({
@@ -107,5 +117,5 @@ if (darkClassViolations.length > 0) {
 }
 
 console.log(
-  `Theme contract check passed (${themeFiles.length} themes, ${requiredTokens.size} required tokens, no dark: variants).`,
+  `Theme contract check passed (${themeFiles.length} themes, ${requiredTokens.size} required tokens, ${OPTIONAL_GRADIENT_TOKENS.size} optional gradient tokens, no dark: variants).`,
 );

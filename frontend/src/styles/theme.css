@@ -1,5 +1,7 @@
 :root {
   --font-size: 16px;
+  --font-ui: "acumin-pro", "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "proxima-nova", "acumin-pro", "Inter", system-ui, -apple-system, sans-serif;
 
   /* Semantic tokens mapped from active theme contract tokens (--t-*) */
   --background: var(--t-background);
@@ -68,11 +70,11 @@
   --dim-shadow-focus: 0 0 0 3px var(--ring-soft);
 
   /* Gradients */
-  --gradient-page: var(--t-gradient-page);
-  --gradient-brand: var(--t-gradient-brand);
-  --gradient-brand-soft: var(--t-gradient-brand-soft);
-  --gradient-info: var(--t-gradient-info);
-  --gradient-danger: var(--t-gradient-danger);
+  --gradient-page: var(--t-gradient-page, linear-gradient(160deg, var(--background), var(--background)));
+  --gradient-brand: var(--t-gradient-brand, linear-gradient(120deg, var(--primary), var(--primary)));
+  --gradient-brand-soft: var(--t-gradient-brand-soft, linear-gradient(140deg, var(--primary), var(--primary)));
+  --gradient-info: var(--t-gradient-info, linear-gradient(120deg, var(--info), var(--info)));
+  --gradient-danger: var(--t-gradient-danger, linear-gradient(120deg, var(--danger), var(--danger)));
 
   /* Dimension tokens */
   --dim-space-2xs: 0.25rem;
@@ -101,15 +103,15 @@
   --category-7: var(--t-category-7);
   --category-8: var(--t-category-8);
   --category-9: var(--t-category-9);
-  --category-gradient-1: var(--t-category-gradient-1);
-  --category-gradient-2: var(--t-category-gradient-2);
-  --category-gradient-3: var(--t-category-gradient-3);
-  --category-gradient-4: var(--t-category-gradient-4);
-  --category-gradient-5: var(--t-category-gradient-5);
-  --category-gradient-6: var(--t-category-gradient-6);
-  --category-gradient-7: var(--t-category-gradient-7);
-  --category-gradient-8: var(--t-category-gradient-8);
-  --category-gradient-9: var(--t-category-gradient-9);
+  --category-gradient-1: var(--t-category-gradient-1, linear-gradient(120deg, var(--category-1), var(--category-1)));
+  --category-gradient-2: var(--t-category-gradient-2, linear-gradient(120deg, var(--category-2), var(--category-2)));
+  --category-gradient-3: var(--t-category-gradient-3, linear-gradient(120deg, var(--category-3), var(--category-3)));
+  --category-gradient-4: var(--t-category-gradient-4, linear-gradient(120deg, var(--category-4), var(--category-4)));
+  --category-gradient-5: var(--t-category-gradient-5, linear-gradient(120deg, var(--category-5), var(--category-5)));
+  --category-gradient-6: var(--t-category-gradient-6, linear-gradient(120deg, var(--category-6), var(--category-6)));
+  --category-gradient-7: var(--t-category-gradient-7, linear-gradient(120deg, var(--category-7), var(--category-7)));
+  --category-gradient-8: var(--t-category-gradient-8, linear-gradient(120deg, var(--category-8), var(--category-8)));
+  --category-gradient-9: var(--t-category-gradient-9, linear-gradient(120deg, var(--category-9), var(--category-9)));
   --category-soft-1: var(--t-category-soft-1);
   --category-soft-2: var(--t-category-soft-2);
   --category-soft-3: var(--t-category-soft-3);
@@ -318,6 +320,9 @@
   .text-category-7 { color: var(--category-text-7); }
   .text-category-8 { color: var(--category-text-8); }
   .text-category-9 { color: var(--category-text-9); }
+
+  .font-ui { font-family: var(--font-ui); }
+  .font-display { font-family: var(--font-display); }
 }
 
 @layer base {
@@ -331,28 +336,32 @@
 
   html {
     font-size: var(--font-size);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-ui);
   }
 
   h1 {
+    font-family: var(--font-display);
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   h2 {
+    font-family: var(--font-display);
     font-size: var(--text-xl);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   h3 {
+    font-family: var(--font-display);
     font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   h4 {
+    font-family: var(--font-display);
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;

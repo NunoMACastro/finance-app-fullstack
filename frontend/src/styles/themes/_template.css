@@ -1,6 +1,7 @@
 /*
   Theme contract template.
-  Every runtime theme file MUST define exactly this token set.
+  Every runtime theme file MUST define this required token set.
+  Optional gradient extension tokens are documented below.
 */
 
 :root[data-theme="__template__"] {
@@ -55,11 +56,6 @@
   --t-sidebar-accent-foreground: initial;
   --t-sidebar-border: initial;
   --t-sidebar-ring: initial;
-  --t-gradient-page: initial;
-  --t-gradient-brand: initial;
-  --t-gradient-brand-soft: initial;
-  --t-gradient-info: initial;
-  --t-gradient-danger: initial;
   --t-chart-income: initial;
   --t-chart-expense: initial;
   --t-chart-balance: initial;
@@ -75,15 +71,6 @@
   --t-category-7: initial;
   --t-category-8: initial;
   --t-category-9: initial;
-  --t-category-gradient-1: initial;
-  --t-category-gradient-2: initial;
-  --t-category-gradient-3: initial;
-  --t-category-gradient-4: initial;
-  --t-category-gradient-5: initial;
-  --t-category-gradient-6: initial;
-  --t-category-gradient-7: initial;
-  --t-category-gradient-8: initial;
-  --t-category-gradient-9: initial;
   --t-category-soft-1: initial;
   --t-category-soft-2: initial;
   --t-category-soft-3: initial;
@@ -103,3 +90,13 @@
   --t-category-text-8: initial;
   --t-category-text-9: initial;
 }
+
+/*
+  Optional gradient extension tokens (MAY be defined per theme):
+  --t-gradient-page
+  --t-gradient-brand
+  --t-gradient-brand-soft
+  --t-gradient-info
+  --t-gradient-danger
+  --t-category-gradient-1..9
+*/

@@ -15,7 +15,7 @@ Este README e um atalho rapido. A documentacao detalhada do frontend esta em:
 
 - `src/styles/theme.css`: base semantica (sem cores literais).
 - `src/styles/themes/*.css`: um ficheiro por tema (`brisa`, `calma`, `aurora`, `terra`).
-- `src/styles/themes/_template.css`: contrato obrigatorio `--t-*`.
+- `src/styles/themes/_template.css`: contrato obrigatorio `--t-*` (gradientes sao extensao opcional por tema).
 - Guardrails:
   - `npm run check-theme-contract`
   - `npm run check:tokens`

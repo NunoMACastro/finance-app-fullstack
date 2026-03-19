@@ -70,7 +70,7 @@ Normativa:
 - `MUST` usar `<Button>` por defeito para ações explícitas (CTA, submit, confirmar, cancelar, remover, navegar por ação).
 - `<button>` nativo `MAY` ser usado apenas dentro de primitives de interação dedicadas.
 - `<Button>` `MUST` usar target default `h-11`; modo compacto (`h-9`) apenas em contextos densos e explícitos.
-- Primárias `MUST` usar gradiente (`bg-brand-gradient`) com `text-primary-foreground` e `border-0`.
+- Primárias `MUST` usar superfície de marca temática (`bg-brand-gradient` ou `bg-primary`) com `text-primary-foreground` e `border-0`.
 - Secundárias (`outline`/`ghost`/`link`) `MUST` manter `rounded-xl`.
 - Primitives recomendadas:
   - `IconActionButtonV3` para ações de ícone (normal/danger, `default|compact`)
@@ -96,7 +96,7 @@ Normativa:
   - foco suave (`ring` sem borda pesada)
 
 ### Auth (Login/Registo)
-- `MUST` usar topo/hero com gradiente do tema e logo/nome centrados.
+- `MUST` usar topo/hero com superfície de marca do tema (gradiente ou sólido) e logo/nome centrados.
 - `MUST` incluir separador curvo entre hero e corpo (`svg` estático, responsivo).
 - `MUST` manter corpo flat (`bg-background`) sem card, borda ou sombra.
 - `MUST` usar troca textual entre modos (login/registo), sem tabs.
@@ -174,6 +174,7 @@ Uma alteração UI v3 só está pronta quando:
 
 - `theme.css` MUST conter apenas base semântica e zero cores literais.
 - Cada tema MUST viver em `src/styles/themes/<id>.css` e cumprir `_template.css` (tokens `--t-*`).
+- Tokens de gradiente (`--t-gradient-*` e `--t-category-gradient-*`) `MAY` existir por tema; quando ausentes, o runtime usa fallback sólido.
 - O runtime MUST aplicar tema por `data-theme="<id>"`.
 - Não é permitido usar variantes `dark:` no frontend.
 - Qualquer nova regra visual de tema MUST atualizar:

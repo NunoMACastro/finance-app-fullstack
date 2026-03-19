@@ -128,7 +128,7 @@ describe("UI v3 visual contracts", () => {
     }
   });
 
-  test("primary CTA targets use gradient style", () => {
+  test("primary CTA targets use themed primary surface (gradient or solid)", () => {
     const targets = [
       "auth-page.tsx",
       "profile-account-page.tsx",
@@ -139,9 +139,10 @@ describe("UI v3 visual contracts", () => {
       "profile-shared-members-page.tsx",
       "stats-category-insight-sheet.tsx",
     ];
+    const themedPrimarySurface = /\bbg-brand-gradient\b|\bbg-primary\b/;
     for (const target of targets) {
       const source = readComponent(target);
-      expect(source).toContain("bg-brand-gradient");
+      expect(source).toMatch(themedPrimarySurface);
       expect(source).not.toContain("rounded-full border-0 bg-primary");
     }
   });

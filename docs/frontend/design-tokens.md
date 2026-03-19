@@ -27,7 +27,8 @@ Nao e permitido usar:
   - `terra.css`
 - Template de contrato:
   - `_template.css`
-- Regra: cada tema MUST definir exatamente o conjunto `--t-*` do template.
+- Regra: cada tema MUST definir o conjunto obrigatório `--t-*` do template.
+- Extensão opcional: gradientes por tema (`--t-gradient-*`, `--t-category-gradient-*`).
 
 ### 3) Ativacao de tema
 - O tema ativo e aplicado com `data-theme="<id>"` no `documentElement`.
@@ -39,16 +40,19 @@ Nao e permitido usar:
 - Prefixo obrigatorio: `--t-*` nos ficheiros de tema.
 - `theme.css` mapeia `--t-*` para tokens semanticos publicos (`--background`, `--foreground`, etc.).
 - Componentes devem consumir apenas tokens semanticos/classes semanticas.
+- Tokens de gradiente sao opcionais por tema; quando ausentes, o runtime aplica fallback semantico sólido.
 - Cores de categoria usam slots semanticos `1..9`:
   - base: `--t-category-1..9`
-  - derivados: `--t-category-gradient-*`, `--t-category-soft-*`, `--t-category-text-*`
+  - derivados obrigatorios: `--t-category-soft-*`, `--t-category-text-*`
+  - derivados opcionais: `--t-category-gradient-*`
   - binding funcional: `BudgetCategory.colorSlot` (API) -> classes `bg-category-*` / `text-category-*`.
 
 ## Guardrails automaticos
 
 - `npm run check-theme-contract`
-  - valida contrato do template em todos os temas,
-  - falha se houver tokens em falta ou extra,
+  - valida tokens obrigatorios do template em todos os temas,
+  - aceita tokens opcionais de gradiente conhecidos,
+  - falha se houver tokens obrigatorios em falta ou tokens desconhecidos,
   - falha se existir `dark:` em `src/`.
 - `npm run check:tokens`
   - falha se existirem cores hardcoded fora dos ficheiros de tema.
@@ -56,7 +60,8 @@ Nao e permitido usar:
 ## Do / Don't
 
 - Do:
-  - adicionar novo token primeiro em `_template.css` e em todos os temas,
+  - adicionar novo token obrigatorio primeiro em `_template.css` e em todos os temas,
+  - para gradientes opcionais, definir apenas nos temas que precisarem,
   - mapear o novo token em `theme.css` quando for semantico publico,
   - manter aliases legados normalizados para IDs atuais no provider.
 - Don't:

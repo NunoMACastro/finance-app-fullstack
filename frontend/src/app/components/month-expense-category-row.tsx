@@ -22,14 +22,6 @@ function getToneTextClass(tone: ExpenseCategoryTone): string {
   return "text-foreground";
 }
 
-function getPrimaryShadeBarClass(progressPercent: number): string {
-  if (progressPercent >= 100) return "bg-brand-gradient";
-  if (progressPercent < 25) return "bg-primary-shade-1";
-  if (progressPercent < 50) return "bg-primary-shade-2";
-  if (progressPercent < 75) return "bg-primary-shade-3";
-  return "bg-primary-shade-4";
-}
-
 export function MonthExpenseCategoryRow({
   name,
   percentLabel,
@@ -43,13 +35,13 @@ export function MonthExpenseCategoryRow({
   onOpen,
 }: MonthExpenseCategoryRowProps) {
   const clampedProgress = Math.max(0, Math.min(progressPercent, 100));
-  const fillClass = getPrimaryShadeBarClass(clampedProgress);
+  const fillClass = dotClassName;
 
   return (
     <Button
       type="button"
       variant="ghost"
-      className="h-auto w-full min-h-11 justify-start rounded-xl py-3 text-left transition-colors hover:bg-accent/35"
+      className="h-auto w-full min-h-11 flex-col items-stretch justify-start rounded-xl py-3 text-left transition-colors hover:bg-accent/35"
       onClick={onOpen}
       aria-label={`Abrir detalhes de despesas da categoria ${name}`}
     >
