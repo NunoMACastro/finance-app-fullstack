@@ -352,9 +352,13 @@ async function run(): Promise<void> {
     const personalRent = 920 + index * 2;
     const personalSubscription = 29.99 + (index % 4 === 0 ? 2 : 0);
     const personalGroceries = 350 + index * 6;
+    const personalMeals = 68 + (index % 4) * 7;
     const personalTransport = 120 + (index % 5) * 4;
+    const personalFuel = 44 + (index % 4) * 6;
     const personalLeisure = 95 + (index % 3) * 16;
+    const personalWeekend = 36 + (index % 5) * 9;
     const personalReserve = 420 + index * 9;
+    const personalExtraReserve = 90 + index * 4;
 
     pushRecurringTransaction(transactions, {
       accountId: personalAccountId,
@@ -430,12 +434,51 @@ async function run(): Promise<void> {
       accountId: personalAccountId,
       userId,
       month,
+      day: 18,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Combustivel e estacionamento",
+      amount: personalFuel,
+      categoryId: "cat_mobilidade",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
       day: 21,
       type: "expense",
       origin: "manual",
       recurringRuleId: null,
       description: "Lazer",
       amount: personalLeisure,
+      categoryId: "cat_lazer",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 24,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Jantares e cafes",
+      amount: personalMeals,
+      categoryId: "cat_mercado",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: personalAccountId,
+      userId,
+      month,
+      day: 25,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Fim de semana",
+      amount: personalWeekend,
       categoryId: "cat_lazer",
     });
 
@@ -452,6 +495,21 @@ async function run(): Promise<void> {
       categoryId: "cat_poupanca",
     });
 
+    if (index % 2 === 0) {
+      pushRecurringTransaction(transactions, {
+        accountId: personalAccountId,
+        userId,
+        month,
+        day: 27,
+        type: "expense",
+        origin: "manual",
+        recurringRuleId: null,
+        description: "Reforco de poupanca",
+        amount: personalExtraReserve,
+        categoryId: "cat_poupanca",
+      });
+    }
+
     if (index % 3 === 0) {
       pushRecurringTransaction(transactions, {
         accountId: personalAccountId,
@@ -467,10 +525,29 @@ async function run(): Promise<void> {
       });
     }
 
+    if (index % 5 === 2) {
+      pushRecurringTransaction(transactions, {
+        accountId: personalAccountId,
+        userId,
+        month,
+        day: 28,
+        type: "income",
+        origin: "manual",
+        recurringRuleId: null,
+        description: "Venda ocasional",
+        amount: 95 + index * 12,
+        categoryId: personalIncomeDefaultId.toString(),
+      });
+    }
+
     const sharedContribution = 1600 + index * 12;
+    const sharedHousing = 240 + index * 3;
     const sharedUtilities = 320 + index * 4;
     const sharedGroceries = 520 + index * 11;
+    const sharedHomeSupplies = 54 + (index % 4) * 7;
     const sharedLeisure = 140 + (index % 4) * 20;
+    const sharedDining = 58 + (index % 3) * 14;
+    const sharedReserve = 150 + index * 5;
 
     pushRecurringTransaction(transactions, {
       accountId: sharedAccountId,
@@ -483,6 +560,19 @@ async function run(): Promise<void> {
       description: "Contribuicao para despesas da casa",
       amount: sharedContribution,
       categoryId: sharedIncomeContributionId.toString(),
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 4,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Condominio e manutencao",
+      amount: sharedHousing,
+      categoryId: "cat_shared_habitacao",
     });
 
     pushRecurringTransaction(transactions, {
@@ -515,12 +605,51 @@ async function run(): Promise<void> {
       accountId: sharedAccountId,
       userId,
       month,
+      day: 17,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Produtos para a casa",
+      amount: sharedHomeSupplies,
+      categoryId: "cat_shared_mercado",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
       day: 19,
       type: "expense",
       origin: "manual",
       recurringRuleId: null,
       description: "Lazer em casa",
       amount: sharedLeisure,
+      categoryId: "cat_shared_lazer",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 22,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Fundo da casa",
+      amount: sharedReserve,
+      categoryId: "cat_shared_reserva",
+    });
+
+    pushRecurringTransaction(transactions, {
+      accountId: sharedAccountId,
+      userId,
+      month,
+      day: 24,
+      type: "expense",
+      origin: "manual",
+      recurringRuleId: null,
+      description: "Refeicao fora",
+      amount: sharedDining,
       categoryId: "cat_shared_lazer",
     });
 
