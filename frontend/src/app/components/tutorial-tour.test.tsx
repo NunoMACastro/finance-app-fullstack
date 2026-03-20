@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TutorialTour } from "./tutorial-tour";
 
 function createTourTarget(id: string) {
@@ -59,5 +59,38 @@ describe("TutorialTour", () => {
     expect(screen.queryByText("Novo lançamento")).not.toBeInTheDocument();
     expect(screen.queryByText("Categorias do orçamento")).not.toBeInTheDocument();
   });
-});
 
+  test("mantém apenas um passo visível e desmonta o anterior ao avançar", async () => {
+    const availableTargets = [
+      "header-icon-actions",
+      "header-visibility-toggle",
+      "header-help",
+      "header-logout",
+      "bottom-profile-nav",
+      "month-budget-select",
+      "month-budget-button",
+      "month-view-tabs",
+    ];
+    availableTargets.forEach(createTourTarget);
+
+    render(
+      <TutorialTour
+        open
+        scope="month"
+        showAccountSelectStep={false}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(await screen.findByText("Ações do topo")).toBeInTheDocument();
+    expect(screen.getAllByTestId("tutorial-step-card")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Privacidade visual")).toBeInTheDocument();
+      expect(screen.queryByText("Ações do topo")).not.toBeInTheDocument();
+      expect(screen.getAllByTestId("tutorial-step-card")).toHaveLength(1);
+    });
+  });
+});

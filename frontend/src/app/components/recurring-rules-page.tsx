@@ -122,6 +122,7 @@ export function RecurringRulesPage() {
 
   const [pendingDeleteRule, setPendingDeleteRule] = useState<RecurringRule | null>(null);
   const [runningGenerate, setRunningGenerate] = useState(false);
+  const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
 
   const [reassignRuleId, setReassignRuleId] = useState<string | null>(null);
   const [reassignCategoryId, setReassignCategoryId] = useState("");
@@ -326,9 +327,14 @@ export function RecurringRulesPage() {
             <Button className="h-12 rounded-xl" onClick={startCreate}>
               Nova regra
             </Button>
-            <Button variant="outline" className="h-12 rounded-xl" onClick={() => void runGenerate()}>
+            <Button
+              variant="outline"
+              className="h-12 rounded-xl"
+              onClick={() => setConfirmGenerateOpen(true)}
+              disabled={runningGenerate}
+            >
               {runningGenerate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />}
-              Gerar agora ({currentMonth})
+              Gerar lançamentos deste mês
             </Button>
           </div>
         ) : (
@@ -621,6 +627,22 @@ export function RecurringRulesPage() {
           </div>
         )}
       </section>
+
+      <ConfirmActionDialog
+        open={confirmGenerateOpen}
+        onOpenChange={(nextOpen) => {
+          setConfirmGenerateOpen(nextOpen);
+        }}
+        title="Gerar lançamentos deste mês?"
+        description="Esta ação vai criar os lançamentos recorrentes vencidos para o mês selecionado. A operação não deve ser repetida sem necessidade."
+        confirmLabel="Gerar lançamentos"
+        destructive={false}
+        loading={runningGenerate}
+        onConfirm={async () => {
+          await runGenerate();
+          setConfirmGenerateOpen(false);
+        }}
+      />
 
       <ConfirmActionDialog
         open={Boolean(pendingDeleteRule)}

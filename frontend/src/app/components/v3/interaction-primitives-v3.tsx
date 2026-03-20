@@ -15,6 +15,7 @@ function getIconControlSizeClass(size: ControlSize): string {
 
 export function IconActionButtonV3({
   ariaLabel,
+  tooltip,
   onClick,
   children,
   tone = "normal",
@@ -23,6 +24,7 @@ export function IconActionButtonV3({
   className,
 }: {
   ariaLabel: string;
+  tooltip?: string;
   onClick: () => void;
   children: ReactNode;
   tone?: IconActionTone;
@@ -45,6 +47,7 @@ export function IconActionButtonV3({
       )}
       onClick={onClick}
       aria-label={ariaLabel}
+      title={tooltip ?? ariaLabel}
       disabled={disabled}
     >
       {children}

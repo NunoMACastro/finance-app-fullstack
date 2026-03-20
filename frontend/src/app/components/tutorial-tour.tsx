@@ -339,121 +339,121 @@ export function TutorialTour({
                     transition={{ duration: 0.32, ease: "easeOut" }}
                 />
 
-                <AnimatePresence>
-                    {targetRect && (
-                        <motion.div
-                            key={step.id}
-                            className="fixed rounded-xl border-2 border-primary pointer-events-none"
-                            style={{
-                                top: targetRect.top - 5,
-                                left: targetRect.left - 5,
-                                width: targetRect.width + 10,
-                                height: targetRect.height + 10,
-                                boxShadow: "0 0 0 9999px var(--overlay)",
-                            }}
-                            initial={{ opacity: 0 }}
-                            animate={{
-                                opacity: 1,
-                            }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.22, ease: "easeOut" }}
-                        />
-                    )}
-                </AnimatePresence>
+                <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                        key={`step-${step.id}`}
+                        className="absolute inset-0 pointer-events-none"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
+                        {targetRect ? (
+                            <motion.div
+                                className="fixed rounded-xl border-2 border-primary pointer-events-none"
+                                style={{
+                                    top: targetRect.top - 5,
+                                    left: targetRect.left - 5,
+                                    width: targetRect.width + 10,
+                                    height: targetRect.height + 10,
+                                    boxShadow: "0 0 0 9999px var(--overlay)",
+                                }}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                            />
+                        ) : null}
 
-                <AnimatePresence>
-                    {cardPosition && (
-                        <motion.div
-                            key={`card-${step.id}`}
-                            className="fixed w-[min(360px,calc(100vw-32px))] rounded-2xl border border-border bg-card p-4 shadow-overlay"
-                            style={{
-                                top: cardPosition.top,
-                                left: cardPosition.left,
-                            }}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.24, ease: "easeOut" }}
-                        >
-                            <p className="text-[11px] text-primary mb-1">
-                                Passo {currentStepIndex + 1} de {steps.length}
-                            </p>
-                            <h3 className="text-sm text-foreground mb-1">
-                                {step.title}
-                            </h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                {step.description}
-                            </p>
+                        {cardPosition ? (
+                            <motion.div
+                                className="fixed w-[min(360px,calc(100vw-32px))] rounded-2xl border border-border bg-card p-4 shadow-overlay pointer-events-auto"
+                                style={{
+                                    top: cardPosition.top,
+                                    left: cardPosition.left,
+                                }}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.22, ease: "easeOut" }}
+                                data-testid="tutorial-step-card"
+                                data-step-id={step.id}
+                            >
+                                <p className="mb-1 text-[11px] text-primary">
+                                    Passo {currentStepIndex + 1} de {steps.length}
+                                </p>
+                                <h3 className="mb-1 text-sm text-foreground">
+                                    {step.title}
+                                </h3>
+                                <p className="text-xs leading-relaxed text-muted-foreground">
+                                    {step.description}
+                                </p>
 
-                            <div className="mt-4 flex items-center justify-between gap-2">
-                                <Button
-                                    variant="ghost"
-                                    className="rounded-xl"
-                                    onClick={() => onClose("skip")}
-                                >
-                                    Saltar
-                                </Button>
-                                <div className="flex items-center gap-2">
+                                <div className="mt-4 flex items-center justify-between gap-2">
                                     <Button
-                                        variant="outline"
+                                        variant="ghost"
                                         className="rounded-xl"
-                                        onClick={() =>
-                                            setStepIndex((i) =>
-                                                Math.max(i - 1, 0),
-                                            )
-                                        }
-                                        disabled={currentStepIndex === 0}
+                                        onClick={() => onClose("skip")}
                                     >
-                                        Anterior
+                                        Saltar
                                     </Button>
-                                    <Button
-                                        className="rounded-xl bg-brand-gradient text-primary-foreground border-0"
-                                        onClick={() => {
-                                            if (isLast) {
-                                                onClose("done");
-                                                return;
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            className="rounded-xl"
+                                            onClick={() =>
+                                                setStepIndex((i) =>
+                                                    Math.max(i - 1, 0),
+                                                )
                                             }
-                                            setStepIndex((i) =>
-                                                Math.min(
-                                                    i + 1,
-                                                    steps.length - 1,
-                                                ),
-                                            );
-                                        }}
+                                            disabled={currentStepIndex === 0}
+                                        >
+                                            Anterior
+                                        </Button>
+                                        <Button
+                                            className="rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+                                            onClick={() => {
+                                                if (isLast) {
+                                                    onClose("done");
+                                                    return;
+                                                }
+                                                setStepIndex((i) =>
+                                                    Math.min(
+                                                        i + 1,
+                                                        steps.length - 1,
+                                                    ),
+                                                );
+                                            }}
+                                        >
+                                            {isLast ? "Concluir" : "Seguinte"}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-xl border border-border bg-card px-3 py-2 shadow-overlay pointer-events-auto"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 8 }}
+                                transition={{ duration: 0.22, ease: "easeOut" }}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <p className="text-xs text-muted-foreground">
+                                        A preparar este passo...
+                                    </p>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-9 rounded-xl text-xs"
+                                        onClick={() => onClose("skip")}
                                     >
-                                        {isLast ? "Concluir" : "Seguinte"}
+                                        Saltar
                                     </Button>
                                 </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                    {!cardPosition && (
-                        <motion.div
-                            key="tour-loading"
-                            className="fixed left-1/2 -translate-x-1/2 bottom-5 rounded-xl border border-border bg-card px-3 py-2 shadow-overlay"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 8 }}
-                            transition={{ duration: 0.22, ease: "easeOut" }}
-                        >
-                            <div className="flex items-center gap-3">
-                                <p className="text-xs text-muted-foreground">
-                                    A preparar este passo...
-                                </p>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-9 rounded-xl text-xs"
-                                    onClick={() => onClose("skip")}
-                                >
-                                    Saltar
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
+                            </motion.div>
+                        )}
+                    </motion.div>
                 </AnimatePresence>
             </motion.div>
         </AnimatePresence>

@@ -7,12 +7,13 @@ const apiMocks = vi.hoisted(() => ({
   getBudget: vi.fn(),
   listIncomeCategories: vi.fn(),
   reassignCategory: vi.fn(),
+  generate: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
   recurringApi: {
     list: apiMocks.listRules,
-    generate: vi.fn(),
+    generate: apiMocks.generate,
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -69,6 +70,7 @@ describe("RecurringRulesPage", () => {
       ],
     });
     apiMocks.listIncomeCategories.mockResolvedValue([]);
+    apiMocks.generate.mockResolvedValue({ created: 1, fallbackCreated: 0 });
     apiMocks.reassignCategory.mockResolvedValue({
       rule: {
         id: "r1",
@@ -108,6 +110,28 @@ describe("RecurringRulesPage", () => {
         categoryId: "cat_home",
         migratePastFallbackTransactions: false,
       });
+    });
+  });
+
+  test("manual generation requires confirmation and uses updated copy", async () => {
+    render(
+      <MemoryRouter initialEntries={["/recurring"]}>
+        <Routes>
+          <Route path="/recurring" element={<RecurringRulesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const generateButton = await screen.findByRole("button", { name: "Gerar lançamentos deste mês" });
+    expect(generateButton).toBeInTheDocument();
+
+    fireEvent.click(generateButton);
+    expect(await screen.findByText("Gerar lançamentos deste mês?")).toBeInTheDocument();
+    expect(apiMocks.generate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gerar lançamentos" }));
+    await waitFor(() => {
+      expect(apiMocks.generate).toHaveBeenCalledTimes(1);
     });
   });
 });

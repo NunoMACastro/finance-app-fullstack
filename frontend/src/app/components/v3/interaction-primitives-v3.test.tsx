@@ -19,8 +19,21 @@ describe("interaction primitives v3", () => {
 
     const button = screen.getByRole("button", { name: "Remover item" });
     expect(button).toHaveClass("h-11", "w-11", "rounded-xl");
+    expect(button).toHaveAttribute("title", "Remover item");
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  test("IconActionButtonV3 allows custom tooltip copy", () => {
+    const onClick = vi.fn();
+    render(
+      <IconActionButtonV3 ariaLabel="Terminar sessão" tooltip="Sair" onClick={onClick}>
+        <span aria-hidden>X</span>
+      </IconActionButtonV3>,
+    );
+
+    const button = screen.getByRole("button", { name: "Terminar sessão" });
+    expect(button).toHaveAttribute("title", "Sair");
   });
 
   test("TextActionButtonV3 renders link-like action", () => {

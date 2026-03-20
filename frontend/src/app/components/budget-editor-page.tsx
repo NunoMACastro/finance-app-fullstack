@@ -46,6 +46,11 @@ function catEur(cat: BudgetCategory, totalBudget: number): number {
   return (cat.percent / 100) * totalBudget;
 }
 
+function formatPercent(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded.toFixed(0)}%` : `${rounded.toFixed(1)}%`;
+}
+
 function isMonthKey(value?: string): value is string {
   return Boolean(value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value));
 }
@@ -105,6 +110,8 @@ export function BudgetEditorPage() {
     [budget],
   );
   const pctDiff = totalPct - 100;
+  const isTotalExact = Math.abs(pctDiff) < 0.01;
+  const absoluteDiff = Math.abs(100 - totalPct);
 
   const handleBack = () => {
     navigate(`/?month=${month}`);
@@ -265,7 +272,7 @@ export function BudgetEditorPage() {
               <label className="text-sm text-muted-foreground">Orçamento Total (EUR)</label>
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-muted-foreground" />
-                <p className="text-xl leading-none tracking-tight text-foreground">
+                <p className="whitespace-nowrap text-xl leading-none tracking-tight text-foreground">
                   {formatCurrency(budget.totalBudget)}
                 </p>
               </div>
@@ -284,15 +291,12 @@ export function BudgetEditorPage() {
               }`}
             >
               {Math.abs(pctDiff) < 0.01 ? (
-                <Check className="w-4 h-4 shrink-0" />
+                <Check className="h-4 w-4 shrink-0" />
               ) : (
-                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <AlertTriangle className="h-4 w-4 shrink-0" />
               )}
-              <span>
-                Total: {totalPct.toFixed(1)}%
-                {pctDiff < -0.01 && ` — ${Math.abs(pctDiff).toFixed(1)}% por alocar`}
-                {pctDiff > 0.01 && ` — ${pctDiff.toFixed(1)}% a mais`}
-                {Math.abs(pctDiff) < 0.01 && " — 100%"}
+              <span className="whitespace-nowrap">
+                {isTotalExact ? "Total: 100%" : `Total: ${formatPercent(totalPct)} (diferença ${formatPercent(absoluteDiff)})`}
               </span>
             </div>
 
@@ -318,7 +322,7 @@ export function BudgetEditorPage() {
                 <div key={category.id} className="flex flex-col gap-3 py-3">
                   {category.id === RECURRING_EXPENSE_FALLBACK_CATEGORY_ID ? (
                     <span className="inline-flex w-fit rounded-full bg-warning-soft px-2 py-0.5 text-[10px] text-warning-foreground">
-                      Categoria técnica protegida
+                      Categoria do sistema (não editável)
                     </span>
                   ) : null}
                   <div className="flex items-center gap-2">
@@ -370,7 +374,7 @@ export function BudgetEditorPage() {
                       />
                       <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                     </div>
-                    <span className="text-xs text-muted-foreground text-right tabular-nums min-w-[90px]">
+                    <span className="min-w-[90px] whitespace-nowrap text-right text-xs tabular-nums text-muted-foreground">
                       {formatCurrency(catEur(category, budget.totalBudget))}
                     </span>
                   </div>
@@ -414,7 +418,7 @@ export function BudgetEditorPage() {
                   />
                   <Percent className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                <span className="min-w-[90px] text-right text-xs tabular-nums text-muted-foreground">
+                <span className="min-w-[90px] whitespace-nowrap text-right text-xs tabular-nums text-muted-foreground">
                   {formatCurrency(((parseFloat(newCatPercent) || 0) / 100) * budget.totalBudget)}
                 </span>
               </div>

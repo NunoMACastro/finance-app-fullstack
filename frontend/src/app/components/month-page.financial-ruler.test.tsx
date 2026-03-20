@@ -325,4 +325,71 @@ describe("MonthPage financial ruler states", () => {
     expect(labels[2]).toContain("Investimento");
     expect(labels[3]).toContain("Poupança");
   });
+
+  test("month picker includes explicit cancel button and closes without changing month", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 0,
+      totalExpense: 0,
+      balance: 0,
+      expenseTransactions: [],
+      incomeTransactions: [],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 0,
+      categories: [],
+      isReady: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const monthButton = await screen.findByRole("button", { name: "Selecionar mês do orçamento" });
+    const monthLabelBefore = monthButton.textContent;
+    fireEvent.click(monthButton);
+
+    expect(await screen.findByRole("heading", { name: "Escolher mês" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    await screen.findByRole("button", { name: "Selecionar mês do orçamento" });
+    expect(screen.queryByRole("heading", { name: "Escolher mês" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Selecionar mês do orçamento" }).textContent).toBe(monthLabelBefore);
+  });
+
+  test("month picker list is scrollable", async () => {
+    apiMocks.getMonthSummary.mockResolvedValue({
+      month: "2026-03",
+      totalIncome: 0,
+      totalExpense: 0,
+      balance: 0,
+      expenseTransactions: [],
+      incomeTransactions: [],
+    });
+    apiMocks.getBudget.mockResolvedValue({
+      month: "2026-03",
+      totalBudget: 0,
+      categories: [],
+      isReady: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<MonthPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Selecionar mês do orçamento" }));
+    const monthOptionsList = await screen.findByTestId("month-picker-options");
+    expect(monthOptionsList).toHaveClass("max-h-[12.25rem]");
+    expect(monthOptionsList).toHaveClass("overflow-y-auto");
+  });
 });

@@ -824,7 +824,10 @@ export function MonthPage() {
             <OverlayTitle>Escolher mês</OverlayTitle>
           </OverlayHeader>
           <OverlayBody className="pt-1">
-            <div className="max-h-[58vh] space-y-1 overflow-y-auto pr-1">
+            <div
+              data-testid="month-picker-options"
+              className="max-h-[12.25rem] space-y-1 overflow-y-auto pr-1"
+            >
               {monthPickerLoading ? (
                 <p className="py-2 text-xs text-muted-foreground">A carregar meses...</p>
               ) : null}
@@ -846,6 +849,15 @@ export function MonthPage() {
               })}
             </div>
           </OverlayBody>
+          <OverlayFooter>
+            <Button
+              variant="outline"
+              className="h-11 w-full rounded-xl sm:w-auto"
+              onClick={() => setMonthPickerOpen(false)}
+            >
+              Cancelar
+            </Button>
+          </OverlayFooter>
         </OverlayContent>
       </ResponsiveOverlay>
 

@@ -180,6 +180,55 @@ describe("UI v3 structure smoke", () => {
     expect(savePayload.categories[0].kind).toBe("reserve");
   });
 
+  test("budget editor mostra total simplificado quando soma é 100%", async () => {
+    apiMocks.getBudget.mockResolvedValueOnce({
+      accountId: "acc1",
+      month: "2026-03",
+      totalBudget: 1000,
+      categories: [
+        { id: "fallback_recurring_expense", name: "Fallback", percent: 100, kind: "expense" },
+      ],
+      isReady: true,
+    });
+    apiMocks.getTemplates.mockResolvedValueOnce([]);
+
+    render(
+      <MemoryRouter initialEntries={["/budget/2026-03/edit"]}>
+        <Routes>
+          <Route path="/budget/:month/edit" element={<BudgetEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Total: 100%")).toBeInTheDocument();
+    expect(screen.queryByText(/diferença/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Categoria do sistema (não editável)")).toBeInTheDocument();
+  });
+
+  test("budget editor mostra diferença absoluta quando total é diferente de 100%", async () => {
+    apiMocks.getBudget.mockResolvedValueOnce({
+      accountId: "acc1",
+      month: "2026-03",
+      totalBudget: 1000,
+      categories: [
+        { id: "c1", name: "Casa", percent: 55, kind: "expense" },
+        { id: "c2", name: "Lazer", percent: 35, kind: "expense" },
+      ],
+      isReady: true,
+    });
+    apiMocks.getTemplates.mockResolvedValueOnce([]);
+
+    render(
+      <MemoryRouter initialEntries={["/budget/2026-03/edit"]}>
+        <Routes>
+          <Route path="/budget/:month/edit" element={<BudgetEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Total: 90% (diferença 10%)")).toBeInTheDocument();
+  });
+
   test("profile page exposes v3 root", () => {
     const { container } = render(
       <MemoryRouter initialEntries={["/profile"]}>
