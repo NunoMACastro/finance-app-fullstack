@@ -19,6 +19,7 @@ export const httpClient = axios.create({
   baseURL: config.apiBaseUrl,
   timeout: config.requestTimeout,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 // ---- Request interceptor: attach JWT ----
@@ -51,25 +52,26 @@ function processQueue(error: unknown, token: string | null) {
   pendingQueue = [];
 }
 
+function canRetryAfterRefresh(config: InternalAxiosRequestConfig & { authRetrySafe?: boolean }): boolean {
+  const method = config.method?.toUpperCase();
+  if (config.authRetrySafe === true) return true;
+  return method === "GET" || method === "HEAD" || method === "OPTIONS";
+}
+
 httpClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError<ApiError>) => {
-    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const original = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+      authRetrySafe?: boolean;
+    };
 
     // Only intercept 401 and only retry once
-    if (error.response?.status !== 401 || original._retry) {
+    if (error.response?.status !== 401 || original._retry || !canRetryAfterRefresh(original)) {
       return Promise.reject(normaliseError(error));
     }
 
     original._retry = true;
-
-    const refreshToken = tokenStore.getRefresh();
-    if (!refreshToken) {
-      // No refresh token — force logout
-      tokenStore.clear();
-      window.dispatchEvent(new CustomEvent("auth:logout"));
-      return Promise.reject(normaliseError(error));
-    }
 
     if (isRefreshing) {
       // Another refresh is in progress — wait for it
@@ -84,13 +86,16 @@ httpClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // Call refresh endpoint (bypasses this interceptor by using raw axios)
-      const { data } = await axios.post<{ accessToken: string; refreshToken: string }>(
+      const { data } = await axios.post<{ accessToken: string }>(
         `${config.apiBaseUrl}/auth/refresh`,
-        { refreshToken },
+        {},
+        {
+          withCredentials: true,
+          timeout: config.requestTimeout,
+        },
       );
 
-      tokenStore.setBoth(data.accessToken, data.refreshToken);
+      tokenStore.setAccess(data.accessToken);
       processQueue(null, data.accessToken);
 
       original.headers.Authorization = `Bearer ${data.accessToken}`;

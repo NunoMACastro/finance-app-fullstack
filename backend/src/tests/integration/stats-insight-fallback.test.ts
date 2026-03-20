@@ -12,16 +12,18 @@ describe("stats insight fallback integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Insight Fallback",
       email: "insight-fallback@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken as string;
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
     const month = monthKeyFromNow();
 
     const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
     expect(incomeCategoriesRes.status).toBe(200);
     const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
     expect(defaultIncomeCategoryId).toMatch(/^[a-fA-F0-9]{24}$/);
@@ -29,6 +31,7 @@ describe("stats insight fallback integration", () => {
     const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         totalBudget: 0,
         categories: [{ id: "cat_despesas", name: "Despesas", percent: 100 }],
@@ -38,11 +41,11 @@ describe("stats insight fallback integration", () => {
     const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-08`,
         type: "income",
-        origin: "manual",
         description: "Salario",
         amount: 1800,
         categoryId: defaultIncomeCategoryId,
@@ -52,11 +55,11 @@ describe("stats insight fallback integration", () => {
     const expenseRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-10`,
         type: "expense",
-        origin: "manual",
         description: "Supermercado",
         amount: 420,
         categoryId: "cat_despesas",
@@ -65,7 +68,8 @@ describe("stats insight fallback integration", () => {
 
     const statsRes = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(statsRes.status).toBe(200);
     expect(statsRes.body.totals).toBeTruthy();

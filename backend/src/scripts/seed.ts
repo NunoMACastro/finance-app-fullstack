@@ -7,6 +7,7 @@ import { lastNMonthsEndingAt, monthFromDate, monthToDate, shiftMonth } from "../
 import { AccountInviteCodeModel } from "../models/account-invite-code.model.js";
 import { AccountMembershipModel } from "../models/account-membership.model.js";
 import { AccountModel } from "../models/account.model.js";
+import { AuthSessionModel } from "../models/auth-session.model.js";
 import { BudgetModel } from "../models/budget.model.js";
 import { IncomeCategoryModel } from "../models/income-category.model.js";
 import { RecurringRuleModel } from "../models/recurring-rule.model.js";
@@ -92,6 +93,7 @@ function dateForMonth(month: string, day: number): Date {
 
 async function clearDatabaseCollections(): Promise<void> {
   await Promise.all([
+    AuthSessionModel.deleteMany({}),
     RefreshTokenModel.deleteMany({}),
     StatsSnapshotModel.deleteMany({}),
     TransactionModel.deleteMany({}),
@@ -179,12 +181,16 @@ async function run(): Promise<void> {
       name: "Nuno Castro (Pessoal)",
       type: "personal",
       createdByUserId: userId,
+      activeOwnerCount: 1,
+      activeInviteCodeId: null,
     },
     {
       _id: sharedAccountId,
       name: "Casa Nuno",
       type: "shared",
       createdByUserId: userId,
+      activeOwnerCount: 1,
+      activeInviteCodeId: null,
     },
   ]);
 
@@ -770,8 +776,12 @@ async function run(): Promise<void> {
 
   await BudgetModel.insertMany(budgetDocs);
 
+  const activeInviteId = new Types.ObjectId();
+  const archivedInviteId = new Types.ObjectId();
+
   await AccountInviteCodeModel.insertMany([
     {
+      _id: activeInviteId,
       accountId: sharedAccountId,
       codeHash: sha256("CASANUNO1"),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -779,6 +789,7 @@ async function run(): Promise<void> {
       createdByUserId: userId,
     },
     {
+      _id: archivedInviteId,
       accountId: sharedAccountId,
       codeHash: sha256("CASAARCH1"),
       expiresAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
@@ -787,11 +798,49 @@ async function run(): Promise<void> {
     },
   ]);
 
+  await AccountModel.updateOne(
+    { _id: sharedAccountId },
+    {
+      $set: {
+        activeInviteCodeId: activeInviteId,
+      },
+    },
+  );
+
   const tokenExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const revokedAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const activeSessionSid = "seed-session-nuno-active-1";
+  const revokedSessionSid = "seed-session-nuno-revoked-1";
+
+  await AuthSessionModel.insertMany([
+    {
+      sid: activeSessionSid,
+      userId,
+      status: "active",
+      revokedAt: null,
+      compromisedAt: null,
+      currentRefreshJti: "seed-nuno-active-1",
+      expiresAt: tokenExpiry,
+      lastSeenAt: new Date(),
+      deviceInfo: "Seed iPhone",
+    },
+    {
+      sid: revokedSessionSid,
+      userId,
+      status: "revoked",
+      revokedAt,
+      compromisedAt: null,
+      currentRefreshJti: "seed-nuno-revoked-1",
+      expiresAt: tokenExpiry,
+      lastSeenAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      deviceInfo: "Seed MacBook",
+    },
+  ]);
+
   await RefreshTokenModel.insertMany([
     {
       userId,
+      sid: activeSessionSid,
       jti: "seed-nuno-active-1",
       tokenHash: sha256("seed_refresh_token_nuno_active"),
       expiresAt: tokenExpiry,
@@ -801,6 +850,7 @@ async function run(): Promise<void> {
     },
     {
       userId,
+      sid: revokedSessionSid,
       jti: "seed-nuno-revoked-1",
       tokenHash: sha256("seed_refresh_token_nuno_revoked"),
       expiresAt: tokenExpiry,
@@ -823,6 +873,7 @@ async function run(): Promise<void> {
     transactionsCount,
     statsSnapshotsCount,
     invitesCount,
+    sessionsCount,
     refreshTokensCount,
   ] = await Promise.all([
     UserModel.countDocuments({}),
@@ -834,6 +885,7 @@ async function run(): Promise<void> {
     TransactionModel.countDocuments({}),
     StatsSnapshotModel.countDocuments({}),
     AccountInviteCodeModel.countDocuments({}),
+    AuthSessionModel.countDocuments({}),
     RefreshTokenModel.countDocuments({}),
   ]);
 
@@ -854,6 +906,7 @@ async function run(): Promise<void> {
         transactions: transactionsCount,
         statsSnapshots: statsSnapshotsCount,
         accountInviteCodes: invitesCount,
+        sessions: sessionsCount,
         refreshTokens: refreshTokensCount,
       },
       note: {

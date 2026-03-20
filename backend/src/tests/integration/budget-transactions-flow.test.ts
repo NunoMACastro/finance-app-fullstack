@@ -12,16 +12,18 @@ describe("budget + transactions integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Ana",
       email: "ana@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken;
+    const accessToken = registerRes.body.accessToken;
+    const personalAccountId = registerRes.body.user.personalAccountId;
     const month = monthKeyFromNow();
 
     const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(incomeCategoriesRes.status).toBe(200);
     const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
@@ -30,11 +32,11 @@ describe("budget + transactions integration", () => {
     const blockedRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-10`,
         type: "expense",
-        origin: "manual",
         description: "Supermercado",
         amount: 30,
         categoryId: "cat_despesas",
@@ -46,6 +48,7 @@ describe("budget + transactions integration", () => {
     const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         totalBudget: 99999,
         categories: [
@@ -63,11 +66,11 @@ describe("budget + transactions integration", () => {
     const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-10`,
         type: "income",
-        origin: "manual",
         description: "Ordenado",
         amount: 1200,
         categoryId: defaultIncomeCategoryId,
@@ -77,20 +80,23 @@ describe("budget + transactions integration", () => {
 
     const budgetAfterIncome = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(budgetAfterIncome.status).toBe(200);
     expect(budgetAfterIncome.body.totalBudget).toBe(1200);
 
     const deleteIncomeRes = await request(getIntegrationApp())
       .delete(`/api/v1/transactions/${incomeRes.body.id}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(deleteIncomeRes.status).toBe(204);
 
     const budgetAfterDelete = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(budgetAfterDelete.status).toBe(200);
     expect(budgetAfterDelete.body.totalBudget).toBe(0);

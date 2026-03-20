@@ -8,11 +8,11 @@ describe("profile flow integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Profile User",
       email: "profile@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken as string;
+    const accessToken = registerRes.body.accessToken as string;
 
     // Simulate a legacy user created before the status/deletedAt fields existed.
     await UserModel.updateOne(
@@ -58,29 +58,29 @@ describe("profile flow integration", () => {
     const updateEmailRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/email")
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ currentPassword: "123456", newEmail: "profile-new@example.com" });
+      .send({ currentPassword: "StrongPass1!", newEmail: "profile-new@example.com" });
     expect(updateEmailRes.status).toBe(200);
     expect(updateEmailRes.body.email).toBe("profile-new@example.com");
 
     const wrongPasswordRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/password")
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ currentPassword: "wrong", newPassword: "abcdef" });
+      .send({ currentPassword: "wrong", newPassword: "StrongPass2!" });
     expect(wrongPasswordRes.status).toBe(401);
 
     const updatePasswordRes = await request(getIntegrationApp())
       .patch("/api/v1/auth/me/password")
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ currentPassword: "123456", newPassword: "abcdef" });
+      .send({ currentPassword: "StrongPass1!", newPassword: "StrongPass2!" });
     expect(updatePasswordRes.status).toBe(204);
 
     const loginRes = await request(getIntegrationApp()).post("/api/v1/auth/login").send({
       email: "profile-new@example.com",
-      password: "abcdef",
+      password: "StrongPass2!",
     });
     expect(loginRes.status).toBe(200);
 
-    const secondToken = loginRes.body.tokens.accessToken as string;
+    const secondToken = loginRes.body.accessToken as string;
 
     const sessionsRes = await request(getIntegrationApp())
       .get("/api/v1/auth/sessions")
@@ -137,16 +137,16 @@ describe("profile flow integration", () => {
     const ownerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Owner User",
       email: "owner-delete@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
     const memberRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Member User",
       email: "member-delete@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
-    const ownerToken = ownerRes.body.tokens.accessToken as string;
-    const memberToken = memberRes.body.tokens.accessToken as string;
+    const ownerToken = ownerRes.body.accessToken as string;
+    const memberToken = memberRes.body.accessToken as string;
 
     const sharedAccountRes = await request(getIntegrationApp())
       .post("/api/v1/accounts")
@@ -170,7 +170,7 @@ describe("profile flow integration", () => {
     const blockedDeleteRes = await request(getIntegrationApp())
       .delete("/api/v1/auth/me")
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ currentPassword: "123456" });
+      .send({ currentPassword: "StrongPass1!" });
     expect(blockedDeleteRes.status).toBe(422);
     expect(blockedDeleteRes.body.code).toBe("LAST_OWNER_CANNOT_DELETE_ACCOUNT");
 
@@ -183,13 +183,13 @@ describe("profile flow integration", () => {
     const deleteOkRes = await request(getIntegrationApp())
       .delete("/api/v1/auth/me")
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ currentPassword: "123456" });
+      .send({ currentPassword: "StrongPass1!" });
     expect(deleteOkRes.status).toBe(204);
 
     const meAfterDeleteRes = await request(getIntegrationApp())
       .get("/api/v1/auth/me")
       .set("Authorization", `Bearer ${ownerToken}`);
     expect(meAfterDeleteRes.status).toBe(401);
-    expect(meAfterDeleteRes.body.code).toBe("ACCOUNT_DELETED");
+    expect(meAfterDeleteRes.body.code).toBe("SESSION_INVALID");
   });
 });

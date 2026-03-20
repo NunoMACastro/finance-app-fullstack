@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   AlertTriangle,
@@ -20,7 +20,8 @@ import {
   formatDateShort,
   formatMonthLong,
 } from "../lib/formatting";
-import type { MonthBudget, MonthSummary, Transaction } from "../lib/types";
+import { currentUtcMonthKey, getMonthDateBounds, isMonthKey } from "../lib/month";
+import type { MonthBudget, Transaction, TransactionListResponse } from "../lib/types";
 import { Button } from "./ui/button";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
 import { Input } from "./ui/input";
@@ -39,19 +40,6 @@ import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 type OriginFilter = "all" | "manual" | "recurring";
 type SortOption = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
-
-function isMonthKey(value?: string): value is string {
-  return Boolean(value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value));
-}
-
-function getMonthDateBounds(month: string): { start: string; end: string } {
-  const [year, monthNum] = month.split("-").map(Number);
-  const lastDay = new Date(year, monthNum, 0).getDate();
-  return {
-    start: `${month}-01`,
-    end: `${month}-${String(lastDay).padStart(2, "0")}`,
-  };
-}
 
 function sortTransactions(transactions: Transaction[], sortBy: SortOption): Transaction[] {
   const copy = [...transactions];
@@ -86,13 +74,15 @@ export function CategoryMovementsPage() {
   const { month: monthParam, categoryId } = useParams();
   const { activeAccountId, canWriteFinancial } = useAccount();
   const { user, isAmountsHidden } = useAuth();
+  const requestIdRef = useRef(0);
 
-  const month = isMonthKey(monthParam) ? monthParam : new Date().toISOString().slice(0, 7);
+  const month = isMonthKey(monthParam) ? monthParam : currentUtcMonthKey();
   const bounds = useMemo(() => getMonthDateBounds(month), [month]);
 
-  const [summary, setSummary] = useState<MonthSummary | null>(null);
   const [budget, setBudget] = useState<MonthBudget | null>(null);
+  const [transactionsState, setTransactionsState] = useState<TransactionListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -119,55 +109,89 @@ export function CategoryMovementsPage() {
   const formatDate = useCallback((value: string) => formatDateShort(value, user), [user]);
   const monthLabel = useMemo(() => formatMonthLong(month, user), [month, user]);
 
+  const buildListParams = useCallback((cursor?: string) => {
+    if (!categoryId) return null;
+    return {
+      month,
+      type: "expense" as const,
+      categoryId,
+      ...(origin !== "all" ? { origin } : {}),
+      ...(dateFrom ? { dateFrom } : {}),
+      ...(dateTo ? { dateTo } : {}),
+      ...(cursor ? { cursor } : {}),
+      limit: 50,
+    };
+  }, [categoryId, dateFrom, dateTo, month, origin]);
+
   const loadData = useCallback(async () => {
     if (!categoryId) {
       setLoadError("Categoria inválida.");
       setLoading(false);
       return;
     }
+    const params = buildListParams();
+    if (!params) return;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setLoadError(null);
     try {
-      const [summaryData, budgetData] = await Promise.all([
-        transactionsApi.getMonthSummary(month),
+      const [transactionsData, budgetData] = await Promise.all([
+        transactionsApi.list(params),
         budgetApi.get(month),
       ]);
-      setSummary(summaryData);
+      if (requestId !== requestIdRef.current) return;
+      setTransactionsState(transactionsData);
       setBudget(budgetData);
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
       setLoadError(getErrorMessage(error, "Não foi possível carregar os movimentos da categoria"));
-      setSummary(null);
+      setTransactionsState(null);
       setBudget(null);
     } finally {
+      if (requestId !== requestIdRef.current) return;
       setLoading(false);
     }
-  }, [categoryId, month, activeAccountId]);
+  }, [activeAccountId, buildListParams, categoryId, month]);
 
   useEffect(() => {
     void loadData();
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, [loadData]);
+
+  const loadMore = useCallback(async () => {
+    if (!transactionsState?.hasMore || !transactionsState.nextCursor) return;
+    const params = buildListParams(transactionsState.nextCursor);
+    if (!params) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = await transactionsApi.list(params);
+      setTransactionsState((current) => current
+        ? {
+            ...nextPage,
+            items: [...current.items, ...nextPage.items],
+          }
+        : nextPage);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não foi possível carregar mais movimentos"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildListParams, transactionsState]);
 
   const categoryName = useMemo(() => {
     if (!categoryId) return "Categoria";
     return budget?.categories.find((category) => category.id === categoryId)?.name ?? "Categoria";
   }, [budget, categoryId]);
 
-  const allCategoryTransactions = useMemo(() => {
-    if (!categoryId) return [] as Transaction[];
-    return sortTransactions(
-      (summary?.expenseTransactions ?? []).filter((transaction) => transaction.categoryId === categoryId),
-      "date_desc",
-    );
-  }, [categoryId, summary]);
-
   const filteredTransactions = useMemo(() => {
     const min = minAmount.trim() === "" ? null : Number(minAmount);
     const max = maxAmount.trim() === "" ? null : Number(maxAmount);
     const searchTerm = search.trim().toLowerCase();
 
-    const filtered = allCategoryTransactions.filter((transaction) => {
+    const filtered = (transactionsState?.items ?? []).filter((transaction) => {
       if (searchTerm && !transaction.description.toLowerCase().includes(searchTerm)) return false;
-      if (origin !== "all" && transaction.origin !== origin) return false;
       if (dateFrom && transaction.date < dateFrom) return false;
       if (dateTo && transaction.date > dateTo) return false;
       if (min !== null && Number.isFinite(min) && transaction.amount < min) return false;
@@ -176,12 +200,9 @@ export function CategoryMovementsPage() {
     });
 
     return sortTransactions(filtered, sortBy);
-  }, [allCategoryTransactions, dateFrom, dateTo, maxAmount, minAmount, origin, search, sortBy]);
+  }, [dateFrom, dateTo, maxAmount, minAmount, search, sortBy, transactionsState?.items]);
 
-  const totalSpent = useMemo(
-    () => allCategoryTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
-    [allCategoryTransactions],
-  );
+  const totalSpent = transactionsState?.totalAmount ?? 0;
 
   const clearFilters = () => {
     setSearch("");
@@ -343,12 +364,12 @@ export function CategoryMovementsPage() {
         <>
           <div className="space-y-1 border-b border-border/60 pb-3">
             <p className="text-xs text-muted-foreground">
-              {allCategoryTransactions.length} mov. · {formatCurrency(totalSpent)} gasto
+              {transactionsState?.totalCount ?? 0} mov. · {formatCurrency(totalSpent)} gasto
             </p>
             <p className="text-xs text-muted-foreground">
               {filteredTransactions.length} resultados
-              {filteredTransactions.length !== allCategoryTransactions.length
-                ? ` de ${allCategoryTransactions.length}`
+              {filteredTransactions.length !== (transactionsState?.items.length ?? 0)
+                ? ` de ${transactionsState?.items.length ?? 0}`
                 : ""}
             </p>
           </div>
@@ -390,7 +411,7 @@ export function CategoryMovementsPage() {
             ) : null}
           </div>
 
-          {allCategoryTransactions.length === 0 ? (
+          {(transactionsState?.totalCount ?? 0) === 0 ? (
             <div className="rounded-xl border border-border/60 py-8 text-center text-sm text-muted-foreground">
               Ainda sem despesas nesta categoria.
             </div>
@@ -426,6 +447,19 @@ export function CategoryMovementsPage() {
                   ) : null}
                 </div>
               ))}
+              {transactionsState?.hasMore ? (
+                <div className="py-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full rounded-xl"
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : "Carregar mais"}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
 

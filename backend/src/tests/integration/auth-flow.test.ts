@@ -7,22 +7,23 @@ describe("auth flow integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Joao",
       email: "joao@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    expect(registerRes.body?.tokens?.accessToken).toBeTypeOf("string");
+    expect(registerRes.body?.accessToken).toBeTypeOf("string");
     expect(registerRes.body?.user?.tutorialSeenAt).toBeNull();
     expect(registerRes.body?.user?.personalAccountId).toMatch(/^[a-fA-F0-9]{24}$/);
     expect(registerRes.body?.user?.preferences?.themePalette).toBe("ciano");
 
     const loginRes = await request(getIntegrationApp()).post("/api/v1/auth/login").send({
       email: "joao@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(loginRes.status).toBe(200);
-    const accessToken = loginRes.body.tokens.accessToken;
+    const accessToken = loginRes.body.accessToken;
+    const personalAccountId = loginRes.body.user.personalAccountId;
 
     const meRes = await request(getIntegrationApp())
       .get("/api/v1/auth/me")
@@ -64,7 +65,8 @@ describe("auth flow integration", () => {
 
     const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(incomeCategoriesRes.status).toBe(200);
     expect(Array.isArray(incomeCategoriesRes.body)).toBe(true);

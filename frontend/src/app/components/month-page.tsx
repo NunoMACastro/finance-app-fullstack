@@ -42,6 +42,7 @@ import { useAuth } from "../lib/auth-context";
 import { formatCurrency as formatCurrencyValue, formatDateShort, formatMonthLong } from "../lib/formatting";
 import { resolveCategoryColorSlot } from "../lib/category-color-slot";
 import { normalizeBudgetCategoryKind } from "../lib/category-kind";
+import { parseMonthKey } from "../lib/month";
 import type {
   MonthSummary,
   MonthBudget,
@@ -255,6 +256,7 @@ export function MonthPage() {
   const { user, isAmountsHidden } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestIdRef = React.useRef(0);
   const now = new Date();
   const minimumOffset = -now.getMonth();
   const initialMonthOffset = (() => {
@@ -299,6 +301,7 @@ export function MonthPage() {
   const compactCurrentMonthLabel = formatMonthCompact(currentMonth);
 
   const loadData = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setLoadError(null);
     try {
@@ -307,15 +310,18 @@ export function MonthPage() {
         budgetApi.get(currentMonth),
         incomeCategoriesApi.list(),
       ]);
+      if (requestId !== requestIdRef.current) return;
       setSummary(summaryData);
       setBudget(budgetData);
       setIncomeCategories(incomeCategoriesData);
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
       setLoadError(getErrorMessage(error, "Não foi possível carregar os dados do mês"));
       setSummary(null);
       setBudget(null);
       setIncomeCategories([]);
     } finally {
+      if (requestId !== requestIdRef.current) return;
       setLoading(false);
     }
   }, [activeAccountId, currentMonth]);
@@ -329,7 +335,12 @@ export function MonthPage() {
     }
   }, [activeAccountId]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    void loadData();
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [loadData]);
 
   useEffect(() => {
     setMonthAvailability({});
@@ -951,23 +962,26 @@ function AddTransactionDialog({
   onManageRecurringRules: () => void;
   onRefreshIncomeCategories: () => Promise<void>;
 }) {
+  const selectableExpenseCategories = expenseCategories.filter(
+    (category) => category.id !== "fallback_recurring_expense",
+  );
   const [type, setType] = useState<"income" | "expense">("expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [day, setDay] = useState(String(new Date().getDate()));
-  const [expenseCategoryId, setExpenseCategoryId] = useState(expenseCategories[0]?.id ?? "");
+  const [expenseCategoryId, setExpenseCategoryId] = useState(selectableExpenseCategories[0]?.id ?? "");
   const [incomeCategoryId, setIncomeCategoryId] = useState(
     incomeCategories.find((category) => category.active)?.id ?? "",
   );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const firstExpenseCategory = expenseCategories[0]?.id ?? "";
-    const hasSelectedExpense = expenseCategories.some((category) => category.id === expenseCategoryId);
+    const firstExpenseCategory = selectableExpenseCategories[0]?.id ?? "";
+    const hasSelectedExpense = selectableExpenseCategories.some((category) => category.id === expenseCategoryId);
     if (!hasSelectedExpense && expenseCategoryId !== firstExpenseCategory) {
       setExpenseCategoryId(firstExpenseCategory);
     }
-  }, [expenseCategories, expenseCategoryId]);
+  }, [expenseCategoryId, selectableExpenseCategories]);
 
   useEffect(() => {
     const activeIncomeCategories = incomeCategories.filter((category) => category.active);
@@ -985,14 +999,13 @@ function AddTransactionDialog({
     if (!description || !amount || !selectedCategoryId) return;
     setSaving(true);
     try {
-      const [yearPart, monthPart] = month.split("-");
-      const daysInMonth = new Date(Number(yearPart), Number(monthPart), 0).getDate();
+      const { year, month: monthNumber } = parseMonthKey(month);
+      const daysInMonth = new Date(year, monthNumber, 0).getDate();
       const dayNum = Math.min(Math.max(parseInt(day, 10) || 1, 1), daysInMonth);
       await transactionsApi.create({
         month,
         date: `${month}-${String(dayNum).padStart(2, "0")}`,
         type,
-        origin: "manual",
         description,
         amount: parseFloat(amount),
         categoryId: selectedCategoryId,
@@ -1104,7 +1117,7 @@ function AddTransactionDialog({
                   .map((category) => (
                     <option key={category.id} value={category.id}>{category.name}</option>
                   ))
-              : expenseCategories.map((category) => (
+              : selectableExpenseCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name} ({category.percent}%)
                   </option>

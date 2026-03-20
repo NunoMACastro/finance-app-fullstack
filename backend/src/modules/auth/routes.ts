@@ -1,5 +1,8 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { env } from "../../config/env.js";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { clearRefreshCookie, getCookie, setRefreshCookie } from "../../lib/cookies.js";
 import { requireAuth } from "../../middleware/auth.js";
 import {
   deleteMeSchema,
@@ -18,38 +21,75 @@ import * as authService from "./service.js";
 
 export const authRouter = Router();
 
+const credentialLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.AUTH_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    code: "RATE_LIMITED",
+    message: "Muitos pedidos de autenticação. Tente novamente daqui a pouco.",
+  },
+});
+
+const refreshLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: Math.max(env.AUTH_RATE_LIMIT_MAX * 2, 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    code: "RATE_LIMITED",
+    message: "Muitos pedidos de refresh. Tente novamente daqui a pouco.",
+  },
+});
+
 authRouter.post(
   "/register",
+  credentialLimiter,
   asyncHandler(async (req, res) => {
     const input = registerSchema.parse(req.body);
     const result = await authService.register(input, req);
-    res.status(201).json(result);
+    setRefreshCookie(res, result.refreshToken);
+    res.status(201).json({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
   }),
 );
 
 authRouter.post(
   "/login",
+  credentialLimiter,
   asyncHandler(async (req, res) => {
     const input = loginSchema.parse(req.body);
     const result = await authService.login(input, req);
-    res.status(200).json(result);
+    setRefreshCookie(res, result.refreshToken);
+    res.status(200).json({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
   }),
 );
 
 authRouter.post(
   "/refresh",
+  refreshLimiter,
   asyncHandler(async (req, res) => {
     const input = refreshSchema.parse(req.body);
-    const result = await authService.refresh(input.refreshToken, req);
-    res.status(200).json(result);
+    const refreshToken = getCookie(req, env.REFRESH_COOKIE_NAME) ?? input.refreshToken;
+    const result = await authService.refresh(refreshToken, req);
+    setRefreshCookie(res, result.refreshToken);
+    res.status(200).json({ accessToken: result.accessToken });
   }),
 );
 
 authRouter.post(
   "/logout",
+  refreshLimiter,
   asyncHandler(async (req, res) => {
     const input = logoutSchema.parse(req.body ?? {});
-    await authService.logout(input.refreshToken);
+    await authService.logout(getCookie(req, env.REFRESH_COOKIE_NAME) ?? input.refreshToken);
+    clearRefreshCookie(res);
     res.status(204).send();
   }),
 );
@@ -108,6 +148,7 @@ authRouter.patch(
   asyncHandler(async (req, res) => {
     const input = updatePasswordSchema.parse(req.body ?? {});
     await authService.updatePassword(req.auth!.userId, input);
+    clearRefreshCookie(res);
     res.status(204).send();
   }),
 );
@@ -146,6 +187,7 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     revokeAllSessionsSchema.parse(req.body ?? {});
     await authService.revokeAllSessions(req.auth!.userId);
+    clearRefreshCookie(res);
     res.status(204).send();
   }),
 );
@@ -167,6 +209,7 @@ authRouter.delete(
   asyncHandler(async (req, res) => {
     const input = deleteMeSchema.parse(req.body ?? {});
     await authService.deleteMe(req.auth!.userId, input.currentPassword);
+    clearRefreshCookie(res);
     res.status(204).send();
   }),
 );

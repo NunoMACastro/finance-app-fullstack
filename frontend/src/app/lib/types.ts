@@ -10,11 +10,6 @@ export type MonthKey = string; // YYYY-MM format
 
 // ── Auth ──────────────────────────────────────────────────
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface LoginDto {
   email: string;
   password: string;
@@ -27,8 +22,12 @@ export interface RegisterDto {
 }
 
 export interface AuthResponse {
-  tokens: AuthTokens;
+  accessToken: string;
   user: UserProfile;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
 }
 
 // ── User ──────────────────────────────────────────────────
@@ -149,8 +148,6 @@ export interface CreateTransactionDto {
   month: MonthKey;
   date: string;
   type: "income" | "expense";
-  origin: "manual" | "recurring";
-  recurringRuleId?: string;
   description: string;
   amount: number;
   categoryId: string;
@@ -327,6 +324,14 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   pageSize: number;
+  hasMore: boolean;
+}
+
+export interface TransactionListResponse {
+  items: Transaction[];
+  totalCount: number;
+  totalAmount: number;
+  nextCursor: string | null;
   hasMore: boolean;
 }
 

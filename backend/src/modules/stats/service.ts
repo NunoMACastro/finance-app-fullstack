@@ -2,6 +2,7 @@ import { BudgetModel } from "../../models/budget.model.js";
 import { IncomeCategoryModel } from "../../models/income-category.model.js";
 import { StatsSnapshotModel } from "../../models/stats-snapshot.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
+import { unprocessable } from "../../lib/api-error.js";
 import { lastNMonthsEndingAt, monthFromDate } from "../../lib/month.js";
 import { Types } from "mongoose";
 import { generateStatsInsight, type StatsAiInsight } from "./insight.service.js";
@@ -360,7 +361,7 @@ export async function getSemesterStats(
   accountId: string,
   endingMonth?: string,
   forecastWindow: 3 | 6 = 3,
-  includeInsight = true,
+  includeInsight = false,
 ): Promise<StatsSnapshotDto> {
   const anchor = endingMonth ?? monthFromDate(new Date());
   const months = lastNMonthsEndingAt(anchor, 6);
@@ -383,7 +384,7 @@ export async function getYearStats(
   accountId: string,
   year?: number,
   forecastWindow: 3 | 6 = 3,
-  includeInsight = true,
+  includeInsight = false,
 ): Promise<StatsSnapshotDto> {
   const snapshot = await (async () => {
     if (year) {
@@ -415,11 +416,19 @@ export async function compareBudget(accountId: string, from: string, to: string)
   const toDate = new Date(Date.UTC(toYear, toMonth - 1, 1));
   const months: string[] = [];
 
+  if (fromDate > toDate) {
+    unprocessable("Intervalo inválido: 'from' tem de ser anterior ou igual a 'to'", "STATS_COMPARE_RANGE_INVALID");
+  }
+
   const cursor = new Date(fromDate);
   while (cursor <= toDate) {
     months.push(monthFromDate(cursor));
     cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-    if (months.length > 36) break;
+    if (months.length > 24) {
+      unprocessable("Intervalo demasiado largo para comparação", "STATS_COMPARE_RANGE_TOO_LARGE", {
+        maxMonths: "24",
+      });
+    }
   }
 
   const stats = await buildStats(accountId, "semester", `${from}_${to}`, months, 3);

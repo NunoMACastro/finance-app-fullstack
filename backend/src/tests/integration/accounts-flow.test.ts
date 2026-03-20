@@ -14,19 +14,20 @@ describe("accounts flow integration", () => {
     const ownerRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Owner",
       email: "owner@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
     expect(ownerRegister.status).toBe(201);
 
     const memberRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Member",
       email: "member@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
     expect(memberRegister.status).toBe(201);
 
-    const ownerToken = ownerRegister.body.tokens.accessToken as string;
-    const memberToken = memberRegister.body.tokens.accessToken as string;
+    const ownerToken = ownerRegister.body.accessToken as string;
+    const memberToken = memberRegister.body.accessToken as string;
+    const memberPersonalAccountId = memberRegister.body.user.personalAccountId as string;
 
     const createShared = await request(getIntegrationApp())
       .post("/api/v1/accounts")
@@ -111,7 +112,6 @@ describe("accounts flow integration", () => {
         month,
         date: `${month}-10`,
         type: "income",
-        origin: "manual",
         description: "Ordenado",
         amount: 1500,
         categoryId: defaultIncomeCategoryId,
@@ -130,7 +130,8 @@ describe("accounts flow integration", () => {
 
     const personalBudget = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
-      .set("Authorization", `Bearer ${memberToken}`);
+      .set("Authorization", `Bearer ${memberToken}`)
+      .set("X-Account-Id", memberPersonalAccountId);
 
     expect(personalBudget.status).toBe(200);
     expect(personalBudget.body.totalBudget).toBe(0);

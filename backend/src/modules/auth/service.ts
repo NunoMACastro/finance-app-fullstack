@@ -12,6 +12,7 @@ import {
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { AccountMembershipModel } from "../../models/account-membership.model.js";
 import { AccountModel } from "../../models/account.model.js";
+import { AuthSessionModel } from "../../models/auth-session.model.js";
 import { BudgetModel } from "../../models/budget.model.js";
 import { IncomeCategoryModel } from "../../models/income-category.model.js";
 import { RecurringRuleModel } from "../../models/recurring-rule.model.js";
@@ -39,14 +40,18 @@ interface UserProfile {
   personalAccountId: string;
 }
 
-interface TokenPair {
+interface AuthResponse {
   accessToken: string;
+  user: UserProfile;
+}
+
+interface IssuedAuthResponse extends AuthResponse {
   refreshToken: string;
 }
 
-interface AuthResponse {
-  tokens: TokenPair;
-  user: UserProfile;
+interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
 }
 
 interface SessionDto {
@@ -79,6 +84,8 @@ interface ExportUserDataDto {
   sharedMemberships: MembershipExportItem[];
 }
 
+const ALLOWED_CURRENCIES = new Set(["EUR", "USD", "GBP", "BRL", "CHF"]);
+
 function normalizeThemePalette(value?: string | null): ThemePalette {
   if (
     value === "brisa" ||
@@ -92,7 +99,6 @@ function normalizeThemePalette(value?: string | null): ThemePalette {
     return value;
   }
 
-  // Backward compatibility with previous palette IDs.
   if (value === "ocean") return "brisa";
   if (value === "forest") return "terra";
   if (value === "sunset") return "aurora";
@@ -110,6 +116,14 @@ function assertUserActive(user: { status?: string | null }): void {
   if (user.status === "deleted") {
     unauthorized("Conta desativada", "ACCOUNT_DELETED");
   }
+}
+
+function assertCurrencyAllowed(currency?: string | null): string {
+  const normalized = currency?.trim().toUpperCase() ?? "EUR";
+  if (!ALLOWED_CURRENCIES.has(normalized)) {
+    unprocessable("Moeda não suportada", "CURRENCY_NOT_SUPPORTED");
+  }
+  return normalized;
 }
 
 function toUserProfile(user: {
@@ -158,32 +172,115 @@ async function getActiveUserOrThrow(userId: string) {
   return user;
 }
 
-async function issueTokenPair(userId: string, req?: Request): Promise<TokenPair> {
-  const jti = newId();
-  const accessToken = signAccessToken(userId);
-  const refreshToken = signRefreshToken(userId, jti);
+function nextRefreshExpiry(): Date {
+  return new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+}
 
-  const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+async function revokeSessionFamily(
+  sid: string,
+  status: "revoked" | "compromised",
+  when = new Date(),
+): Promise<void> {
+  await Promise.all([
+    AuthSessionModel.updateOne(
+      { sid },
+      {
+        $set: {
+          status,
+          revokedAt: when,
+          compromisedAt: status === "compromised" ? when : null,
+        },
+      },
+    ),
+    RefreshTokenModel.updateMany(
+      { sid, revokedAt: null },
+      {
+        $set: { revokedAt: when },
+      },
+    ),
+  ]);
+}
+
+async function revokeAllUserSessions(userId: string, when = new Date()): Promise<void> {
+  await Promise.all([
+    AuthSessionModel.updateMany(
+      { userId, status: "active" },
+      {
+        $set: {
+          status: "revoked",
+          revokedAt: when,
+        },
+      },
+    ),
+    RefreshTokenModel.updateMany(
+      { userId, revokedAt: null },
+      {
+        $set: { revokedAt: when },
+      },
+    ),
+  ]);
+}
+
+async function createSessionTokenPair(
+  userId: string,
+  req?: Request,
+  existingSid?: string,
+): Promise<{ sid: string; accessToken: string; refreshToken: string; expiresAt: Date }> {
+  const sid = existingSid ?? newId();
+  const jti = newId();
+  const expiresAt = nextRefreshExpiry();
+  const accessToken = signAccessToken(userId, sid);
+  const refreshToken = signRefreshToken(userId, sid, jti);
   const deviceInfo = req?.get("user-agent") ?? null;
+  const now = new Date();
+
+  await AuthSessionModel.findOneAndUpdate(
+    { sid },
+    {
+      $set: {
+        userId,
+        status: "active",
+        revokedAt: null,
+        compromisedAt: null,
+        currentRefreshJti: jti,
+        expiresAt,
+        lastSeenAt: now,
+        deviceInfo,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    },
+  );
 
   await RefreshTokenModel.create({
     userId,
+    sid,
     jti,
     tokenHash: sha256(refreshToken),
     expiresAt,
     deviceInfo,
   });
 
-  return { accessToken, refreshToken };
+  return { sid, accessToken, refreshToken, expiresAt };
+}
+
+function ensureStrongPassword(password: string): void {
+  if (password.length < 10) {
+    unprocessable("Password demasiado curta", "PASSWORD_TOO_WEAK");
+  }
 }
 
 export async function register(input: {
   name: string;
   email: string;
   password: string;
-}, req?: Request): Promise<AuthResponse> {
+}, req?: Request): Promise<IssuedAuthResponse> {
   const email = input.email.toLowerCase().trim();
   const trimmedName = input.name.trim();
+  ensureStrongPassword(input.password);
   const passwordHash = await hashPassword(input.password);
 
   const userId = new Types.ObjectId();
@@ -204,6 +301,7 @@ export async function register(input: {
             name: `${trimmedName} (Pessoal)`,
             type: "personal",
             createdByUserId: userId,
+            activeOwnerCount: 1,
           },
         ],
         { session },
@@ -250,9 +348,10 @@ export async function register(input: {
     await session.endSession();
   }
 
-  const tokens = await issueTokenPair(userId.toString(), req);
+  const tokens = await createSessionTokenPair(userId.toString(), req);
   return {
-    tokens,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
     user: toUserProfile({
       _id: userId,
       email,
@@ -274,7 +373,7 @@ export async function register(input: {
 export async function login(input: {
   email: string;
   password: string;
-}, req?: Request): Promise<AuthResponse> {
+}, req?: Request): Promise<IssuedAuthResponse> {
   const email = input.email.toLowerCase().trim();
   const user = await UserModel.findOne({ email });
   if (!user) {
@@ -293,14 +392,19 @@ export async function login(input: {
     user.profile?.name ?? "",
   );
 
-  const tokens = await issueTokenPair(user._id.toString(), req);
+  const tokens = await createSessionTokenPair(user._id.toString(), req);
   return {
-    tokens,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
     user: toUserProfile({ ...user.toObject(), personalAccountId }),
   };
 }
 
-export async function refresh(refreshToken: string, req?: Request): Promise<TokenPair> {
+export async function refresh(refreshToken: string | undefined, req?: Request): Promise<RefreshResponse> {
+  if (!refreshToken?.trim()) {
+    unauthorized("Refresh token em falta", "REFRESH_TOKEN_MISSING");
+  }
+
   const payload = (() => {
     try {
       return verifyRefreshToken(refreshToken);
@@ -319,35 +423,63 @@ export async function refresh(refreshToken: string, req?: Request): Promise<Toke
   }
   assertUserActive(user);
 
+  const session = await AuthSessionModel.findOne({ sid: payload.sid, userId: payload.sub });
+  if (!session || session.status !== "active" || session.expiresAt.getTime() <= Date.now()) {
+    unauthorized("Sessão inválida ou revogada", "SESSION_INVALID");
+  }
+
   const tokenDoc = await RefreshTokenModel.findOne({
     userId: payload.sub,
+    sid: payload.sid,
     jti: payload.jti,
   });
 
-  if (!tokenDoc || tokenDoc.revokedAt || tokenDoc.expiresAt.getTime() <= Date.now()) {
+  if (!tokenDoc) {
+    await revokeSessionFamily(payload.sid, "compromised");
     unauthorized("Refresh token revogado ou expirado", "REFRESH_TOKEN_REVOKED");
   }
 
   if (tokenDoc.tokenHash !== sha256(refreshToken)) {
+    await revokeSessionFamily(payload.sid, "compromised");
     unauthorized("Refresh token inválido", "REFRESH_TOKEN_INVALID");
   }
 
+  if (tokenDoc.revokedAt || tokenDoc.expiresAt.getTime() <= Date.now()) {
+    await revokeSessionFamily(payload.sid, "compromised");
+    unauthorized("Refresh token revogado ou expirado", "REFRESH_TOKEN_REVOKED");
+  }
+
   const nextJti = newId();
-  tokenDoc.revokedAt = new Date();
+  const when = new Date();
+  tokenDoc.revokedAt = when;
   tokenDoc.replacedByJti = nextJti;
   await tokenDoc.save();
 
-  const accessToken = signAccessToken(payload.sub);
-  const nextRefreshToken = signRefreshToken(payload.sub, nextJti);
-  const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const accessToken = signAccessToken(payload.sub, payload.sid);
+  const nextRefreshToken = signRefreshToken(payload.sub, payload.sid, nextJti);
+  const expiresAt = nextRefreshExpiry();
 
-  await RefreshTokenModel.create({
-    userId: payload.sub,
-    jti: nextJti,
-    tokenHash: sha256(nextRefreshToken),
-    expiresAt,
-    deviceInfo: req?.get("user-agent") ?? null,
-  });
+  await Promise.all([
+    RefreshTokenModel.create({
+      userId: payload.sub,
+      sid: payload.sid,
+      jti: nextJti,
+      tokenHash: sha256(nextRefreshToken),
+      expiresAt,
+      deviceInfo: req?.get("user-agent") ?? null,
+    }),
+    AuthSessionModel.updateOne(
+      { sid: payload.sid, userId: payload.sub },
+      {
+        $set: {
+          currentRefreshJti: nextJti,
+          expiresAt,
+          lastSeenAt: when,
+          deviceInfo: req?.get("user-agent") ?? null,
+        },
+      },
+    ),
+  ]);
 
   return {
     accessToken,
@@ -356,9 +488,7 @@ export async function refresh(refreshToken: string, req?: Request): Promise<Toke
 }
 
 export async function logout(refreshToken?: string): Promise<void> {
-  if (!refreshToken) {
-    return;
-  }
+  if (!refreshToken) return;
 
   try {
     const payload = verifyRefreshToken(refreshToken);
@@ -366,16 +496,7 @@ export async function logout(refreshToken?: string): Promise<void> {
       return;
     }
 
-    await RefreshTokenModel.updateOne(
-      {
-        userId: payload.sub,
-        jti: payload.jti,
-        revokedAt: null,
-      },
-      {
-        $set: { revokedAt: new Date() },
-      },
-    );
+    await revokeSessionFamily(payload.sid, "revoked");
   } catch {
     // Best effort logout.
   }
@@ -445,7 +566,7 @@ export async function updateProfile(
   preferences.themePalette = normalizeThemePalette(preferences.themePalette);
 
   if (input.name !== undefined) profile.name = input.name.trim();
-  if (input.currency !== undefined) profile.currency = input.currency.trim().toUpperCase();
+  if (input.currency !== undefined) profile.currency = assertCurrencyAllowed(input.currency);
 
   if (input.preferences?.themePalette !== undefined) {
     preferences.themePalette = normalizeThemePalette(input.preferences.themePalette);
@@ -506,16 +627,18 @@ export async function updatePassword(
     unauthorized("Password atual inválida", "CURRENT_PASSWORD_INVALID");
   }
 
+  ensureStrongPassword(input.newPassword);
   user.passwordHash = await hashPassword(input.newPassword);
   await user.save();
+  await revokeAllUserSessions(userId);
 }
 
 export async function listSessions(userId: string): Promise<SessionDto[]> {
   await getActiveUserOrThrow(userId);
 
-  const sessions = await RefreshTokenModel.find({ userId }).sort({ createdAt: -1 }).lean();
+  const sessions = await AuthSessionModel.find({ userId }).sort({ createdAt: -1 }).lean();
   return sessions.map((session) => ({
-    jti: session.jti,
+    jti: session.sid,
     deviceInfo: session.deviceInfo ?? null,
     createdAt: session.createdAt.toISOString(),
     expiresAt: session.expiresAt.toISOString(),
@@ -523,55 +646,42 @@ export async function listSessions(userId: string): Promise<SessionDto[]> {
   }));
 }
 
-export async function revokeSession(userId: string, jti: string): Promise<void> {
-  const revokeResult = await RefreshTokenModel.updateOne(
-    {
-      userId,
-      jti,
-      revokedAt: null,
-    },
-    {
-      $set: { revokedAt: new Date() },
-    },
-  );
+export async function revokeSession(userId: string, sid: string): Promise<void> {
+  const session = await AuthSessionModel.findOne({ userId, sid });
+  if (!session) {
+    notFound("Sessão não encontrada", "SESSION_NOT_FOUND");
+  }
 
-  if (revokeResult.matchedCount > 0) {
+  if (session.status !== "active") {
+    await AuthSessionModel.deleteOne({ _id: session._id });
+    await RefreshTokenModel.deleteMany({ sid, userId });
     return;
   }
 
-  // If already revoked, allow deleting it from history to avoid unbounded session lists.
-  const deleteResult = await RefreshTokenModel.deleteOne({
-    userId,
-    jti,
-    revokedAt: { $ne: null },
-  });
-
-  if (deleteResult.deletedCount > 0) {
-    return;
-  }
-
-  notFound("Sessão não encontrada", "SESSION_NOT_FOUND");
+  await revokeSessionFamily(sid, "revoked");
 }
 
 export async function revokeAllSessions(userId: string): Promise<void> {
-  await RefreshTokenModel.updateMany(
-    {
-      userId,
-      revokedAt: null,
-    },
-    {
-      $set: { revokedAt: new Date() },
-    },
-  );
+  await revokeAllUserSessions(userId);
 }
 
 export async function removeRevokedSessions(userId: string): Promise<void> {
   await getActiveUserOrThrow(userId);
 
-  await RefreshTokenModel.deleteMany({
+  const revokedSessions = await AuthSessionModel.find({
     userId,
-    revokedAt: { $ne: null },
-  });
+    status: { $ne: "active" },
+  })
+    .select({ sid: 1 })
+    .lean();
+
+  if (revokedSessions.length === 0) return;
+
+  const sids = revokedSessions.map((session) => session.sid);
+  await Promise.all([
+    AuthSessionModel.deleteMany({ userId, sid: { $in: sids } }),
+    RefreshTokenModel.deleteMany({ userId, sid: { $in: sids } }),
+  ]);
 }
 
 export async function exportUserData(userId: string): Promise<ExportUserDataDto> {
@@ -647,13 +757,8 @@ export async function deleteMe(userId: string, currentPassword: string): Promise
   });
 
   for (const membership of sharedOwnerMemberships) {
-    const ownerCount = await AccountMembershipModel.countDocuments({
-      accountId: membership.accountId,
-      status: "active",
-      role: "owner",
-    });
-
-    if (ownerCount <= 1) {
+    const account = accountById.get(membership.accountId.toString());
+    if (account && account.activeOwnerCount <= 1) {
       unprocessable(
         "Não pode apagar a conta sendo o último owner de uma conta partilhada",
         "LAST_OWNER_CANNOT_DELETE_ACCOUNT",
@@ -687,20 +792,49 @@ export async function deleteMe(userId: string, currentPassword: string): Promise
           },
           { session },
         );
+
+        const ownerSharedAccountIds = sharedOwnerMemberships.map((membership) => membership.accountId);
+        if (ownerSharedAccountIds.length > 0) {
+          await AccountModel.updateMany(
+            {
+              _id: { $in: ownerSharedAccountIds },
+              activeOwnerCount: { $gt: 0 },
+            },
+            {
+              $inc: { activeOwnerCount: -1 },
+            },
+            { session },
+          );
+        }
       }
 
-      await RefreshTokenModel.updateMany(
-        {
-          userId,
-          revokedAt: null,
-        },
-        {
-          $set: {
-            revokedAt: now,
+      await Promise.all([
+        AuthSessionModel.updateMany(
+          {
+            userId,
+            status: "active",
           },
-        },
-        { session },
-      );
+          {
+            $set: {
+              status: "revoked",
+              revokedAt: now,
+            },
+          },
+          { session },
+        ),
+        RefreshTokenModel.updateMany(
+          {
+            userId,
+            revokedAt: null,
+          },
+          {
+            $set: {
+              revokedAt: now,
+            },
+          },
+          { session },
+        ),
+      ]);
 
       user.email = deletedEmail;
       user.passwordHash = disabledPasswordHash;

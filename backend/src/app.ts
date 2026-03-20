@@ -5,7 +5,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
-import { isDbReady } from "./config/db.js";
+import { checkDbRuntimeReadiness } from "./config/db.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { getMetricsText, metricsMiddleware } from "./middleware/metrics.js";
 import { apiRouter } from "./routes/index.js";
@@ -20,11 +20,20 @@ function parseCorsOrigins(raw: string): string[] | "*" {
 
 const corsOrigins = parseCorsOrigins(env.CORS_ORIGIN);
 
+function parseTrustProxy(raw: string): boolean | number | string {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed >= 0) return parsed;
+  return raw;
+}
+
 export function createApp() {
   const app = express();
 
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  app.set("trust proxy", parseTrustProxy(env.TRUST_PROXY));
 
   app.use((req, res, next) => {
     const startedAt = process.hrtime.bigint();
@@ -85,16 +94,25 @@ export function createApp() {
     res.status(200).json({ status: "ok" });
   });
 
-  app.get("/ready", (_req, res) => {
-    if (!isDbReady()) {
-      res.status(503).json({ status: "not_ready" });
+  app.get("/ready", async (_req, res) => {
+    const readiness = await checkDbRuntimeReadiness();
+    if (!readiness.ready) {
+      res.status(503).json({ status: "not_ready", reason: readiness.reason });
       return;
     }
 
     res.status(200).json({ status: "ready" });
   });
 
-  app.get("/metrics", async (_req, res) => {
+  app.get("/metrics", async (req, res) => {
+    if (env.METRICS_BEARER_TOKEN) {
+      const authHeader = req.headers.authorization;
+      if (authHeader !== `Bearer ${env.METRICS_BEARER_TOKEN}`) {
+        res.status(401).json({ code: "UNAUTHORIZED", message: "Credenciais inválidas para métricas" });
+        return;
+      }
+    }
+
     const data = await getMetricsText();
     res.setHeader("Content-Type", "text/plain; version=0.0.4");
     res.status(200).send(data);

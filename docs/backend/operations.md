@@ -23,7 +23,11 @@ Arquivo: `src/jobs/scheduler.ts`
 Fluxo do job diario:
 1. calcula mes atual (`monthFromDate`, UTC)
 2. gera transacoes recorrentes para todas as contas (vencidas ate ao dia UTC atual)
-3. materializa snapshots de stats (`semester` e `year`) para cada conta
+3. nao materializa snapshots automaticamente; stats passam a ser calculadas on-demand
+
+Protecoes operacionais:
+- lease distribuida em Mongo para evitar corrida entre multiplas instancias
+- erros do job sao isolados e logados sem rebentar o processo
 
 Metrica/log de recorrencias:
 - `totalCreated`
@@ -49,7 +53,7 @@ Quando executar:
 ## Health checks
 
 - `/health`: liveness simples
-- `/ready`: readiness dependente da ligacao Mongo
+- `/ready`: readiness com `ping` real a Mongo e validacao de topologia compativel com transacoes
 
 Uso recomendado:
 - Load balancer / orchestrator deve usar `/ready` para traffic gating.
@@ -60,6 +64,7 @@ Uso recomendado:
 - Em dev usa `pino-pretty`
 - Cada request recebe `x-request-id`
 - DB URI e mascarada nos logs de conexao
+- `/metrics` pode exigir `Authorization: Bearer <METRICS_BEARER_TOKEN>`
 
 ## Erros operacionais comuns
 
@@ -131,7 +136,9 @@ Acoes:
 
 - Variaveis obrigatorias em producao configuradas
 - `CORS_ORIGIN` nao e `*`
-- Mongo em replica set (recomendado para transacoes)
+- Mongo em replica set ou topology compativel com transacoes
+- `TRUST_PROXY` configurado para a cadeia real de proxies
+- `METRICS_BEARER_TOKEN` definido se `/metrics` estiver exposto
 - scheduler ligado no ambiente correto
 - `npm run test` verde
 - monitorizacao em `/metrics` integrada

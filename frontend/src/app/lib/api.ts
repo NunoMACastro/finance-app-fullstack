@@ -14,6 +14,7 @@ import type {
   IncomeCategory,
   MonthBudget,
   MonthSummary,
+  RefreshResponse,
   RecurringRule,
   ReassignRecurringCategoryDto,
   ReassignRecurringCategoryResult,
@@ -21,6 +22,7 @@ import type {
   StatsSnapshot,
   ThemePalette,
   Transaction,
+  TransactionListResponse,
   UpdateRecurringRuleDto,
   UpdateTransactionDto,
   UserProfile,
@@ -58,8 +60,13 @@ export const authApi = {
     return data;
   },
 
-  async logout(refreshToken?: string): Promise<void> {
-    await httpClient.post("/auth/logout", { refreshToken });
+  async refresh(): Promise<RefreshResponse> {
+    const { data } = await httpClient.post<RefreshResponse>("/auth/refresh", {});
+    return data;
+  },
+
+  async logout(): Promise<void> {
+    await httpClient.post("/auth/logout", {});
   },
 
   async getMe(): Promise<UserProfile> {
@@ -192,6 +199,20 @@ export const transactionsApi = {
     return data;
   },
 
+  async list(params: {
+    month: string;
+    type?: "income" | "expense";
+    categoryId?: string;
+    origin?: "manual" | "recurring";
+    dateFrom?: string;
+    dateTo?: string;
+    cursor?: string;
+    limit?: number;
+  }): Promise<TransactionListResponse> {
+    const { data } = await httpClient.get<TransactionListResponse>("/transactions", { params });
+    return data;
+  },
+
   async create(dto: CreateTransactionDto): Promise<Transaction> {
     const { data } = await httpClient.post<Transaction>("/transactions", dto);
     return data;
@@ -309,6 +330,16 @@ export const statsApi = {
           : {}),
       },
     });
+    return data;
+  },
+
+  async compareBudget(from: string, to: string): Promise<{
+    from: string;
+    to: string;
+    totals: { budgeted: number; actual: number; difference: number };
+    items: StatsSnapshot["budgetVsActual"];
+  }> {
+    const { data } = await httpClient.get("/stats/compare-budget", { params: { from, to } });
     return data;
   },
 };

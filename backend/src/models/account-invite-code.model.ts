@@ -16,7 +16,6 @@ const accountInviteCodeSchema = new Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
     },
     revokedAt: {
       type: Date,
@@ -36,6 +35,7 @@ const accountInviteCodeSchema = new Schema(
 );
 
 accountInviteCodeSchema.index({ accountId: 1, revokedAt: 1, expiresAt: 1 });
+accountInviteCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type AccountInviteCodeDocument = InferSchemaType<typeof accountInviteCodeSchema> & {
   accountId: Types.ObjectId;

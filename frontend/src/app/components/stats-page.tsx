@@ -104,7 +104,6 @@ export function StatsPage() {
       setLoading(true);
     }
     setLoadError(null);
-    setInsightLoading(false);
     setInsightOpen(false);
     setSelectedDriver(null);
     setSelectedTrendIndex(null);
@@ -115,31 +114,12 @@ export function StatsPage() {
           : await statsApi.getYear(undefined, forecastWindow, { includeInsight: false });
       if (requestId !== requestIdRef.current) return;
       setSnapshot(data);
-      setInsightLoading(true);
-
-      void (period === "semester"
-        ? statsApi.getSemester(undefined, forecastWindow, { includeInsight: true })
-        : statsApi.getYear(undefined, forecastWindow, { includeInsight: true }))
-        .then((enrichedData) => {
-          if (requestId !== requestIdRef.current) return;
-          if (!enrichedData.insight) return;
-          setSnapshot((current) => (current ? { ...current, insight: enrichedData.insight } : current));
-        })
-        .catch(() => {
-          // Degrada graciosamente para fallback local sem bloquear a UI.
-        })
-        .finally(() => {
-          if (requestId === requestIdRef.current) {
-            setInsightLoading(false);
-          }
-        });
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       if (!hasSnapshot) {
         setSnapshot(null);
       }
       setLoadError(getErrorMessage(error, "Não foi possível carregar estatísticas"));
-      setInsightLoading(false);
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
@@ -147,6 +127,25 @@ export function StatsPage() {
       }
     }
   }, [period, forecastWindow, activeAccountId]);
+
+  const loadInsight = useCallback(async () => {
+    const requestId = requestIdRef.current;
+    setInsightLoading(true);
+    try {
+      const enrichedData =
+        period === "semester"
+          ? await statsApi.getSemester(undefined, forecastWindow, { includeInsight: true })
+          : await statsApi.getYear(undefined, forecastWindow, { includeInsight: true });
+      if (requestId !== requestIdRef.current || !enrichedData.insight) return;
+      setSnapshot((current) => (current ? { ...current, insight: enrichedData.insight } : current));
+    } catch {
+      // Falha do enrichment não bloqueia o snapshot principal.
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setInsightLoading(false);
+      }
+    }
+  }, [forecastWindow, period]);
 
   useEffect(() => {
     hasSnapshotRef.current = snapshot !== null;
@@ -282,6 +281,20 @@ export function StatsPage() {
       {loadError ? (
         <div className="rounded-xl bg-warning-soft px-3 py-2">
           <p className="text-xs text-warning-foreground">{loadError}</p>
+        </div>
+      ) : null}
+
+      {!snapshot.insight ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-xl"
+            onClick={() => void loadInsight()}
+            disabled={insightLoading}
+          >
+            {insightLoading ? "A gerar insight..." : "Gerar insight IA"}
+          </Button>
         </div>
       ) : null}
 

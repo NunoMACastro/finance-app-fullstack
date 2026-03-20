@@ -6,12 +6,21 @@ export const monthSummaryQuerySchema = z.object({
   month: monthKey,
 });
 
+export const transactionListQuerySchema = z.object({
+  month: monthKey,
+  type: z.enum(["income", "expense"]).optional(),
+  categoryId: z.string().trim().min(1).max(120).optional(),
+  origin: z.enum(["manual", "recurring"]).optional(),
+  dateFrom: z.string().date().optional(),
+  dateTo: z.string().date().optional(),
+  cursor: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export const createTransactionSchema = z.object({
   month: monthKey,
   date: z.string().date(),
   type: z.enum(["income", "expense"]),
-  origin: z.enum(["manual", "recurring"]),
-  recurringRuleId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional(),
   description: z.string().trim().min(1).max(240),
   amount: z.number().nonnegative(),
   categoryId: z.string().trim().max(120).optional(),

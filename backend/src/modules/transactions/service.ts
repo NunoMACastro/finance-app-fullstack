@@ -3,7 +3,11 @@ import { notFound, unprocessable } from "../../lib/api-error.js";
 import { monthFromDate } from "../../lib/month.js";
 import { BudgetModel } from "../../models/budget.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
-import { isBudgetReady, syncBudgetTotalFromTransactions } from "../budgets/service.js";
+import {
+  isBudgetReady,
+  isProtectedBudgetCategoryId,
+  syncBudgetTotalFromTransactions,
+} from "../budgets/service.js";
 import { assertIncomeCategoryActive } from "../income-categories/service.js";
 
 interface TransactionDto {
@@ -31,6 +35,19 @@ interface MonthSummaryDto {
   balance: number;
   incomeTransactions: TransactionDto[];
   expenseTransactions: TransactionDto[];
+}
+
+interface TransactionCursor {
+  date: string;
+  id: string;
+}
+
+interface TransactionListDto {
+  items: TransactionDto[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  totalCount: number;
+  totalAmount: number;
 }
 
 function toTransactionDto(doc: {
@@ -100,17 +117,66 @@ function ensureExpenseCategoryProvided(categoryId?: string): string {
   return cleanId;
 }
 
+async function ensureExpenseCategoryForMonth(
+  accountId: string,
+  month: string,
+  categoryId?: string,
+  options?: { allowProtected?: boolean },
+): Promise<string> {
+  const cleanId = ensureExpenseCategoryProvided(categoryId);
+
+  if (isProtectedBudgetCategoryId(cleanId) && !options?.allowProtected) {
+    unprocessable("Categoria protegida não pode ser usada manualmente", "TRANSACTION_CATEGORY_PROTECTED");
+  }
+
+  const budget = await BudgetModel.findOne({
+    accountId,
+    month,
+    "categories.id": cleanId,
+  })
+    .select({ _id: 1 })
+    .lean();
+
+  if (!budget) {
+    unprocessable("Categoria inválida para o orçamento do mês", "TRANSACTION_CATEGORY_INVALID");
+  }
+
+  return cleanId;
+}
+
 async function ensureCategoryForType(
   accountId: string,
+  month: string,
   type: "income" | "expense",
   categoryId?: string,
+  options?: { allowProtectedExpense?: boolean },
 ): Promise<string> {
   if (type === "income") {
     await assertIncomeCategoryActive(accountId, categoryId);
     return categoryId!.trim();
   }
 
-  return ensureExpenseCategoryProvided(categoryId);
+  return ensureExpenseCategoryForMonth(accountId, month, categoryId, {
+    allowProtected: options?.allowProtectedExpense,
+  });
+}
+
+function encodeCursor(cursor: TransactionCursor): string {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
+function decodeCursor(cursor?: string): TransactionCursor | null {
+  if (!cursor) return null;
+
+  try {
+    const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as TransactionCursor;
+    if (!decoded?.date || !decoded?.id || !Types.ObjectId.isValid(decoded.id)) {
+      unprocessable("Cursor inválido", "TRANSACTION_CURSOR_INVALID");
+    }
+    return decoded;
+  } catch {
+    unprocessable("Cursor inválido", "TRANSACTION_CURSOR_INVALID");
+  }
 }
 
 export async function getMonthSummary(accountId: string, month: string): Promise<MonthSummaryDto> {
@@ -133,6 +199,81 @@ export async function getMonthSummary(accountId: string, month: string): Promise
   };
 }
 
+export async function listTransactions(
+  accountId: string,
+  query: {
+    month: string;
+    type?: "income" | "expense";
+    categoryId?: string;
+    origin?: "manual" | "recurring";
+    dateFrom?: string;
+    dateTo?: string;
+    cursor?: string;
+    limit?: number;
+  },
+): Promise<TransactionListDto> {
+  if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo) {
+    unprocessable("Intervalo de datas inválido", "TRANSACTION_DATE_RANGE_INVALID");
+  }
+
+  const limit = query.limit ?? 50;
+  const filter: Record<string, unknown> = {
+    accountId,
+    month: query.month,
+  };
+
+  if (query.type) filter.type = query.type;
+  if (query.categoryId) filter.categoryId = query.categoryId;
+  if (query.origin) filter.origin = query.origin;
+  if (query.dateFrom || query.dateTo) {
+    filter.date = {
+      ...(query.dateFrom ? { $gte: parseAndValidateDate(query.dateFrom) } : {}),
+      ...(query.dateTo ? { $lte: parseAndValidateDate(query.dateTo) } : {}),
+    };
+  }
+
+  const decodedCursor = decodeCursor(query.cursor);
+  if (decodedCursor) {
+    const cursorDate = parseAndValidateDate(decodedCursor.date);
+    filter.$or = [
+      { date: { $lt: cursorDate } },
+      { date: cursorDate, _id: { $lt: new Types.ObjectId(decodedCursor.id) } },
+    ];
+  }
+
+  const results = await TransactionModel.find(filter)
+    .sort({ date: -1, _id: -1 })
+    .limit(limit + 1);
+  const aggregate = await TransactionModel.aggregate<{ _id: null; totalCount: number; totalAmount: number }>([
+    { $match: filter },
+    {
+      $group: {
+        _id: null,
+        totalCount: { $sum: 1 },
+        totalAmount: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const hasMore = results.length > limit;
+  const items = results.slice(0, limit).map((transaction) => toTransactionDto(transaction));
+  const last = results[limit - 1];
+  const totals = aggregate[0] ?? { totalCount: 0, totalAmount: 0 };
+
+  return {
+    items,
+    hasMore,
+    totalCount: totals.totalCount,
+    totalAmount: Math.round(totals.totalAmount * 100) / 100,
+    nextCursor: hasMore && last
+      ? encodeCursor({
+          date: last.date.toISOString().slice(0, 10),
+          id: last._id.toString(),
+        })
+      : null,
+  };
+}
+
 export async function createTransaction(
   accountId: string,
   actorUserId: string,
@@ -140,8 +281,6 @@ export async function createTransaction(
     month: string;
     date: string;
     type: "income" | "expense";
-    origin: "manual" | "recurring";
-    recurringRuleId?: string;
     description: string;
     amount: number;
     categoryId?: string;
@@ -149,15 +288,9 @@ export async function createTransaction(
 ): Promise<TransactionDto> {
   const date = parseAndValidateDate(input.date, input.month);
 
-  if (input.origin === "manual") {
-    await ensureManualTransactionsAllowed(accountId, input.month);
-  }
+  await ensureManualTransactionsAllowed(accountId, input.month);
 
-  const recurringRuleId =
-    input.origin === "recurring" && input.recurringRuleId
-      ? new Types.ObjectId(input.recurringRuleId)
-      : null;
-  const categoryId = await ensureCategoryForType(accountId, input.type, input.categoryId);
+  const categoryId = await ensureCategoryForType(accountId, input.month, input.type, input.categoryId);
 
   const transaction = await TransactionModel.create({
     accountId,
@@ -165,8 +298,8 @@ export async function createTransaction(
     month: input.month,
     date,
     type: input.type,
-    origin: input.origin,
-    recurringRuleId,
+    origin: "manual",
+    recurringRuleId: null,
     description: input.description,
     amount: input.amount,
     categoryId,
@@ -215,7 +348,9 @@ export async function updateTransaction(
 
   const nextType = input.type ?? transaction.type;
   const nextCategoryId = input.categoryId ?? transaction.categoryId;
-  const ensuredCategoryId = await ensureCategoryForType(accountId, nextType, nextCategoryId);
+  const ensuredCategoryId = await ensureCategoryForType(accountId, nextMonth, nextType, nextCategoryId, {
+    allowProtectedExpense: input.categoryId === undefined && isProtectedBudgetCategoryId(transaction.categoryId),
+  });
 
   if (input.type) {
     transaction.type = input.type;

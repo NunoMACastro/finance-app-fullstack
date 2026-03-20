@@ -1,44 +1,27 @@
 /**
- * Token Store — centralises access/refresh token persistence.
+ * Token Store — keeps the short-lived access token only in memory.
  *
- * Uses localStorage by default. Swap the implementation (e.g. for
- * secure cookies or in-memory storage) by changing the get/set/clear below.
+ * Refresh tokens live in an HttpOnly cookie and are never exposed to JS.
  */
 
-const ACCESS_KEY = "accessToken";
-const REFRESH_KEY = "refreshToken";
+let accessToken: string | null = null;
 
 export const tokenStore = {
   // ---- Access token ----
   getAccess(): string | null {
-    return localStorage.getItem(ACCESS_KEY);
+    return accessToken;
   },
   setAccess(token: string): void {
-    localStorage.setItem(ACCESS_KEY, token);
-  },
-
-  // ---- Refresh token ----
-  getRefresh(): string | null {
-    return localStorage.getItem(REFRESH_KEY);
-  },
-  setRefresh(token: string): void {
-    localStorage.setItem(REFRESH_KEY, token);
-  },
-
-  // ---- Pair helpers ----
-  setBoth(access: string, refresh: string): void {
-    localStorage.setItem(ACCESS_KEY, access);
-    localStorage.setItem(REFRESH_KEY, refresh);
+    accessToken = token;
   },
 
   clear(): void {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    accessToken = null;
   },
 
   /** Returns true if an access token exists (does NOT validate expiry). */
   hasTokens(): boolean {
-    return !!localStorage.getItem(ACCESS_KEY);
+    return !!accessToken;
   },
 
   /**
@@ -58,7 +41,7 @@ export const tokenStore = {
 
   /** Returns true if the access token is expired (or missing). */
   isAccessExpired(): boolean {
-    const token = localStorage.getItem(ACCESS_KEY);
+    const token = accessToken;
     if (!token) return true;
     const payload = tokenStore.decodePayload(token);
     if (!payload || typeof payload.exp !== "number") return true;

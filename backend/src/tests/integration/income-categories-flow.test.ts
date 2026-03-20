@@ -14,15 +14,17 @@ describe("income categories integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Income User",
       email: "income@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken as string;
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
 
     const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         totalBudget: 0,
         categories: [
@@ -35,7 +37,8 @@ describe("income categories integration", () => {
 
     const listRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(listRes.status).toBe(200);
     expect(listRes.body[0]?.isDefault).toBe(true);
@@ -45,6 +48,7 @@ describe("income categories integration", () => {
     const disableDefault = await request(getIntegrationApp())
       .patch(`/api/v1/income-categories/${defaultCategoryId}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({ active: false });
 
     expect(disableDefault.status).toBe(422);
@@ -52,7 +56,8 @@ describe("income categories integration", () => {
 
     const deleteDefault = await request(getIntegrationApp())
       .delete(`/api/v1/income-categories/${defaultCategoryId}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(deleteDefault.status).toBe(422);
     expect(deleteDefault.body.code).toBe("INCOME_CATEGORY_DEFAULT_PROTECTED");
@@ -60,6 +65,7 @@ describe("income categories integration", () => {
     const createCategory = await request(getIntegrationApp())
       .post("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({ name: "Freelance" });
 
     expect(createCategory.status).toBe(201);
@@ -68,11 +74,11 @@ describe("income categories integration", () => {
     const incomeSuccess = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-08`,
         type: "income",
-        origin: "manual",
         description: "Projeto X",
         amount: 500,
         categoryId: freelanceCategoryId,
@@ -83,6 +89,7 @@ describe("income categories integration", () => {
     const disableFreelance = await request(getIntegrationApp())
       .patch(`/api/v1/income-categories/${freelanceCategoryId}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({ active: false });
 
     expect(disableFreelance.status).toBe(200);
@@ -91,11 +98,11 @@ describe("income categories integration", () => {
     const incomeInactiveCategory = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-09`,
         type: "income",
-        origin: "manual",
         description: "Projeto Y",
         amount: 450,
         categoryId: freelanceCategoryId,
@@ -107,11 +114,11 @@ describe("income categories integration", () => {
     const incomeWithoutCategory = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-10`,
         type: "income",
-        origin: "manual",
         description: "Projeto Z",
         amount: 300,
       });

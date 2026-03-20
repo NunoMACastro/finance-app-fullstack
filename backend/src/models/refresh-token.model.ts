@@ -8,6 +8,11 @@ const refreshTokenSchema = new Schema(
       ref: "User",
       index: true,
     },
+    sid: {
+      type: String,
+      required: true,
+      index: true,
+    },
     jti: {
       type: String,
       required: true,
@@ -19,7 +24,6 @@ const refreshTokenSchema = new Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
     },
     revokedAt: {
       type: Date,
@@ -40,6 +44,7 @@ const refreshTokenSchema = new Schema(
 );
 
 refreshTokenSchema.index({ userId: 1, jti: 1 }, { unique: true });
+refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type RefreshTokenDocument = InferSchemaType<typeof refreshTokenSchema> & {
   userId: Types.ObjectId;

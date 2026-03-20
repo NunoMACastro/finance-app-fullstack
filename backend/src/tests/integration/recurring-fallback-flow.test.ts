@@ -17,15 +17,17 @@ describe("recurring fallback integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Maria",
       email: "maria.recurring@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken as string;
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
 
     const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         totalBudget: 0,
         categories: [{ id: "cat_casa", name: "Casa", percent: 100 }],
@@ -36,6 +38,7 @@ describe("recurring fallback integration", () => {
     const createRuleRes = await request(getIntegrationApp())
       .post("/api/v1/recurring-rules")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         type: "expense",
         name: "Renda",
@@ -51,6 +54,7 @@ describe("recurring fallback integration", () => {
     const generateRes = await request(getIntegrationApp())
       .post(`/api/v1/recurring-rules/generate?month=${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send();
 
     expect(generateRes.status).toBe(200);
@@ -59,7 +63,8 @@ describe("recurring fallback integration", () => {
 
     const budgetAfterGenerateRes = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(budgetAfterGenerateRes.status).toBe(200);
     expect(
@@ -71,7 +76,8 @@ describe("recurring fallback integration", () => {
 
     const summaryRes = await request(getIntegrationApp())
       .get(`/api/v1/transactions?month=${month}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(summaryRes.status).toBe(200);
     expect(summaryRes.body.expenseTransactions).toHaveLength(1);
@@ -81,7 +87,8 @@ describe("recurring fallback integration", () => {
 
     const rulesBeforeReassignRes = await request(getIntegrationApp())
       .get("/api/v1/recurring-rules")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(rulesBeforeReassignRes.status).toBe(200);
     expect(rulesBeforeReassignRes.body[0].pendingFallbackCount).toBe(1);
@@ -90,6 +97,7 @@ describe("recurring fallback integration", () => {
     const reassignRes = await request(getIntegrationApp())
       .post(`/api/v1/recurring-rules/${ruleId}/reassign-category`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         categoryId: "cat_casa",
         migratePastFallbackTransactions: true,
@@ -102,7 +110,8 @@ describe("recurring fallback integration", () => {
 
     const summaryAfterReassignRes = await request(getIntegrationApp())
       .get(`/api/v1/transactions?month=${month}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(summaryAfterReassignRes.status).toBe(200);
     expect(summaryAfterReassignRes.body.expenseTransactions).toHaveLength(1);
@@ -117,15 +126,17 @@ describe("recurring fallback integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Joao",
       email: "joao.recurring@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken as string;
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
 
     const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(incomeCategoriesRes.status).toBe(200);
     const defaultCategoryId = incomeCategoriesRes.body[0]?.id as string;
@@ -133,6 +144,7 @@ describe("recurring fallback integration", () => {
     const createIncomeCategoryRes = await request(getIntegrationApp())
       .post("/api/v1/income-categories")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({ name: "Salário" });
 
     expect(createIncomeCategoryRes.status).toBe(201);
@@ -141,6 +153,7 @@ describe("recurring fallback integration", () => {
     const createRuleRes = await request(getIntegrationApp())
       .post("/api/v1/recurring-rules")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         type: "income",
         name: "Salário mensal",
@@ -155,6 +168,7 @@ describe("recurring fallback integration", () => {
     const deactivateSalaryCategoryRes = await request(getIntegrationApp())
       .patch(`/api/v1/income-categories/${salaryCategoryId}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({ active: false });
 
     expect(deactivateSalaryCategoryRes.status).toBe(200);
@@ -162,6 +176,7 @@ describe("recurring fallback integration", () => {
     const generateRes = await request(getIntegrationApp())
       .post(`/api/v1/recurring-rules/generate?month=${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send();
 
     expect(generateRes.status).toBe(200);
@@ -170,7 +185,8 @@ describe("recurring fallback integration", () => {
 
     const summaryRes = await request(getIntegrationApp())
       .get(`/api/v1/transactions?month=${month}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(summaryRes.status).toBe(200);
     expect(summaryRes.body.incomeTransactions).toHaveLength(1);

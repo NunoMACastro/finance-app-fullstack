@@ -12,16 +12,18 @@ describe("stats integration", () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Stats User",
       email: "stats@example.com",
-      password: "123456",
+      password: "StrongPass1!",
     });
 
     expect(registerRes.status).toBe(201);
-    const accessToken = registerRes.body.tokens.accessToken as string;
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
     const month = monthKeyFromNow();
 
     const incomeCategoriesRes = await request(getIntegrationApp())
       .get("/api/v1/income-categories")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(incomeCategoriesRes.status).toBe(200);
     const defaultIncomeCategoryId = incomeCategoriesRes.body[0]?.id as string | undefined;
@@ -30,6 +32,7 @@ describe("stats integration", () => {
     const budgetRes = await request(getIntegrationApp())
       .put(`/api/v1/budgets/${month}`)
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         totalBudget: 0,
         categories: [
@@ -43,11 +46,11 @@ describe("stats integration", () => {
     const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-05`,
         type: "income",
-        origin: "manual",
         description: "Salario",
         amount: 2000,
         categoryId: defaultIncomeCategoryId,
@@ -58,11 +61,11 @@ describe("stats integration", () => {
     const expenseA = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-08`,
         type: "expense",
-        origin: "manual",
         description: "Supermercado",
         amount: 500,
         categoryId: "cat_despesas",
@@ -71,11 +74,11 @@ describe("stats integration", () => {
     const expenseB = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
       .send({
         month,
         date: `${month}-10`,
         type: "expense",
-        origin: "manual",
         description: "Cinema",
         amount: 120,
         categoryId: "cat_lazer",
@@ -86,15 +89,18 @@ describe("stats integration", () => {
 
     const statsResA = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     const statsResB = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
     const statsResForecastWindow = await request(getIntegrationApp())
       .get("/api/v1/stats/semester")
       .query({ forecastWindow: 6 })
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
 
     expect(statsResA.status).toBe(200);
     expect(statsResB.status).toBe(200);

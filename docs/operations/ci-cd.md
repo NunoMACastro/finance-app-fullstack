@@ -7,6 +7,13 @@ Pipeline atual: `.github/workflows/ci.yml`
 - `push` em qualquer branch
 - `pull_request`
 
+## Jobs adicionais
+
+- `secret-scan`
+  - corre `gitleaks` em cada push/PR
+- auditoria de dependencias em backend/frontend
+  - `npm audit --audit-level=high`
+
 ## Job backend
 
 Diretorio: `backend`
@@ -15,9 +22,10 @@ Passos:
 1. checkout
 2. setup Node 22
 3. `npm ci`
-4. `npm run build`
-5. `npm run test:unit`
-6. `npm run test:integration`
+4. `npm audit --audit-level=high`
+5. `npm run build`
+6. `npm run test:unit`
+7. `npm run test:integration`
 
 ## Job frontend
 
@@ -27,12 +35,13 @@ Passos:
 1. checkout
 2. setup Node 22
 3. `npm ci`
-4. `npm run typecheck`
-5. `npm run lint`
-6. `npm run check-theme-contract`
-7. `npm run check:tokens`
-8. `npm run test`
-9. `npm run build`
+4. `npm audit --audit-level=high`
+5. `npm run typecheck`
+6. `npm run lint`
+7. `npm run check-theme-contract`
+8. `npm run check:tokens`
+9. `npm run test`
+10. `npm run build`
 
 Nota:
 - `npm run lint` ja executa `check-theme-contract` e `check:tokens`.
@@ -50,4 +59,4 @@ Nota:
 - adicionar cobertura de testes (threshold)
 - adicionar changelog automatizado
 - adicionar deploy preview por PR
-- adicionar scan de dependencias/supply chain
+- adicionar provenance/signature checks quando o ecossistema do projeto estiver estabilizado

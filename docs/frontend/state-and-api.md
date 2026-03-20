@@ -47,7 +47,7 @@ Modulos:
 - `budgetApi`
 - `statsApi`
   - `statsApi.getSemester/getYear` suportam `options.includeInsight?: boolean`
-  - quando `includeInsight=true`, resposta pode vir com `snapshot.insight` inline
+  - `includeInsight` e `false` por omissao; quando `true`, resposta pode vir com `snapshot.insight` inline
 
 Modo unico:
 - real API via `httpClient`
@@ -59,14 +59,14 @@ Arquivo: `app/lib/http-client.ts`
 ### Request interceptor
 
 - anexa `Authorization` com access token
-- anexa `X-Account-Id` se conta ativa existir
+- anexa `X-Account-Id` em todos os requests account-scoped
 - `Stats` v1 usa o mesmo `X-Account-Id` (escopo por conta ativa, sem modo global)
 
 ### Response interceptor
 
 - em `401`:
   - tenta refresh uma vez
-  - reexecuta request original
+  - reexecuta apenas requests idempotentes (`GET/HEAD/OPTIONS`) ou marcados como safe
 - fila pedidos concorrentes durante refresh
 - se refresh falhar:
   - limpa tokens
@@ -109,8 +109,9 @@ Acoes:
 - `toggleAmountVisibility`
 
 Comportamentos:
-- reidratacao inicial com tokens locais
+- reidratacao inicial por `POST /auth/refresh` com cookie `HttpOnly`
 - forced logout via evento global
+- sincronizacao multi-tab via `BroadcastChannel`
 - preferencia de ocultar valores por defeito com override de sessao
 
 ## Theme preferences context
@@ -172,7 +173,8 @@ Politica de selecao da conta ativa:
 ### token-store
 Arquivo: `app/lib/token-store.ts`
 
-- persiste `accessToken` e `refreshToken` em localStorage
+- guarda apenas `accessToken` em memoria
+- refresh token nunca fica acessivel a JS
 - expande helper para verificar expiracao de access token via payload JWT
 
 ### account-store
@@ -184,9 +186,7 @@ Arquivo: `app/lib/account-store.ts`
 ## Gestao de concorrencia e race conditions
 
 - Stats/Month usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
-- Stats faz carregamento em 2 fases para UX responsiva:
-  - primeiro request com `includeInsight=false` para render imediato do snapshot base
-  - segundo request com `includeInsight=true` para enriquecer apenas o texto de insight
+- Stats carrega primeiro o snapshot base e so faz enrichment IA quando o utilizador pede explicitamente
 - narrativa final prioriza `snapshot.insight.text`; fallback local deterministico (`buildPulseInsight`) quando ausente/erro.
 - metricas do `Pulse`:
   - preferem `snapshot.totalsBreakdown` quando presente

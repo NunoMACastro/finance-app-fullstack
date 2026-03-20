@@ -1,4 +1,5 @@
 import { BudgetModel } from "../../models/budget.model.js";
+import { RecurringRuleModel } from "../../models/recurring-rule.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import { newCategoryId } from "../../lib/hash.js";
 import { notFound, unprocessable } from "../../lib/api-error.js";
@@ -321,23 +322,11 @@ export async function getBudget(accountId: string, month: string): Promise<Month
       })),
     ),
   );
-  const shouldPersistCategoryMetadata = hasCategoryMetadataDrift(budget.categories, normalizedCategories);
-  const shouldSyncTotal = Math.abs(budget.totalBudget - totalBudget) > BUDGET_TOLERANCE;
-
-  if (shouldSyncTotal) {
-    budget.totalBudget = totalBudget;
-  }
-  if (shouldPersistCategoryMetadata) {
-    budget.set("categories", normalizedCategories);
-  }
-  if (shouldSyncTotal || shouldPersistCategoryMetadata) {
-    await budget.save();
-  }
 
   return {
     accountId: budget.accountId.toString(),
     month: budget.month,
-    totalBudget: budget.totalBudget,
+    totalBudget,
     categories: normalizedCategories,
     isReady: isBudgetReady(normalizedCategories),
   };
@@ -442,6 +431,15 @@ export async function removeCategory(
     return emptyBudget(accountId, month, totalBudget);
   }
 
+  const [referencedTransactions, referencedRecurringRules] = await Promise.all([
+    TransactionModel.exists({ accountId, month, type: "expense", categoryId }),
+    RecurringRuleModel.exists({ accountId, type: "expense", categoryId, active: true }),
+  ]);
+
+  if (referencedTransactions || referencedRecurringRules) {
+    unprocessable("Categoria em uso não pode ser removida", "BUDGET_CATEGORY_IN_USE");
+  }
+
   const categoriesWithSlots = assignCategoryColorSlots(
     upsertProtectedBudgetCategories(
       budget.categories
@@ -506,7 +504,8 @@ export async function copyBudgetFromMonth(
 }
 
 export async function syncBudgetTotalFromTransactions(accountId: string, month: string): Promise<void> {
-  await syncBudgetTotal(accountId, month);
+  void accountId;
+  void month;
 }
 
 export async function ensureRecurringExpenseFallbackCategory(

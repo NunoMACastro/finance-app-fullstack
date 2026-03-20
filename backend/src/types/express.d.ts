@@ -6,9 +6,11 @@ declare module "express-serve-static-core" {
   interface Request {
     auth?: {
       userId: string;
+      sessionId?: string;
       accountId?: string;
       accountRole?: AccountRole;
       personalAccountId?: string;
+      accountHeaderPresent?: boolean;
     };
   }
 }

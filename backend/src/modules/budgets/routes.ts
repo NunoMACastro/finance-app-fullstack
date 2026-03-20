@@ -1,9 +1,11 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { env } from "../../config/env.js";
 import {
-  requireAccountContext,
   requireFinancialReadAccess,
   requireFinancialWriteAccess,
+  requireStrictAccountContext,
 } from "../../middleware/account-context.js";
 import { requireAuth } from "../../middleware/auth.js";
 import {
@@ -17,8 +19,19 @@ import * as budgetsService from "./service.js";
 
 export const budgetsRouter = Router();
 
+const financialWriteLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: Math.max(Math.floor(env.RATE_LIMIT_MAX / 2), 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    code: "RATE_LIMITED",
+    message: "Muitos pedidos de escrita financeira. Tente novamente daqui a pouco.",
+  },
+});
+
 budgetsRouter.use(requireAuth);
-budgetsRouter.use(requireAccountContext);
+budgetsRouter.use(requireStrictAccountContext);
 
 budgetsRouter.get(
   "/templates",
@@ -42,6 +55,7 @@ budgetsRouter.get(
 budgetsRouter.put(
   "/:month",
   requireFinancialWriteAccess,
+  financialWriteLimiter,
   asyncHandler(async (req, res) => {
     const params = monthParamSchema.parse(req.params);
     const body = saveBudgetSchema.parse(req.body);
@@ -58,6 +72,7 @@ budgetsRouter.put(
 budgetsRouter.post(
   "/:month/categories",
   requireFinancialWriteAccess,
+  financialWriteLimiter,
   asyncHandler(async (req, res) => {
     const params = monthParamSchema.parse(req.params);
     const body = addCategorySchema.parse(req.body);
@@ -74,6 +89,7 @@ budgetsRouter.post(
 budgetsRouter.delete(
   "/:month/categories/:categoryId",
   requireFinancialWriteAccess,
+  financialWriteLimiter,
   asyncHandler(async (req, res) => {
     const params = categoryParamsSchema.parse(req.params);
     const budget = await budgetsService.removeCategory(
@@ -89,6 +105,7 @@ budgetsRouter.delete(
 budgetsRouter.post(
   "/:month/copy-from/:sourceMonth",
   requireFinancialWriteAccess,
+  financialWriteLimiter,
   asyncHandler(async (req, res) => {
     const params = copyBudgetParamsSchema.parse(req.params);
     const budget = await budgetsService.copyBudgetFromMonth(

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../../lib/async-handler.js";
-import { requireAccountContext, requireFinancialReadAccess } from "../../middleware/account-context.js";
+import { requireFinancialReadAccess, requireStrictAccountContext } from "../../middleware/account-context.js";
 import { requireAuth } from "../../middleware/auth.js";
 import * as statsService from "./service.js";
 import { compareQuerySchema, semesterQuerySchema, yearQuerySchema } from "./validators.js";
@@ -8,7 +8,7 @@ import { compareQuerySchema, semesterQuerySchema, yearQuerySchema } from "./vali
 export const statsRouter = Router();
 
 statsRouter.use(requireAuth);
-statsRouter.use(requireAccountContext);
+statsRouter.use(requireStrictAccountContext);
 
 statsRouter.get(
   "/semester",
@@ -19,7 +19,7 @@ statsRouter.get(
       req.auth!.accountId!,
       query.endingMonth,
       (query.forecastWindow as 3 | 6 | undefined) ?? 3,
-      query.includeInsight ?? true,
+      query.includeInsight ?? false,
     );
     res.status(200).json(data);
   }),
@@ -34,7 +34,7 @@ statsRouter.get(
       req.auth!.accountId!,
       query.year,
       (query.forecastWindow as 3 | 6 | undefined) ?? 3,
-      query.includeInsight ?? true,
+      query.includeInsight ?? false,
     );
     res.status(200).json(data);
   }),

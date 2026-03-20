@@ -197,7 +197,6 @@ describe("StatsPage", () => {
     expect(screen.getByText("A mostrar dados da conta ativa")).toBeInTheDocument();
 
     expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3, { includeInsight: false });
-    expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3, { includeInsight: true });
     expect(screen.getByText("Confiança alta: 3 meses de dados usados.")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Selecionar período" })).toHaveAttribute("data-ui-v3-segmented", "true");
     expect(screen.getByRole("group", { name: "Selecionar janela da projeção" })).toHaveAttribute("data-ui-v3-segmented", "true");
@@ -246,11 +245,10 @@ describe("StatsPage", () => {
   test("prefers backend insight text when available", async () => {
     statsApiMocks.getSemester
       .mockResolvedValueOnce(buildSnapshot(3))
-      .mockResolvedValueOnce(
-        buildSnapshot(3, 450, "As despesas de C1 subiram 12%. Ajusta o teto semanal para recuperar margem."),
-      );
+      .mockResolvedValueOnce(buildSnapshot(3, 450, "As despesas de C1 subiram 12%. Ajusta o teto semanal para recuperar margem."));
 
     render(<StatsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Gerar insight IA" }));
     expect(
       await screen.findByText(
         "As despesas de Despesas subiram 12%. Ajusta o teto semanal para recuperar margem.",

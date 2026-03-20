@@ -20,6 +20,7 @@ export function ProfileSharedMembersPage() {
     removeMember,
   } = useAccount();
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
   const [membersLoading, setMembersLoading] = useState(false);
   const [members, setMembers] = useState<Array<{
     userId: string;
@@ -98,6 +99,7 @@ export function ProfileSharedMembersPage() {
                   try {
                     const next = await generateInviteCode(activeAccount.id);
                     setInviteCode(next.code);
+                    setInviteExpiresAt(next.expiresAt);
                     toast.success("Código de convite gerado");
                   } catch (error) {
                     toast.error(getErrorMessage(error, "Não foi possível gerar código"));
@@ -110,9 +112,16 @@ export function ProfileSharedMembersPage() {
               </Button>
             </div>
             {inviteCode ? (
-              <p className={PROFILE_FIELD_LABEL_CLASS}>
-                Código atual: <span className="font-medium text-foreground">{inviteCode}</span>
-              </p>
+              <div className="space-y-1">
+                <p className={PROFILE_FIELD_LABEL_CLASS}>
+                  Código atual: <span className="font-medium text-foreground">{inviteCode}</span>
+                </p>
+                {inviteExpiresAt ? (
+                  <p className="text-xs text-muted-foreground">
+                    Expira em {new Date(inviteExpiresAt).toLocaleString("pt-PT")}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             {membersLoading ? (

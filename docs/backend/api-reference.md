@@ -7,15 +7,19 @@ Base URL local: `http://localhost:3001/api/v1`
 - Auth header:
   - `Authorization: Bearer <accessToken>`
 - Conta ativa (endpoints financeiros):
-  - `X-Account-Id: <accountId>` (opcional)
-  - se ausente, backend usa `personalAccountId`
+  - `X-Account-Id: <accountId>` obrigatorio
+  - o backend valida membership ativa do user nessa conta
 - Content-Type:
   - `application/json`
+- Refresh token:
+  - cookie `HttpOnly` (`SameSite=Lax`; `Secure` em producao)
 
 ## Auth
 
 ### POST `/auth/register`
-Cria utilizador, conta pessoal, membership owner e emite tokens.
+Cria utilizador, conta pessoal, membership owner, cria sessao e emite:
+- `accessToken` curto no body
+- refresh token no cookie `HttpOnly`
 
 Request:
 ```json
@@ -29,10 +33,7 @@ Request:
 Response `201`:
 ```json
 {
-  "tokens": {
-    "accessToken": "...",
-    "refreshToken": "..."
-  },
+  "accessToken": "...",
   "user": {
     "id": "...",
     "email": "nuno@example.com",
@@ -60,23 +61,19 @@ Request:
 Response `200`: igual a register.
 
 ### POST `/auth/refresh`
-Request:
-```json
-{
-  "refreshToken": "..."
-}
-```
+Le primeiro o cookie `HttpOnly`. Durante a transicao, continua a aceitar `refreshToken` no body.
 
 Response `200`:
 ```json
 {
-  "accessToken": "...",
-  "refreshToken": "..."
+  "accessToken": "..."
 }
 ```
 
 ### POST `/auth/logout`
-Request opcional:
+Revoga a sessao associada ao refresh token recebido por cookie ou body.
+
+Request body opcional de compatibilidade:
 ```json
 {
   "refreshToken": "..."
@@ -140,14 +137,15 @@ Request:
 ```json
 {
   "currentPassword": "secret123",
-  "newPassword": "newsecret123"
+  "newPassword": "newsecret12345"
 }
 ```
 
 Response `204`.
+Efeito adicional: revoga todas as sessoes do user.
 
 ### GET `/auth/sessions`
-Auth obrigatoria. Lista sessões baseadas em refresh tokens.
+Auth obrigatoria. Lista sessoes explicitas por dispositivo/login.
 
 Response `200`:
 ```json
@@ -175,7 +173,7 @@ Auth obrigatoria. Remove do histórico todas as sessões já revogadas.
 Response `204`.
 
 ### POST `/auth/sessions/revoke-all`
-Auth obrigatoria. Revoga todas as sessões do user.
+Auth obrigatoria. Revoga todas as sessões do user e invalida refresh cookies em uso.
 
 Response `204`.
 
@@ -210,6 +208,42 @@ Request:
 ```
 
 Response `204`.
+
+## Transactions
+
+### GET `/transactions?month=YYYY-MM`
+Resumo mensal completo.
+
+### GET `/transactions?month=YYYY-MM&type=expense&categoryId=...&origin=...&dateFrom=...&dateTo=...&cursor=...&limit=...`
+Listagem paginada/filtravel de movimentos.
+
+Response `200`:
+```json
+{
+  "items": [],
+  "totalCount": 12,
+  "totalAmount": 341.4,
+  "nextCursor": "....",
+  "hasMore": true
+}
+```
+
+### POST `/transactions`
+Cria apenas lançamentos manuais. `origin` e `recurringRuleId` deixaram de ser aceites no contrato publico.
+
+Para `expense`:
+- requer budget valido no mes
+- `categoryId` tem de existir no budget do mes
+- categorias tecnicas/protegidas nao podem ser usadas manualmente
+
+### DELETE `/budgets/:month/categories/:categoryId`
+Falha com `422 BUDGET_CATEGORY_IN_USE` quando existirem transacoes ou recorrencias ativas a referenciar a categoria.
+
+## Stats
+
+- `includeInsight` e `false` por omissao em `/stats/semester` e `/stats/year`
+- a UI deve pedir enrichment IA explicitamente quando necessario
+- `GET /stats/compare-budget` valida `from <= to` e rejeita ranges acima de 24 meses com `422`
 
 ## Accounts
 

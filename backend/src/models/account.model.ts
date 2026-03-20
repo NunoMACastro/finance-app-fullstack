@@ -20,6 +20,17 @@ const accountSchema = new Schema(
       required: true,
       index: true,
     },
+    activeOwnerCount: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
+    activeInviteCodeId: {
+      type: Schema.Types.ObjectId,
+      ref: "AccountInviteCode",
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -36,6 +47,7 @@ accountSchema.index(
 
 export type AccountDocument = InferSchemaType<typeof accountSchema> & {
   createdByUserId: Types.ObjectId;
+  activeInviteCodeId: Types.ObjectId | null;
 };
 
 export const AccountModel = model<AccountDocument>("Account", accountSchema);

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { CategoryMovementsPage } from "./category-movements-page";
 
 const apiMocks = vi.hoisted(() => ({
-  getMonthSummary: vi.fn(),
+  listTransactions: vi.fn(),
   getBudget: vi.fn(),
   deleteTransaction: vi.fn(),
 }));
@@ -15,7 +15,7 @@ const accountMocks = vi.hoisted(() => ({
 
 vi.mock("../lib/api", () => ({
   transactionsApi: {
-    getMonthSummary: apiMocks.getMonthSummary,
+    list: apiMocks.listTransactions,
     delete: apiMocks.deleteTransaction,
   },
   budgetApi: {
@@ -64,13 +64,12 @@ describe("CategoryMovementsPage", () => {
       categories: [{ id: "c1", name: "Despesas", percent: 100 }],
       isReady: true,
     });
-    apiMocks.getMonthSummary.mockResolvedValue({
-      month: "2026-03",
-      totalIncome: 1500,
-      totalExpense: 190,
-      balance: 1310,
-      incomeTransactions: [],
-      expenseTransactions: [
+    apiMocks.listTransactions.mockResolvedValue({
+      totalCount: 2,
+      totalAmount: 190,
+      nextCursor: null,
+      hasMore: false,
+      items: [
         {
           id: "tx1",
           accountId: "acc1",
@@ -145,13 +144,12 @@ describe("CategoryMovementsPage", () => {
       categories: [{ id: "c1", name: "Despesas", percent: 100 }],
       isReady: true,
     });
-    apiMocks.getMonthSummary.mockResolvedValue({
-      month: "2026-03",
-      totalIncome: 0,
-      totalExpense: 0,
-      balance: 0,
-      incomeTransactions: [],
-      expenseTransactions: [],
+    apiMocks.listTransactions.mockResolvedValue({
+      totalCount: 0,
+      totalAmount: 0,
+      nextCursor: null,
+      hasMore: false,
+      items: [],
     });
 
     render(
@@ -167,20 +165,19 @@ describe("CategoryMovementsPage", () => {
 
   test("mostra erro e permite retry", async () => {
     apiMocks.getBudget.mockRejectedValueOnce(new Error("falha"));
-    apiMocks.getMonthSummary.mockRejectedValueOnce(new Error("falha"));
+    apiMocks.listTransactions.mockRejectedValueOnce(new Error("falha"));
     apiMocks.getBudget.mockResolvedValueOnce({
       month: "2026-03",
       totalBudget: 1000,
       categories: [{ id: "c1", name: "Despesas", percent: 100 }],
       isReady: true,
     });
-    apiMocks.getMonthSummary.mockResolvedValueOnce({
-      month: "2026-03",
-      totalIncome: 0,
-      totalExpense: 0,
-      balance: 0,
-      incomeTransactions: [],
-      expenseTransactions: [],
+    apiMocks.listTransactions.mockResolvedValueOnce({
+      totalCount: 0,
+      totalAmount: 0,
+      nextCursor: null,
+      hasMore: false,
+      items: [],
     });
 
     render(
@@ -194,7 +191,7 @@ describe("CategoryMovementsPage", () => {
     expect(await screen.findByText("falha")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     await waitFor(() => {
-      expect(apiMocks.getMonthSummary.mock.calls.length).toBeGreaterThan(1);
+      expect(apiMocks.listTransactions.mock.calls.length).toBeGreaterThan(1);
     });
     expect(await screen.findByText("Ainda sem despesas nesta categoria.")).toBeInTheDocument();
   });
@@ -207,13 +204,12 @@ describe("CategoryMovementsPage", () => {
       categories: [{ id: "c1", name: "Despesas", percent: 100 }],
       isReady: true,
     });
-    apiMocks.getMonthSummary.mockResolvedValue({
-      month: "2026-03",
-      totalIncome: 1000,
-      totalExpense: 120,
-      balance: 880,
-      incomeTransactions: [],
-      expenseTransactions: [
+    apiMocks.listTransactions.mockResolvedValue({
+      totalCount: 1,
+      totalAmount: 120,
+      nextCursor: null,
+      hasMore: false,
+      items: [
         {
           id: "tx1",
           accountId: "acc1",

@@ -8,7 +8,7 @@ const themePaletteSchema = z
 export const registerSchema = z.object({
   name: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(254),
-  password: z.string().min(6).max(256),
+  password: z.string().min(10).max(256),
 });
 
 export const loginSchema = z.object({
@@ -17,17 +17,17 @@ export const loginSchema = z.object({
 });
 
 export const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
-});
+  refreshToken: z.string().min(1).optional(),
+}).passthrough();
 
 export const logoutSchema = z.object({
   refreshToken: z.string().min(1).optional(),
-});
+}).passthrough();
 
 export const updateProfileSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
-    currency: z.string().trim().min(3).max(3).optional(),
+    currency: z.enum(["EUR", "USD", "GBP", "BRL", "CHF"]).optional(),
     preferences: z
       .object({
         themePalette: themePaletteSchema.optional(),
@@ -53,7 +53,7 @@ export const updateEmailSchema = z.object({
 
 export const updatePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(256),
-  newPassword: z.string().min(6).max(256),
+  newPassword: z.string().min(10).max(256),
 });
 
 export const sessionJtiParamsSchema = z.object({

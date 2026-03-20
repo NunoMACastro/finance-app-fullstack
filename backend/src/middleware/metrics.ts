@@ -24,7 +24,7 @@ export function metricsMiddleware(req: Request, res: Response, next: NextFunctio
 
   res.on("finish", () => {
     const durationSeconds = Number(process.hrtime.bigint() - start) / 1_000_000_000;
-    const route = req.route?.path ? `${req.baseUrl}${req.route.path}` : req.path;
+    const route = req.route?.path ? `${req.baseUrl}${req.route.path}` : "unmatched";
     const labels = {
       method: req.method,
       route,

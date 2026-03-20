@@ -2,10 +2,9 @@
  * Auth Context — manages authentication state.
  *
  * Features:
- *  • On mount, checks tokenStore for existing tokens and fetches user profile
- *  • Listens for `auth:logout` custom events dispatched by http-client on
- *    refresh token failure (401 → forced logout)
- *  • Exposes login / register / logout + isInitialising flag for splash screen
+ *  • Rehydrates on mount by exchanging the refresh cookie for a short-lived access token
+ *  • Keeps the access token only in memory
+ *  • Syncs login/logout/session revocation across tabs
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
@@ -66,6 +65,8 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+const AUTH_BROADCAST_CHANNEL = "finance-v2-auth";
+type AuthBroadcastMessage = { type: "login" | "logout" | "session-revoked" };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -73,31 +74,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialising, setIsInitialising] = useState(true);
   const [amountsHiddenOverride, setAmountsHiddenOverride] = useState<boolean | null>(null);
 
-  // ── Token rehydration on mount ─────────────────────────
+  const publishAuthEvent = useCallback((message: AuthBroadcastMessage) => {
+    if (typeof window === "undefined" || !("BroadcastChannel" in window)) return;
+    const channel = new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+    channel.postMessage(message);
+    channel.close();
+  }, []);
+
+  const clearLocalSession = useCallback(() => {
+    tokenStore.clear();
+    setUser(null);
+  }, []);
+
+  const refreshSession = useCallback(async (): Promise<UserProfile | null> => {
+    try {
+      const { accessToken } = await authApi.refresh();
+      tokenStore.setAccess(accessToken);
+      const profile = await authApi.getMe();
+      setUser(profile);
+      return profile;
+    } catch {
+      clearLocalSession();
+      return null;
+    }
+  }, [clearLocalSession]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function rehydrate() {
-      // If we have stored tokens, try to fetch user profile
       if (tokenStore.hasTokens() && !tokenStore.isAccessExpired()) {
         try {
           const profile = await authApi.getMe();
           if (!cancelled) setUser(profile);
         } catch {
-          // Token invalid or backend unreachable — clear tokens
-          tokenStore.clear();
+          if (!cancelled) {
+            await refreshSession();
+          }
         }
-      } else if (tokenStore.hasTokens() && tokenStore.isAccessExpired()) {
-        // Access expired but we might have a refresh token
-        // The http-client interceptor will auto-refresh on the next request
-        // Let's try to fetch the profile — the interceptor handles 401 → refresh
-        try {
-          const profile = await authApi.getMe();
-          if (!cancelled) setUser(profile);
-        } catch {
-          tokenStore.clear();
-        }
+      } else {
+        await refreshSession();
       }
       if (!cancelled) setIsInitialising(false);
     }
@@ -107,63 +123,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Listen for forced logout (from http-client 401 interceptor) ──
-
   useEffect(() => {
     function handleForcedLogout() {
-      setUser(null);
-      tokenStore.clear();
+      clearLocalSession();
     }
 
     window.addEventListener("auth:logout", handleForcedLogout);
     return () => window.removeEventListener("auth:logout", handleForcedLogout);
-  }, []);
+  }, [clearLocalSession]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("BroadcastChannel" in window)) {
+      return undefined;
+    }
+
+    const channel = new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+    channel.onmessage = (event: MessageEvent<AuthBroadcastMessage>) => {
+      if (event.data.type === "login") {
+        void refreshSession();
+        return;
+      }
+
+      clearLocalSession();
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [clearLocalSession, refreshSession]);
 
   // ── Actions ────────────────────────────────────────────
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { tokens, user: profile } = await authApi.login(email, password);
-      tokenStore.setBoth(tokens.accessToken, tokens.refreshToken);
+      const { accessToken, user: profile } = await authApi.login(email, password);
+      tokenStore.setAccess(accessToken);
       setUser(profile);
+      publishAuthEvent({ type: "login" });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [publishAuthEvent]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { tokens, user: profile } = await authApi.register(name, email, password);
-      tokenStore.setBoth(tokens.accessToken, tokens.refreshToken);
+      const { accessToken, user: profile } = await authApi.register(name, email, password);
+      tokenStore.setAccess(accessToken);
       setUser(profile);
+      publishAuthEvent({ type: "login" });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [publishAuthEvent]);
 
   const logout = useCallback(async () => {
     try {
-      const refreshToken = tokenStore.getRefresh();
-      await authApi.logout(refreshToken ?? undefined);
+      await authApi.logout();
     } catch {
-      // Best-effort — clear tokens even if the backend call fails
+      // Best-effort — clear local auth even if the backend call fails
     }
-    tokenStore.clear();
-    setUser(null);
-  }, []);
+    clearLocalSession();
+    publishAuthEvent({ type: "logout" });
+  }, [clearLocalSession, publishAuthEvent]);
 
   const refreshUser = useCallback(async () => {
     try {
       const profile = await authApi.getMe();
       setUser(profile);
     } catch {
-      // If profile fetch fails, force logout
-      tokenStore.clear();
-      setUser(null);
+      await refreshSession();
     }
-  }, []);
+  }, [refreshSession]);
 
   const completeTutorial = useCallback(async () => {
     try {
@@ -202,7 +234,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updatePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     await authApi.updatePassword(currentPassword, newPassword);
-  }, []);
+    clearLocalSession();
+    publishAuthEvent({ type: "session-revoked" });
+  }, [clearLocalSession, publishAuthEvent]);
 
   const listSessions = useCallback(async () => {
     return authApi.listSessions();
@@ -214,7 +248,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const revokeAllSessions = useCallback(async () => {
     await authApi.revokeAllSessions();
-  }, []);
+    clearLocalSession();
+    publishAuthEvent({ type: "session-revoked" });
+  }, [clearLocalSession, publishAuthEvent]);
 
   const removeRevokedSessions = useCallback(async () => {
     await authApi.removeRevokedSessions();
@@ -226,9 +262,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const deleteMe = useCallback(async (currentPassword: string) => {
     await authApi.deleteMe(currentPassword);
-    tokenStore.clear();
-    setUser(null);
-  }, []);
+    clearLocalSession();
+    publishAuthEvent({ type: "logout" });
+  }, [clearLocalSession, publishAuthEvent]);
 
   useEffect(() => {
     setAmountsHiddenOverride(null);

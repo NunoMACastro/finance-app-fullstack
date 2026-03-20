@@ -84,6 +84,12 @@ async function getAccountOrThrow(accountId: string, session?: ClientSession) {
   return account;
 }
 
+function assertCanRemoveOwner(account: { activeOwnerCount?: number | null }) {
+  if ((account.activeOwnerCount ?? 0) <= 1) {
+    unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
+  }
+}
+
 async function ensurePersonalAccountForUserInSession(
   userId: string,
   nameHint: string | undefined,
@@ -108,6 +114,9 @@ async function ensurePersonalAccountForUserInSession(
             name: accountName,
             createdByUserId: userId,
             type: "personal",
+          },
+          $set: {
+            activeOwnerCount: 1,
           },
         },
         {
@@ -248,6 +257,7 @@ export async function createSharedAccount(userId: string, name: string): Promise
           name: cleanName,
           type: "shared",
           createdByUserId: userId,
+          activeOwnerCount: 1,
         },
       ],
       { session },
@@ -316,40 +326,52 @@ export async function assertOwnerAccess(userId: string, accountId: string): Prom
 }
 
 export async function generateInviteCode(userId: string, accountId: string): Promise<InviteCodeDto> {
-  await assertOwnerAccess(userId, accountId);
+  return runInTransaction(async (session) => {
+    await assertOwnerAccessInternal(userId, accountId, session);
 
-  const account = await getAccountOrThrow(accountId);
-  if (account.type !== "shared") {
-    unprocessable("Convites so sao permitidos para contas partilhadas", "INVITE_ONLY_SHARED_ACCOUNT");
-  }
+    const account = await getAccountOrThrow(accountId, session);
+    if (account.type !== "shared") {
+      unprocessable("Convites so sao permitidos para contas partilhadas", "INVITE_ONLY_SHARED_ACCOUNT");
+    }
 
-  const now = new Date();
-  await AccountInviteCodeModel.updateMany(
-    {
-      accountId,
-      revokedAt: null,
-      expiresAt: { $gt: now },
-    },
-    {
-      $set: { revokedAt: now },
-    },
-  );
+    const now = new Date();
+    if (account.activeInviteCodeId) {
+      await AccountInviteCodeModel.updateOne(
+        { _id: account.activeInviteCodeId, accountId },
+        { $set: { revokedAt: now } },
+        { session },
+      );
+    }
 
-  const code = makeInviteCode();
-  const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const code = makeInviteCode();
+    const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-  await AccountInviteCodeModel.create({
-    accountId,
-    codeHash: sha256(code),
-    expiresAt,
-    createdByUserId: userId,
-    revokedAt: null,
+    const invite = await AccountInviteCodeModel.create(
+      [
+        {
+          accountId,
+          codeHash: sha256(code),
+          expiresAt,
+          createdByUserId: userId,
+          revokedAt: null,
+        },
+      ],
+      { session },
+    );
+
+    const createdInvite = invite[0];
+    if (!createdInvite) {
+      notFound("Convite não encontrado", "INVITE_CODE_INVALID");
+    }
+
+    account.activeInviteCodeId = createdInvite._id;
+    await account.save({ session });
+
+    return {
+      code,
+      expiresAt: expiresAt.toISOString(),
+    };
   });
-
-  return {
-    code,
-    expiresAt: expiresAt.toISOString(),
-  };
 }
 
 export async function joinByInviteCode(userId: string, code: string): Promise<AccountSummaryDto> {
@@ -373,6 +395,9 @@ export async function joinByInviteCode(userId: string, code: string): Promise<Ac
   const account = await getAccountOrThrow(invite.accountId.toString());
   if (account.type !== "shared") {
     unprocessable("Código não corresponde a conta partilhada", "INVITE_ONLY_SHARED_ACCOUNT");
+  }
+  if (!account.activeInviteCodeId || account.activeInviteCodeId.toString() !== invite._id.toString()) {
+    unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
   }
 
   const membership = await AccountMembershipModel.findOneAndUpdate(
@@ -471,14 +496,14 @@ export async function updateMemberRole(
     }
 
     if (membership.role === "owner" && role !== "owner") {
-      const ownerCount = await AccountMembershipModel.countDocuments({
-        accountId,
-        status: "active",
-        role: "owner",
-      }).session(session);
-      if (ownerCount <= 1) {
-        unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
-      }
+      assertCanRemoveOwner(account);
+      account.activeOwnerCount -= 1;
+      await account.save({ session });
+    }
+
+    if (membership.role !== "owner" && role === "owner") {
+      account.activeOwnerCount += 1;
+      await account.save({ session });
     }
 
     membership.role = role;
@@ -523,14 +548,9 @@ export async function removeMember(
     }
 
     if (membership.role === "owner") {
-      const ownerCount = await AccountMembershipModel.countDocuments({
-        accountId,
-        status: "active",
-        role: "owner",
-      }).session(session);
-      if (ownerCount <= 1) {
-        unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
-      }
+      assertCanRemoveOwner(account);
+      account.activeOwnerCount -= 1;
+      await account.save({ session });
     }
 
     membership.status = "inactive";
@@ -558,18 +578,9 @@ export async function leaveAccount(userId: string, accountId: string): Promise<v
     }
 
     if (membership.role === "owner") {
-      const ownerCount = await AccountMembershipModel.countDocuments({
-        accountId,
-        status: "active",
-        role: "owner",
-      }).session(session);
-
-      if (ownerCount <= 1) {
-        unprocessable(
-          "Não pode sair da conta sendo o último owner. Promova outro owner primeiro.",
-          "LAST_OWNER_CANNOT_LEAVE",
-        );
-      }
+      assertCanRemoveOwner(account);
+      account.activeOwnerCount -= 1;
+      await account.save({ session });
     }
 
     membership.status = "inactive";

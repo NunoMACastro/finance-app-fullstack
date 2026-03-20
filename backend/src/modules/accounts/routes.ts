@@ -1,5 +1,7 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { env } from "../../config/env.js";
 import { requireAuth } from "../../middleware/auth.js";
 import {
   accountIdParamsSchema,
@@ -11,6 +13,17 @@ import {
 import * as accountsService from "./service.js";
 
 export const accountsRouter = Router();
+
+const inviteJoinLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: Math.max(Math.floor(env.AUTH_RATE_LIMIT_MAX / 2), 5),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    code: "RATE_LIMITED",
+    message: "Muitos pedidos de convite. Tente novamente mais tarde.",
+  },
+});
 
 accountsRouter.use(requireAuth);
 
@@ -33,6 +46,7 @@ accountsRouter.post(
 
 accountsRouter.post(
   "/join",
+  inviteJoinLimiter,
   asyncHandler(async (req, res) => {
     const body = joinByCodeSchema.parse(req.body);
     const account = await accountsService.joinByInviteCode(req.auth!.userId, body.code);
