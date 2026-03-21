@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Pause, Pencil, Play, Repeat, Trash2, TriangleAlert } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { budgetApi, incomeCategoriesApi, recurringApi } from "../lib/api";
 import { useAccount } from "../lib/account-context";
 import { getErrorMessage } from "../lib/api-error";
+import { currentUtcMonthKey, formatMonthKeyUtcLong } from "../lib/month";
 import type { BudgetCategory, IncomeCategory, RecurringRule } from "../lib/types";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
 import {
@@ -22,17 +23,6 @@ import { IconActionButtonV3 } from "./v3/interaction-primitives-v3";
 import { OverflowActionsSheetV3 } from "./v3/overflow-actions-sheet-v3";
 import { SegmentedControlV3 } from "./v3/segmented-control-v3";
 
-function getCurrentMonthKey(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function toLabelMonth(month: string): string {
-  const [year, monthNumber] = month.split("-");
-  const date = new Date(Number(year), Number(monthNumber) - 1, 1);
-  return date.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
-}
-
 type RuleFormState = {
   type: "income" | "expense";
   name: string;
@@ -49,9 +39,10 @@ const EMPTY_FORM: RuleFormState = {
   amount: "",
   dayOfMonth: "1",
   categoryId: "",
-  startMonth: getCurrentMonthKey(),
+  startMonth: currentUtcMonthKey(),
   endMonth: "",
 };
+const PROTECTED_RECURRING_EXPENSE_CATEGORY_ID = "fallback_recurring_expense";
 
 function ruleToForm(rule: RecurringRule): RuleFormState {
   return {
@@ -66,8 +57,8 @@ function ruleToForm(rule: RecurringRule): RuleFormState {
 }
 
 function formatRuleSchedule(rule: RecurringRule): string {
-  const endText = rule.endMonth ? ` até ${toLabelMonth(rule.endMonth)}` : " sem fim";
-  return `Dia ${rule.dayOfMonth} · desde ${toLabelMonth(rule.startMonth)}${endText}`;
+  const endText = rule.endMonth ? ` até ${formatMonthKeyUtcLong(rule.endMonth)}` : " sem fim";
+  return `Dia ${rule.dayOfMonth} · desde ${formatMonthKeyUtcLong(rule.startMonth)}${endText}`;
 }
 
 function getRuleStatusText(rule: RecurringRule): string {
@@ -101,12 +92,13 @@ function formatRuleAmount(value: number): string {
 export function RecurringRulesPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWriteFinancial } = useAccount();
+  const { activeAccountId, canWriteFinancial } = useAccount();
+  const requestIdRef = useRef(0);
   const backTo = typeof location.state === "object" && location.state && "from" in location.state
     ? String((location.state as { from?: string }).from ?? "/profile")
     : "/profile";
 
-  const currentMonth = useMemo(() => getCurrentMonthKey(), []);
+  const currentMonth = useMemo(() => currentUtcMonthKey(), []);
   const isMobile = useIsMobile();
 
   const [rules, setRules] = useState<RecurringRule[]>([]);
@@ -130,6 +122,15 @@ export function RecurringRulesPage() {
   const [savingReassign, setSavingReassign] = useState(false);
 
   const loadData = useCallback(async () => {
+    if (!activeAccountId) {
+      setRules([]);
+      setBudgetCategories([]);
+      setIncomeCategories([]);
+      setLoading(false);
+      setLoadingError("Conta ativa em falta.");
+      return;
+    }
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setLoadingError(null);
     try {
@@ -138,24 +139,35 @@ export function RecurringRulesPage() {
         budgetApi.get(currentMonth),
         incomeCategoriesApi.list(),
       ]);
+      if (requestId !== requestIdRef.current) return;
       setRules(rulesData);
       setBudgetCategories(monthBudget.categories);
       setIncomeCategories(incomeData.filter((category) => category.active));
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
       setLoadingError(getErrorMessage(error, "Não foi possível carregar as recorrências"));
       setRules([]);
       setBudgetCategories([]);
       setIncomeCategories([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [currentMonth]);
+  }, [activeAccountId, currentMonth]);
 
   useEffect(() => {
     void loadData();
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, [loadData]);
 
-  const selectedCategoryOptions = form.type === "income" ? incomeCategories : budgetCategories;
+  const selectableBudgetCategories = useMemo(
+    () => budgetCategories.filter((category) => category.id !== PROTECTED_RECURRING_EXPENSE_CATEGORY_ID),
+    [budgetCategories],
+  );
+  const selectedCategoryOptions = form.type === "income" ? incomeCategories : selectableBudgetCategories;
 
   useEffect(() => {
     if (selectedCategoryOptions.length === 0) {
@@ -175,7 +187,7 @@ export function RecurringRulesPage() {
     setEditingRuleId(null);
     setForm({
       ...EMPTY_FORM,
-      categoryId: budgetCategories[0]?.id ?? incomeCategories[0]?.id ?? "",
+      categoryId: selectableBudgetCategories[0]?.id ?? incomeCategories[0]?.id ?? "",
       startMonth: currentMonth,
     });
     setIsFormOpen(true);
@@ -271,7 +283,7 @@ export function RecurringRulesPage() {
   };
 
   const currentReassignRule = rules.find((rule) => rule.id === reassignRuleId) ?? null;
-  const reassignOptions = currentReassignRule?.type === "income" ? incomeCategories : budgetCategories;
+  const reassignOptions = currentReassignRule?.type === "income" ? incomeCategories : selectableBudgetCategories;
 
   useEffect(() => {
     if (!currentReassignRule) return;

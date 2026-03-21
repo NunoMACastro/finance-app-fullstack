@@ -57,11 +57,20 @@ const jwtAccessSecret =
   requireInProduction(raw.JWT_ACCESS_SECRET, "JWT_ACCESS_SECRET") || "dev-access-secret";
 const jwtRefreshSecret =
   requireInProduction(raw.JWT_REFRESH_SECRET, "JWT_REFRESH_SECRET") || "dev-refresh-secret";
-const corsOrigin = requireInProduction(raw.CORS_ORIGIN, "CORS_ORIGIN") || "*";
+const defaultCorsOrigin =
+  raw.NODE_ENV === "test"
+    ? "http://127.0.0.1:4173"
+    : "http://127.0.0.1:5173,http://localhost:5173";
+const corsOrigin = requireInProduction(raw.CORS_ORIGIN, "CORS_ORIGIN") || defaultCorsOrigin;
+const metricsBearerToken = raw.METRICS_BEARER_TOKEN?.trim() ?? "";
 const openaiApiKey = raw.OPENAI_API_KEY?.trim() ?? "";
 
-if (raw.NODE_ENV === "production" && corsOrigin.trim() === "*") {
-  throw new Error("Invalid environment configuration: CORS_ORIGIN='*' is not allowed in production");
+if (raw.NODE_ENV !== "test" && corsOrigin.trim() === "*") {
+  throw new Error("Invalid environment configuration: CORS_ORIGIN='*' is not allowed");
+}
+
+if (raw.NODE_ENV === "production" && !metricsBearerToken) {
+  throw new Error("Invalid environment configuration: METRICS_BEARER_TOKEN is required in production");
 }
 
 export const env = {
@@ -80,7 +89,7 @@ export const env = {
   RATE_LIMIT_MAX: raw.RATE_LIMIT_MAX,
   AUTH_RATE_LIMIT_MAX: raw.AUTH_RATE_LIMIT_MAX,
   TRUST_PROXY: raw.TRUST_PROXY.trim(),
-  METRICS_BEARER_TOKEN: raw.METRICS_BEARER_TOKEN?.trim() ?? "",
+  METRICS_BEARER_TOKEN: metricsBearerToken,
   REDIS_URL: raw.REDIS_URL?.trim() ?? "",
   OPENAI_API_KEY: openaiApiKey,
   OPENAI_INSIGHT_MODEL: raw.OPENAI_INSIGHT_MODEL,

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { Types } from "mongoose";
 import { forbidden, unprocessable } from "../lib/api-error.js";
 import { AccountMembershipModel } from "../models/account-membership.model.js";
 import { UserModel } from "../models/user.model.js";
@@ -29,6 +30,9 @@ function buildAccountContextMiddleware(strictHeader: boolean) {
       const accountHeaderPresent = headerAccountId.length > 0;
       if (strictHeader && !accountHeaderPresent) {
         unprocessable("X-Account-Id obrigatório", "ACCOUNT_HEADER_REQUIRED");
+      }
+      if (accountHeaderPresent && !Types.ObjectId.isValid(headerAccountId)) {
+        unprocessable("X-Account-Id inválido", "ACCOUNT_HEADER_INVALID");
       }
       const requestedAccountId = accountHeaderPresent ? headerAccountId : personalAccountId;
 

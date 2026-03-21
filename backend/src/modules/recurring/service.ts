@@ -6,6 +6,7 @@ import { RecurringRuleModel } from "../../models/recurring-rule.model.js";
 import { TransactionModel } from "../../models/transaction.model.js";
 import {
   ensureRecurringExpenseFallbackCategory,
+  isProtectedBudgetCategoryId,
   syncBudgetTotalFromTransactions,
 } from "../budgets/service.js";
 import {
@@ -136,7 +137,11 @@ async function ensureRecurringCategoryForType(
     return categoryId!.trim();
   }
 
-  return ensureExpenseCategoryProvided(categoryId);
+  const cleanId = ensureExpenseCategoryProvided(categoryId);
+  if (isProtectedBudgetCategoryId(cleanId)) {
+    unprocessable("Categoria técnica de fallback não pode ser usada diretamente", "RECURRING_CATEGORY_PROTECTED");
+  }
+  return cleanId;
 }
 
 async function getPendingFallbackCount(accountId: string, ruleId: Types.ObjectId): Promise<number> {

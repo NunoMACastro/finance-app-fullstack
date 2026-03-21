@@ -84,9 +84,13 @@ async function getAccountOrThrow(accountId: string, session?: ClientSession) {
   return account;
 }
 
-function assertCanRemoveOwner(account: { activeOwnerCount?: number | null }) {
+function assertCanRemoveOwner(
+  account: { activeOwnerCount?: number | null },
+  code = "LAST_OWNER_PROTECTION",
+  message = "A conta precisa de pelo menos um owner",
+) {
   if ((account.activeOwnerCount ?? 0) <= 1) {
-    unprocessable("A conta precisa de pelo menos um owner", "LAST_OWNER_PROTECTION");
+    unprocessable(message, code);
   }
 }
 
@@ -578,7 +582,7 @@ export async function leaveAccount(userId: string, accountId: string): Promise<v
     }
 
     if (membership.role === "owner") {
-      assertCanRemoveOwner(account);
+      assertCanRemoveOwner(account, "LAST_OWNER_CANNOT_LEAVE", "Não pode sair sendo o último owner");
       account.activeOwnerCount -= 1;
       await account.save({ session });
     }

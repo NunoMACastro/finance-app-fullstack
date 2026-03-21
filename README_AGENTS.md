@@ -45,7 +45,7 @@ App de financas com multi-conta (`account/workspace`) e regras fortes de integri
 
 - Base path: `/api/v1`
 - Endpoints protegidos usam `Authorization: Bearer ...`
-- Endpoints financeiros usam `X-Account-Id` (fallback para conta pessoal se ausente)
+- Endpoints financeiros exigem `X-Account-Id` valido
 - `PUT /budgets/:month` aceita `totalBudget` mas backend ignora
 
 ## 5) Fluxos sensiveis

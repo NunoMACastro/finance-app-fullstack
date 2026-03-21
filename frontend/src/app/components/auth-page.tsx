@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Heart, Loader2, Wallet } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { isApiError } from "../lib/http-client";
+import { MIN_PASSWORD_LENGTH } from "../lib/password-policy";
 import {
   fetchLoginPatchNotes,
   type LoginPatchNotes,
@@ -77,8 +78,8 @@ export function AuthPage() {
       return;
     }
 
-    if (regPassword.length < 6) {
-      setError("A password deve ter pelo menos 6 caracteres");
+    if (regPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(`A password deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres`);
       return;
     }
 
@@ -233,7 +234,7 @@ export function AuthPage() {
                     <Input
                       id="auth-register-password"
                       type="password"
-                      placeholder="Min. 6 caracteres"
+                      placeholder={`Min. ${MIN_PASSWORD_LENGTH} caracteres`}
                       className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
                       value={regPassword}
                       onChange={(event) => setRegPassword(event.target.value)}

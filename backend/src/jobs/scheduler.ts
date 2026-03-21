@@ -8,6 +8,7 @@ import { recurringService } from "../services.js";
 
 const DAILY_JOB_NAME = "daily-recurring-generation";
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
+const LOCK_HEARTBEAT_MS = 30 * 1000;
 
 async function acquireJobLock(jobName: string, ownerId: string): Promise<boolean> {
   const now = new Date();
@@ -59,6 +60,54 @@ async function releaseJobLock(jobName: string, ownerId: string): Promise<void> {
   );
 }
 
+async function renewJobLock(jobName: string, ownerId: string): Promise<boolean> {
+  const now = new Date();
+  const lockedUntil = new Date(now.getTime() + LOCK_WINDOW_MS);
+  const result = await JobLockModel.updateOne(
+    {
+      jobName,
+      ownerId,
+      lockedUntil: { $gt: now },
+    },
+    {
+      $set: {
+        lockedUntil,
+      },
+    },
+  );
+
+  return result.modifiedCount > 0;
+}
+
+function startJobLockHeartbeat(jobName: string, ownerId: string): {
+  stop: () => void;
+  didLoseLock: () => boolean;
+} {
+  let lockLost = false;
+  const timer = setInterval(() => {
+    void (async () => {
+      try {
+        const renewed = await renewJobLock(jobName, ownerId);
+        if (!renewed) {
+          lockLost = true;
+          logger.warn({ jobName }, "Scheduler lease lost during heartbeat");
+        }
+      } catch (error) {
+        logger.error({ err: error, jobName }, "Scheduler heartbeat failed");
+      }
+    })();
+  }, LOCK_HEARTBEAT_MS);
+
+  timer.unref();
+
+  return {
+    stop: () => {
+      clearInterval(timer);
+    },
+    didLoseLock: () => lockLost,
+  };
+}
+
 export function startScheduler(): void {
   if (!env.CRON_ENABLED || env.NODE_ENV === "test") {
     logger.info("Scheduler disabled");
@@ -77,8 +126,13 @@ export function startScheduler(): void {
 
       const month = monthFromDate(new Date());
       logger.info({ month }, "Starting daily recurring job");
+      const heartbeat = startJobLockHeartbeat(DAILY_JOB_NAME, ownerId);
 
       try {
+        if (heartbeat.didLoseLock()) {
+          logger.warn({ month }, "Aborting scheduler run because lease was lost before execution");
+          return;
+        }
         const recurringResult = await recurringService.generateForAllAccountsMonth(month, new Date());
         logger.info(
           {
@@ -92,6 +146,7 @@ export function startScheduler(): void {
       } catch (error) {
         logger.error({ err: error, month }, "Daily recurring generation failed");
       } finally {
+        heartbeat.stop();
         await releaseJobLock(DAILY_JOB_NAME, ownerId);
       }
     },

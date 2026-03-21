@@ -16,21 +16,27 @@ export const categoryParamsSchema = z.object({
   categoryId: z.string().min(1),
 });
 
-export const budgetCategorySchema = z.object({
-  id: z.string().trim().min(1),
-  name: z.string().trim().min(1).max(120),
-  percent: z.number().min(0).max(100),
-  colorSlot: z.number().int().min(1).max(9).optional(),
-  kind: z.enum(["expense", "reserve"]).optional(),
-});
+export const budgetCategorySchema = z
+  .object({
+    id: z.string().trim().min(1),
+    name: z.string().trim().min(1).max(120),
+    percent: z.number().min(0).max(100),
+    colorSlot: z.number().int().min(1).max(9).optional(),
+    kind: z.enum(["expense", "reserve"]).optional(),
+  })
+  .strict();
 
-export const saveBudgetSchema = z.object({
-  totalBudget: z.number().nonnegative(),
-  categories: z.array(budgetCategorySchema),
-});
+export const saveBudgetSchema = z
+  .object({
+    totalBudget: z.number().nonnegative(),
+    categories: z.array(budgetCategorySchema),
+  })
+  .strict();
 
-export const addCategorySchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  percent: z.number().min(0).max(100),
-  kind: z.enum(["expense", "reserve"]).optional(),
-});
+export const addCategorySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    percent: z.number().min(0).max(100),
+    kind: z.enum(["expense", "reserve"]).optional(),
+  })
+  .strict();

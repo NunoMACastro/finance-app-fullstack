@@ -239,7 +239,7 @@ Comportamento:
 1. user troca no dropdown
 2. `AccountContext` atualiza header local + storage
 3. novas chamadas API passam `X-Account-Id` atualizado
-4. Month/Stats recarregam com novo dataset
+4. Month/Stats/Recorrencias recarregam com novo dataset
 
 Fallback:
 - se conta guardada localmente ficar invalida,

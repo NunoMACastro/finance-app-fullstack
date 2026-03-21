@@ -6,15 +6,18 @@ export const incomeCategoryIdParamsSchema = z.object({
   id: objectId,
 });
 
-export const createIncomeCategorySchema = z.object({
-  name: z.string().trim().min(1).max(120),
-});
+export const createIncomeCategorySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+  })
+  .strict();
 
 export const updateIncomeCategorySchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     active: z.boolean().optional(),
   })
+  .strict()
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one field is required",
   });

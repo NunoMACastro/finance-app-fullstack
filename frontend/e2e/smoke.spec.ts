@@ -24,6 +24,8 @@ function json(route: Route, status: number, body: unknown) {
 }
 
 async function installApiMocks(page: Page) {
+  let isAuthenticated = false;
+
   const user: MockUser = {
     id: "u-e2e-1",
     email: "e2e@example.com",
@@ -44,6 +46,7 @@ async function installApiMocks(page: Page) {
     const path = url.pathname;
 
     if (path === "/api/v1/auth/login" && method === "POST") {
+      isAuthenticated = true;
       return json(route, 200, {
         tokens: {
           accessToken: "access-token-e2e",
@@ -54,6 +57,7 @@ async function installApiMocks(page: Page) {
     }
 
     if (path === "/api/v1/auth/register" && method === "POST") {
+      isAuthenticated = true;
       return json(route, 201, {
         tokens: {
           accessToken: "access-token-e2e",
@@ -64,6 +68,9 @@ async function installApiMocks(page: Page) {
     }
 
     if (path === "/api/v1/auth/me" && method === "GET") {
+      if (!isAuthenticated) {
+        return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "Unauthorized" }) });
+      }
       return json(route, 200, user);
     }
 
@@ -126,7 +133,17 @@ async function installApiMocks(page: Page) {
     }
 
     if (path === "/api/v1/auth/logout" && method === "POST") {
+      isAuthenticated = false;
       return route.fulfill({ status: 204 });
+    }
+
+    if (path === "/api/v1/auth/refresh" && method === "POST") {
+      if (!isAuthenticated) {
+        return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "Unauthorized" }) });
+      }
+      return json(route, 200, {
+        accessToken: "access-token-e2e",
+      });
     }
 
     return json(route, 200, {});
@@ -136,7 +153,7 @@ async function installApiMocks(page: Page) {
 async function loginViaUi(page: Page) {
   await page.goto("/");
   await page.getByLabel("Email").fill("e2e@example.com");
-  await page.getByLabel("Password").fill("123456");
+  await page.getByLabel("Password").fill("1234567890");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByRole("button", { name: "Terminar sessão" })).toBeVisible();
 }
@@ -158,8 +175,8 @@ test.describe("E2E smoke", () => {
     await page.getByRole("button", { name: "Regista-te" }).click();
     await page.getByLabel("Nome").fill("E2E User");
     await page.getByLabel("Email").fill("e2e@example.com");
-    await page.getByLabel("Password").fill("123456");
-    await page.getByLabel("Confirmar").fill("123456");
+    await page.getByLabel("Password").fill("1234567890");
+    await page.getByLabel("Confirmar").fill("1234567890");
     await page.getByRole("button", { name: "Criar conta" }).click();
 
     await expect(page.getByRole("button", { name: "Terminar sessão" })).toBeVisible();

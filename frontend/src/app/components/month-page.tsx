@@ -41,7 +41,12 @@ import { useAuth } from "../lib/auth-context";
 import { formatCurrency as formatCurrencyValue, formatDateShort, formatMonthLong } from "../lib/formatting";
 import { resolveCategoryColorSlot } from "../lib/category-color-slot";
 import { normalizeBudgetCategoryKind } from "../lib/category-kind";
-import { parseMonthKey } from "../lib/month";
+import {
+  getUtcDaysInMonth,
+  getUtcDaysRemainingInMonth,
+  monthKeyFromUtcDate,
+  parseMonthKey,
+} from "../lib/month";
 import type {
   MonthSummary,
   MonthBudget,
@@ -63,25 +68,11 @@ import { SegmentedControlV3 } from "./v3/segmented-control-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 function getDaysRemainingInMonth(monthKey: string): number {
-  const [y, m] = monthKey.split("-");
-  const year = parseInt(y);
-  const month = parseInt(m) - 1;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const now = new Date();
-  if (now.getFullYear() === year && now.getMonth() === month) {
-    return Math.max(lastDay - now.getDate() + 1, 1);
-  }
-  if (new Date(year, month) > new Date(now.getFullYear(), now.getMonth())) {
-    return lastDay;
-  }
-  return 0;
+  return getUtcDaysRemainingInMonth(monthKey);
 }
 
 function getDaysInMonth(monthKey: string): number {
-  const [y, m] = monthKey.split("-");
-  const year = Number.parseInt(y, 10);
-  const month = Number.parseInt(m, 10) - 1;
-  return new Date(year, month + 1, 0).getDate();
+  return getUtcDaysInMonth(monthKey);
 }
 
 function isNearZero(value: number): boolean {
@@ -258,12 +249,12 @@ export function MonthPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestIdRef = React.useRef(0);
   const now = new Date();
-  const minimumOffset = -now.getMonth();
+  const minimumOffset = -now.getUTCMonth();
   const initialMonthOffset = (() => {
     const monthParam = searchParams.get("month");
     if (!monthParam || !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) return 0;
     const [year, month] = monthParam.split("-").map(Number);
-    const rawOffset = (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+    const rawOffset = (year - now.getUTCFullYear()) * 12 + (month - (now.getUTCMonth() + 1));
     if (rawOffset > 0) return 0;
     if (rawOffset < minimumOffset) return minimumOffset;
     return rawOffset;
@@ -290,12 +281,12 @@ export function MonthPage() {
   const getMonthLabel = useCallback((value: string) => formatMonthLong(value, user), [user]);
 
   const currentMonth = (() => {
-    const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + monthOffset, 1));
+    return monthKeyFromUtcDate(d);
   })();
-  const monthOptions = Array.from({ length: now.getMonth() + 1 }, (_, monthIndex) => {
-    const date = new Date(now.getFullYear(), monthIndex, 1);
-    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  const monthOptions = Array.from({ length: now.getUTCMonth() + 1 }, (_, monthIndex) => {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), monthIndex, 1));
+    const value = monthKeyFromUtcDate(date);
     return { value, label: getMonthLabel(value) };
   });
   const compactCurrentMonthLabel = formatMonthCompact(currentMonth);
@@ -321,8 +312,9 @@ export function MonthPage() {
       setBudget(null);
       setIncomeCategories([]);
     } finally {
-      if (requestId !== requestIdRef.current) return;
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeAccountId, currentMonth]);
 
@@ -405,7 +397,7 @@ export function MonthPage() {
 
   const selectMonth = (monthKey: string) => {
     const [year, month] = monthKey.split("-").map(Number);
-    const nextOffset = (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+    const nextOffset = (year - now.getUTCFullYear()) * 12 + (month - (now.getUTCMonth() + 1));
     setMonthOffset(nextOffset);
     setMonthPickerOpen(false);
   };
@@ -963,7 +955,7 @@ function AddTransactionDialog({
   const [type, setType] = useState<"income" | "expense">("expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [day, setDay] = useState(String(new Date().getDate()));
+  const [day, setDay] = useState(String(new Date().getUTCDate()));
   const [expenseCategoryId, setExpenseCategoryId] = useState(selectableExpenseCategories[0]?.id ?? "");
   const [incomeCategoryId, setIncomeCategoryId] = useState(
     incomeCategories.find((category) => category.active)?.id ?? "",
@@ -995,7 +987,7 @@ function AddTransactionDialog({
     setSaving(true);
     try {
       const { year, month: monthNumber } = parseMonthKey(month);
-      const daysInMonth = new Date(year, monthNumber, 0).getDate();
+      const daysInMonth = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
       const dayNum = Math.min(Math.max(parseInt(day, 10) || 1, 1), daysInMonth);
       await transactionsApi.create({
         month,

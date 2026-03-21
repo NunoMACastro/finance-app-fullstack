@@ -19,6 +19,14 @@ export function isDbReady(): boolean {
   return mongoose.connection.readyState === 1;
 }
 
+function isMongoPermissionError(error: unknown): boolean {
+  const maybeError = error as { code?: number; message?: string; codeName?: string };
+  if (maybeError.code === 13) return true;
+  if (maybeError.codeName?.toLowerCase().includes("unauthorized")) return true;
+  const message = maybeError.message?.toLowerCase() ?? "";
+  return message.includes("not authorized") || message.includes("unauthorized");
+}
+
 export async function checkDbRuntimeReadiness(): Promise<{ ready: boolean; reason?: string }> {
   if (!isDbReady() || !mongoose.connection.db) {
     return { ready: false, reason: "mongo_not_connected" };
@@ -26,6 +34,11 @@ export async function checkDbRuntimeReadiness(): Promise<{ ready: boolean; reaso
 
   try {
     await mongoose.connection.db.admin().command({ ping: 1 });
+  } catch {
+    return { ready: false, reason: "mongo_ping_failed" };
+  }
+
+  try {
     const hello = await mongoose.connection.db.admin().command({ hello: 1 });
     const supportsTransactions =
       Boolean(hello.logicalSessionTimeoutMinutes) &&
@@ -34,9 +47,11 @@ export async function checkDbRuntimeReadiness(): Promise<{ ready: boolean; reaso
     if (!supportsTransactions) {
       return { ready: false, reason: "mongo_topology_no_transactions" };
     }
-
     return { ready: true };
-  } catch {
-    return { ready: false, reason: "mongo_ping_failed" };
+  } catch (error) {
+    if (isMongoPermissionError(error)) {
+      return { ready: true, reason: "mongo_topology_check_skipped_permissions" };
+    }
+    return { ready: true, reason: "mongo_topology_check_failed" };
   }
 }

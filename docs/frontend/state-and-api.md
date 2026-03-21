@@ -191,7 +191,7 @@ Arquivo: `app/lib/account-store.ts`
 
 ## Gestao de concorrencia e race conditions
 
-- Stats/Month usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
+- Stats/Month/Recorrencias usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
 - `/stats` carrega apenas o snapshot base e nunca dispara pedidos de insight IA.
 - a analise IA vive em `/stats/insights` e so faz `POST /stats/insights` apos clique explicito do utilizador.
 - a pagina dedicada usa `POST /stats/insights` como entrypoint principal; `GET /stats/insights/:id` serve apenas para polling quando o backend responde `pending`.

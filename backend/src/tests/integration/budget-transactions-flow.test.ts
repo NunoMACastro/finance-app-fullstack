@@ -8,6 +8,54 @@ function monthKeyFromNow() {
 }
 
 describe("budget + transactions integration", () => {
+  test("account-scoped endpoints reject missing or invalid X-Account-Id", async () => {
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Rita",
+      email: "rita.headers@example.com",
+      password: "StrongPass1!",
+    });
+
+    expect(registerRes.status).toBe(201);
+    const accessToken = registerRes.body.accessToken as string;
+    const month = monthKeyFromNow();
+
+    const missingHeaderRes = await request(getIntegrationApp())
+      .get(`/api/v1/budgets/${month}`)
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(missingHeaderRes.status).toBe(422);
+    expect(missingHeaderRes.body.code).toBe("ACCOUNT_HEADER_REQUIRED");
+
+    const invalidHeaderRes = await request(getIntegrationApp())
+      .get(`/api/v1/budgets/${month}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", "invalid-object-id");
+
+    expect(invalidHeaderRes.status).toBe(422);
+    expect(invalidHeaderRes.body.code).toBe("ACCOUNT_HEADER_INVALID");
+  });
+
+  test("transaction endpoints validate ObjectId params", async () => {
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Nuno",
+      email: "nuno.tx-objectid@example.com",
+      password: "StrongPass1!",
+    });
+
+    expect(registerRes.status).toBe(201);
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
+
+    const invalidIdRes = await request(getIntegrationApp())
+      .delete("/api/v1/transactions/not-an-object-id")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
+
+    expect(invalidIdRes.status).toBe(422);
+    expect(invalidIdRes.body.code).toBe("VALIDATION_ERROR");
+    expect(invalidIdRes.body.details?.id).toBe("invalid object id");
+  });
+
   test("manual transactions require ready budget and budget total follows incomes", async () => {
     const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
       name: "Ana",

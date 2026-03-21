@@ -6,7 +6,8 @@ Este documento descreve as regras funcionais implementadas no codigo atual.
 
 - Cada user deve ter exatamente 1 conta pessoal valida.
 - Operacoes financeiras sempre scoped por `accountId`.
-- `X-Account-Id` e opcional; sem header usa conta pessoal do user.
+- `X-Account-Id` e obrigatorio em endpoints financeiros account-scoped.
+- Endpoints fora do escopo financeiro (ex.: auth/accounts) podem resolver conta pessoal por fallback interno quando aplicavel.
 - Se nao existir membership ativa para a conta, pedido falha com `ACCOUNT_ACCESS_DENIED`.
 
 ### Roles

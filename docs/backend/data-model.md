@@ -102,6 +102,9 @@ Campos chave:
 
 Indices:
 - `{ accountId: 1, month: 1 }`
+- `{ accountId: 1, month: 1, date: -1, _id: -1 }` (listagem paginada/sort por data)
+- `{ accountId: 1, month: 1, type: 1, categoryId: 1, origin: 1, date: -1, _id: -1 }` (filtros compostos em listagens)
+- `{ accountId: 1, recurringRuleId: 1, origin: 1, categoryResolution: 1 }` (contagens/queries de fallback recorrente)
 - unico parcial `{ accountId: 1, recurringRuleId: 1, month: 1 }` quando `recurringRuleId` existe
 
 ## incomecategories
@@ -147,6 +150,25 @@ Campos chave:
 
 Indice unico:
 - `{ accountId: 1, periodType: 1, periodKey: 1 }`
+
+## statsinsights
+
+Campos chave:
+- `accountId` (index)
+- `requestedByUserId` (index)
+- `periodType` (`semester|year`, index)
+- `periodKey` (index)
+- `forecastWindow` (`3|6`)
+- `inputHash` (index)
+- `status` (`pending|ready|failed`, index)
+- `stale` (index)
+- `processingOwnerId` (nullable, index)
+- `processingLeaseUntil` (nullable, index)
+
+Indices:
+- `{ accountId: 1, periodType: 1, periodKey: 1, forecastWindow: 1, createdAt: -1 }`
+- `{ accountId: 1, periodType: 1, periodKey: 1, forecastWindow: 1, inputHash: 1, stale: 1, status: 1, generatedAt: -1, createdAt: -1 }`
+- unico parcial `{ accountId: 1, periodType: 1, periodKey: 1, forecastWindow: 1, inputHash: 1, stale: 1, status: 1 }` com filtro `stale=false` e `status=pending`
 
 ## refreshtokens
 

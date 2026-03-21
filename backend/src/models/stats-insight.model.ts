@@ -158,6 +158,16 @@ const statsInsightSchema = new Schema(
       type: Date,
       default: null,
     },
+    processingOwnerId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    processingLeaseUntil: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -181,7 +191,28 @@ statsInsightSchema.index({
   inputHash: 1,
   stale: 1,
   status: 1,
+  generatedAt: -1,
+  createdAt: -1,
 });
+
+statsInsightSchema.index(
+  {
+    accountId: 1,
+    periodType: 1,
+    periodKey: 1,
+    forecastWindow: 1,
+    inputHash: 1,
+    stale: 1,
+    status: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      stale: false,
+      status: "pending",
+    },
+  },
+);
 
 export type StatsInsightDocument = InferSchemaType<typeof statsInsightSchema> & {
   accountId: Types.ObjectId;

@@ -71,6 +71,9 @@ const transactionSchema = new Schema(
 );
 
 transactionSchema.index({ accountId: 1, month: 1 });
+transactionSchema.index({ accountId: 1, month: 1, date: -1, _id: -1 });
+transactionSchema.index({ accountId: 1, month: 1, type: 1, categoryId: 1, origin: 1, date: -1, _id: -1 });
+transactionSchema.index({ accountId: 1, recurringRuleId: 1, origin: 1, categoryResolution: 1 });
 transactionSchema.index(
   { accountId: 1, recurringRuleId: 1, month: 1 },
   { unique: true, partialFilterExpression: { recurringRuleId: { $type: "objectId" } } },

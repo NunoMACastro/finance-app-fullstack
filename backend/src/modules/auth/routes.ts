@@ -21,9 +21,20 @@ import * as authService from "./service.js";
 
 export const authRouter = Router();
 
+function credentialRateLimitKey(req: { ip?: string; body?: unknown }): string {
+  const ip = req.ip ?? "unknown";
+  const body = req.body as Record<string, unknown> | undefined;
+  const email =
+    typeof body?.email === "string"
+      ? body.email.trim().toLowerCase()
+      : "";
+  return `${ip}:${email || "anonymous"}`;
+}
+
 const credentialLimiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.AUTH_RATE_LIMIT_MAX,
+  keyGenerator: credentialRateLimitKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

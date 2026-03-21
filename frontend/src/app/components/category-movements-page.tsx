@@ -149,8 +149,9 @@ export function CategoryMovementsPage() {
       setTransactionsState(null);
       setBudget(null);
     } finally {
-      if (requestId !== requestIdRef.current) return;
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeAccountId, buildListParams, categoryId, month]);
 
