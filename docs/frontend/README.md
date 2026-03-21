@@ -36,6 +36,7 @@ UI mobile-first para:
 - Guardrails:
   - `npm run check-theme-contract`
   - `npm run check:tokens`
+  - `check:tokens` cobre todo o `src/` com extensões suportadas; `src/imports/` não tem exclusão especial
 
 Padrao auth v3:
 - login/registo sem tabs, com hero de superfície de marca do tema (gradiente ou sólido) + separador curvo
@@ -104,7 +105,7 @@ Padrao de perfil v3:
    - `BudgetEditorPage` (`/budget/:month/edit`)
    - `ProfilePage` e subpaginas (`/profile/*`)
    - `CategoryMovementsPage` (`/month/:month/category/:categoryId/movements`)
-6. Todas as chamadas autenticadas injetam `Authorization` e `X-Account-Id`.
+6. As chamadas account-scoped injetam `Authorization` e `X-Account-Id`; `auth/*` e `accounts/*` ficam fora desse header.
 7. `Analytics` (Vercel) fica montado no root para recolha de page views.
 
 ## Comportamentos de UX importantes

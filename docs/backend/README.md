@@ -27,7 +27,7 @@ Pasta fonte: `backend/src`
 - `auth`
   - register/login/refresh/logout/me/tutorial
   - update profile/email/password
-  - sessions (list/revoke/remover revogadas/revoke-all)
+  - sessions (list/revoke/remover revogadas/revoke-all; `sid` canonico e `jti` legado no listado)
   - export user data
   - delete/deactivate account
 - `accounts`

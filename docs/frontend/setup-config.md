@@ -61,7 +61,7 @@ npm run test:e2e
 Para funcionar com API real:
 - backend deve aceitar CORS da origem do frontend,
 - backend deve estar com `NODE_ENV` e secrets corretos,
-- frontend deve enviar tokens e `X-Account-Id` automaticamente (feito via `http-client.ts`).
+- frontend deve enviar tokens e `X-Account-Id` automaticamente apenas nos requests account-scoped (feito via `http-client.ts`).
 
 ## Notas de deploy
 

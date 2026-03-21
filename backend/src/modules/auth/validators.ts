@@ -71,9 +71,9 @@ export const updatePasswordSchema = z
   })
   .strict();
 
-export const sessionJtiParamsSchema = z
+export const sessionSidParamsSchema = z
   .object({
-    jti: z.string().trim().min(1).max(200),
+    sid: z.string().trim().min(1).max(200),
   })
   .strict();
 

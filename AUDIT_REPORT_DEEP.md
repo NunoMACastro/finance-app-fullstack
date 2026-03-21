@@ -4,38 +4,52 @@
 
 O repositório está, no geral, bem estruturado, com várias decisões corretas e deliberadas: registo transacional de utilizador + conta pessoal + membership, scoping financeiro por `accountId`, uso consistente de UTC nas funções centrais de mês, bloqueio real de lançamentos manuais sem budget válido, separação do fluxo base de stats face ao fluxo dedicado de insight IA, e guardrails explícitos para theming/tokens.
 
-Mesmo assim, a auditoria encontrou problemas reais e relevantes em segurança, integridade de ownership, contratos de paginação, coerência docs↔código e cobertura de testes. O padrão dominante não é “código caótico”; é antes um código geralmente sólido, mas com alguns pontos críticos onde a integridade depende de contadores derivados, fluxos não atómicos e cobertura insuficiente em cenários concorrentes ou de borda.
+Mesmo assim, a auditoria encontrou problemas reais e relevantes em segurança, integridade de ownership, coerência docs↔código e cobertura de testes. O padrão dominante não é “código caótico”; é antes um código geralmente sólido, mas com alguns pontos críticos onde a integridade depende de contadores derivados, fluxos não atómicos e cobertura insuficiente em cenários concorrentes ou de borda.
 
 ### Avaliação global por área
 
 - Arquitetura e boundaries: **Boa**, com alguns acoplamentos desnecessários no frontend.
-- Backend core rules: **Boa**, mas com **falhas relevantes em concorrência/atomicidade**.
-- Frontend core flows: **Boa**, com um drift funcional no uso de `X-Account-Id`.
-- Segurança: **Razoável**, mas com **risco material** em rotação de refresh token e defaults inseguros em misconfiguration.
-- Persistência / integridade: **Razoável**, com fragilidade no uso de `activeOwnerCount` como fonte operacional sem reconciliação forte.
-- Testes / quality gates: **Insuficientes nas zonas mais sensíveis** de concorrência e rejoin/reactivação.
+- Backend core rules: **Boa**, mas com **alguns contratos e fluxos operacionais ainda divergentes**.
+- Frontend core flows: **Boa**.
+- Segurança: **Razoável**, mas com **defaults inseguros em misconfiguration**.
+- Persistência / integridade: **Razoável**, com `activeOwnerCount` agora reconciliado transacionalmente nos fluxos de reativação.
+- Testes / quality gates: **Insuficientes nas zonas mais sensíveis** de scheduler e algumas bordas operacionais.
 - Documentação: **Boa mas com drift real e algumas ambiguidades internas**.
 - Operação / risco futuro: **Razoável**, mas com debt latentemente perigosa.
 
 ### Top problemas por impacto
 
-1. Rotação de refresh token vulnerável a race condition e potencial emissão múltipla a partir do mesmo refresh token.
-2. `activeOwnerCount` pode ficar desalinhado quando um membership antigo `owner` é reativado por convite.
-3. Resgate de convite (`joinByInviteCode`) não é atómico face a revogação/rotação do código.
-4. `listTransactions` devolve `totalCount` e `totalAmount` paginados pelo cursor, não totais do filtro completo.
-5. O frontend injeta `X-Account-Id` em todos os pedidos autenticados; o contrato documental está dividido entre uso account-scoped e uso universal.
+1. Defaults de ambiente estão relaxados para misconfiguration fora de localhost.
+
+### Estado dos findings
+
+| Finding                                                  | Estado                             | Nota curta                                                                      |
+| -------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
+| Rotação de refresh token vulnerável a race condition     | Corrigido                          | Implementado em transação com CAS sobre `currentRefreshJti`.                    |
+| `activeOwnerCount` desalinhado em rejoin de owner antigo | Corrigido                          | Rejoin de owner agora reconcilia `activeOwnerCount` em transação.               |
+| Resgate de convite não atómico                           | Corrigido                          | Claim do código activo agora é atómico via `activeInviteCodeId`.                |
+| `totalCount`/`totalAmount` após cursor                   | Corrigido                          | Totais agora são calculados sobre o filtro completo, independente do cursor.    |
+| `X-Account-Id` injectado em requests não account-scoped  | Corrigido                          | Allowlist no `httpClient`; `/auth/*` e `/accounts/*` ficaram fora.              |
+| `getBudget()` não persiste correção de `totalBudget`     | Corrigido                          | A leitura agora reconcilia e persiste o valor derivado.                         |
+| Defaults de ambiente perigosos                           | Aberto                             | Hardening insuficiente para ambientes quase-prod.                               |
+| Guardrail de tokens exclui `src/imports/`                | Corrigido                          | Removida a exclusão especial; o scan já cobre o subtree por extensão.          |
+| API de sessões usa `jti` para expor `sid`                | Corrigido                          | O contrato passou a expor `sid` como canónico; `jti` ficou como alias legado.   |
+| Falta de testes automáticos para refresh/replay          | Corrigido                          | Coberto por `backend/src/tests/integration/auth-refresh.test.ts`.               |
+| Falta de testes para reativação de memberships antigos   | Corrigido                          | Coberto por regressão em `backend/src/tests/integration/accounts-flow.test.ts`. |
+| Falsa lacuna de testes em `/stats/insights`              | Corrigido no report                | A suite existe; o finding foi removido/ajustado.                                |
+| Contradição documental em `POST /transactions`           | Corrigido                          | A secção agora tem um contrato canónico único para `POST /transactions`.        |
 
 ### Estado dos critérios obrigatórios da auditoria
 
 - Registo garante criação transacional de user + conta pessoal + membership: **Confirmado**.
 - Scoping financeiro está isolado por `accountId`: **Confirmado, com boa implementação backend**.
 - `X-Account-Id` é exigido onde deve ser: **Confirmado no backend**.
-- `X-Account-Id` não é enviado onde não deve: **Não confirmado; há drift no frontend**.
+- `X-Account-Id` não é enviado onde não deve: **Confirmado no frontend**.
 - `totalBudget` nunca é tratado como input de verdade: **Confirmado no save/update path principal**.
 - Transações manuais são bloqueadas sem budget válido: **Confirmado**.
-- Proteção do último owner é real e transacional: **Parcialmente confirmada**; a proteção existe, mas depende de `activeOwnerCount`, que pode ficar desalinhado.
+- Proteção do último owner é real e transacional: **Confirmado**; a proteção existe e `activeOwnerCount` é reconciliado nos fluxos de reativação relevantes.
 - Tratamento mensal/UTC é consistente: **Confirmado nas funções core auditadas**.
-- Frontend injeta corretamente `X-Account-Id`: **Sim, mas de forma demasiado ampla**.
+- Frontend injeta corretamente `X-Account-Id`: **Sim, apenas nos endpoints account-scoped**.
 - Fluxos de stats/insights seguem o contrato documentado: **Confirmado no core flow**.
 - Frontend respeita guardrails de tokens/theming: **Guardrails existem e os ficheiros auditados respeitam-nos; garantia repo-wide não ficou totalmente fechada**.
 - Documentação está coerente com o código atual: **Não totalmente; há drift e ambiguidades reais**.
@@ -159,6 +173,8 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - As docs assumem revogação/rotação consistente de sessões. A implementação não garante isso sob concorrência.
 - Prioridade sugerida:
     - P0
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [HIGH] `activeOwnerCount` pode ficar desalinhado quando um owner antigo é reativado por convite
 
@@ -188,6 +204,8 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - As docs dizem que a conta partilhada não pode ficar sem owner ativo. A implementação da proteção existe, mas pode operar sobre estado derivado desalinhado.
 - Prioridade sugerida:
     - P0
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [MEDIUM] Resgate de convite não é atómico face a revogação/rotação do código
 
@@ -215,6 +233,8 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - As docs assumem que novo código revoga os anteriores. Em concorrência, essa garantia não é estrita.
 - Prioridade sugerida:
     - P1
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [MEDIUM] `totalCount` e `totalAmount` da listagem de transações são calculados depois do cursor
 
@@ -242,6 +262,8 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - Diverge do contrato implícito da listagem paginada documentada.
 - Prioridade sugerida:
     - P1
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [MEDIUM] O frontend envia `X-Account-Id` em todos os pedidos autenticados, não só nos account-scoped
 
@@ -268,6 +290,10 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - A documentação está inconsistente: `docs/frontend/state-and-api.md` descreve injeção em requests account-scoped, enquanto `docs/frontend/README.md` diz que todas as chamadas autenticadas injetam `X-Account-Id`.
 - Prioridade sugerida:
     - P2
+- Estado actual:
+    - Corrigido na implementação.
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [MEDIUM] `getBudget()` não corrige a divergência persistida de `totalBudget` apesar de a documentação o afirmar
 
@@ -282,17 +308,17 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
         - `getBudget()`
         - `GET /budgets/:month`
     - comportamento observado
-        - `getBudget()` recalcula `totalBudget` a partir das receitas e devolve esse valor no response, mas não persiste a correção no documento existente.
+        - `getBudget()` recalcula `totalBudget` a partir das receitas, persiste a correção quando deteta drift e devolve esse valor no response.
 - Porque é um problema:
-    - A API pode parecer consistente, enquanto a BD continua com drift. Qualquer consumidor interno, export ou leitura direta à coleção pode ver um `totalBudget` antigo.
+    - A API deixa de parecer consistente apenas no response: a BD também é reconciliada. Qualquer consumidor interno, export ou leitura direta à coleção passa a ver o `totalBudget` corrigido.
 - Cenário real de falha ou risco:
     - Um script operacional, export futuro ou job que leia `budgets.totalBudget` diretamente usa um valor desatualizado, enquanto o endpoint GET aparenta estar “correto”.
 - Recomendação:
-    - Ou alinhar o código para persistir a correção em leitura, ou corrigir a documentação para refletir o comportamento real.
+    - Corrigir o código para persistir a correção em leitura.
 - Risco de regressão:
     - Baixo.
 - Relação com docs/regras:
-    - A regra “`totalBudget` é derivado” mantém-se, mas a promessa específica de “corrigir divergência em leitura” não está implementada.
+    - A regra “`totalBudget` é derivado” mantém-se e a promessa de “corrigir divergência em leitura” passa a estar implementada.
 - Prioridade sugerida:
     - P2
 
@@ -337,7 +363,7 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - função(ões)/rota(s)/componente(s)
         - `check:tokens`
     - comportamento observado
-        - O script exclui explicitamente paths que contenham `/imports/`, criando uma blind spot dentro de `src/`.
+        - O script já não exclui explicitamente paths que contenham `/imports/`; o subtree passou a ser tratado como qualquer outro `src/` com extensões suportadas.
         - No estado atual, o diretório contém documentação/imports de referência, não código runtime.
 - Porque é um problema:
     - O contrato de theming quer garantir ausência de cores hardcoded fora dos temas. Um diretório de source excluído enfraquece a confiança nesse gate.
@@ -348,9 +374,11 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
 - Risco de regressão:
     - Baixo.
 - Relação com docs/regras:
-    - As docs apresentam `check:tokens` como guardrail abrangente; na prática há uma exceção estrutural.
+    - As docs apresentam `check:tokens` como guardrail abrangente; o código agora está alinhado com esse contrato.
 - Prioridade sugerida:
     - P2
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [LOW] A API de sessões usa o nome `jti` para expor o `sid` da sessão
 
@@ -364,9 +392,9 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - função(ões)/rota(s)/componente(s)
         - `listSessions()`
         - `revokeSession()`
-        - `DELETE /auth/sessions/:jti`
+        - `DELETE /auth/sessions/:sid` (o nome `:jti` apareceu no contrato legado)
     - comportamento observado
-        - A listagem devolve `jti: session.sid`, e o endpoint parametrizado por `:jti` revoga pelo `sid` da sessão, não pelo `jti` de um refresh token.
+        - A listagem expõe `sid` como identificador canónico e mantém `jti` apenas como alias legado; o endpoint revoga pelo `sid` da sessão, não pelo `jti` de um refresh token.
 - Porque é um problema:
     - Mistura dois conceitos de segurança diferentes: identificador de sessão e identificador de token.
 - Cenário real de falha ou risco:
@@ -379,6 +407,10 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
     - A documentação atual reforça a ambiguidade em vez de a resolver.
 - Prioridade sugerida:
     - P3
+- Estado actual:
+    - Corrigido na documentação.
+- Estado actual:
+    - Corrigido na implementação.
 
 ### [MEDIUM] Não há evidência de testes automáticos para concorrência/replay no refresh token
 
@@ -462,7 +494,7 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
 ## 4. Coverage Gaps
 
 - Não foi feita execução local do backend/frontend; problemas dependentes de runtime, browser quirks ou Mongo topology real ficam parcialmente não verificados.
-- Não foi feito teste concorrente real contra `POST /auth/refresh`, `joinByInviteCode` ou scheduler.
+- Não foi feito teste concorrente real contra `POST /auth/refresh` ou scheduler; o join por convite ficou coberto por regressão determinística de código obsoleto após rotação.
 - Não foi feita verificação manual do comportamento visual de todos os componentes frontend.
 - Não foi auditado cada ficheiro de teste do repositório; foi feita amostragem orientada pelas áreas críticas.
 - A suspeita inicial de falta de testes para `StatsInsightsPage` não se confirmou: existe uma suite dedicada com polling, falhas e retoma manual.
@@ -472,68 +504,53 @@ Foi feita uma auditoria estática profunda ao repositório, cruzando documentaç
 
 ## 5. Contradictions / Drift Matrix
 
-| Regra / contrato documentado                                                          | Onde está documentado               | Onde é implementado                                                                                                  | Estado    |
-| ------------------------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------- |
-| Registo cria user + conta pessoal + membership owner de forma transacional            | docs de backend, regras de negócio  | `auth/service.ts -> register()`                                                                                      | OK        |
-| Endpoints financeiros exigem `X-Account-Id`                                           | docs backend/frontend               | routers financeiros + `requireStrictAccountContext`                                                                  | OK        |
-| `X-Account-Id` deve existir apenas nos endpoints financeiros/account-scoped           | docs backend/frontend               | `frontend/http-client.ts` injeta header em todos os requests autenticados; docs estão inconsistentes                 | DRIFT     |
-| `PUT /budgets/:month` aceita `totalBudget`, mas backend ignora                        | docs backend                        | `budgets/service.ts -> saveBudget()`                                                                                 | OK        |
-| `totalBudget` é derivado das receitas e sincronizado no save/update/delete de incomes | docs backend                        | `budgets/service.ts`, `transactions/service.ts`                                                                      | OK        |
-| `getBudget` corrige divergência de `totalBudget` em leitura                           | docs backend business rules         | `budgets/service.ts -> getBudget()` apenas recalcula no response                                                     | DRIFT     |
-| Conta partilhada não pode ficar sem owner ativo                                       | docs backend/domain model           | proteção existe em `updateMemberRole/removeMember/leaveAccount/deleteMe`, mas depende de `activeOwnerCount` coerente | AMBIGUOUS |
-| Abrir `/stats` não dispara insight IA automaticamente                                 | docs frontend/backend               | `StatsPage` navega para `/stats/insights`; `StatsInsightsPage` só gera por clique                                    | OK        |
-| `theme.css` não deve conter cores literais                                            | docs design tokens/UI v3            | ficheiro auditado `src/styles/theme.css` cumpre                                                                      | OK        |
-| Guardrails de tema/tokens cobrem o frontend                                           | docs frontend quality/design tokens | scripts existem, mas `check:tokens` exclui `src/imports/`                                                            | DRIFT     |
-| CI corre smoke E2E de frontend                                                        | docs CI/CD                          | workflow `.github/workflows/ci.yml` inclui `frontend-e2e-smoke`                                                      | OK        |
-| Contrato público de `POST /transactions` não aceita `origin`                          | docs backend api-reference          | a mesma doc inclui exemplo com `origin`                                                                              | AMBIGUOUS |
+| Regra / contrato documentado                                                          | Onde está documentado               | Onde é implementado                                                                                                    | Estado    |
+| ------------------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| Registo cria user + conta pessoal + membership owner de forma transacional            | docs de backend, regras de negócio  | `auth/service.ts -> register()`                                                                                        | OK        |
+| Endpoints financeiros exigem `X-Account-Id`                                           | docs backend/frontend               | routers financeiros + `requireStrictAccountContext`                                                                    | OK        |
+| `X-Account-Id` deve existir apenas nos endpoints financeiros/account-scoped           | docs backend/frontend               | `http-client` agora usa allowlist de rota e docs foram alinhados                                                       | OK        |
+| `PUT /budgets/:month` aceita `totalBudget`, mas backend ignora                        | docs backend                        | `budgets/service.ts -> saveBudget()`                                                                                   | OK        |
+| `totalBudget` é derivado das receitas e sincronizado no save/update/delete de incomes | docs backend                        | `budgets/service.ts`, `transactions/service.ts`                                                                        | OK        |
+| `getBudget` corrige divergência de `totalBudget` em leitura                           | docs backend business rules         | `budgets/service.ts -> getBudget()` reconcilia e persiste o valor                                                     | OK        |
+| Conta partilhada não pode ficar sem owner ativo                                       | docs backend/domain model           | proteção existe em `updateMemberRole/removeMember/leaveAccount/deleteMe` e `activeOwnerCount` é reconciliado no rejoin | OK        |
+| Abrir `/stats` não dispara insight IA automaticamente                                 | docs frontend/backend               | `StatsPage` navega para `/stats/insights`; `StatsInsightsPage` só gera por clique                                      | OK        |
+| `theme.css` não deve conter cores literais                                            | docs design tokens/UI v3            | ficheiro auditado `src/styles/theme.css` cumpre                                                                        | OK        |
+| Guardrails de tema/tokens cobrem o frontend                                           | docs frontend quality/design tokens | `check:tokens` cobre todo o `src/` com extensões suportadas                                                           | OK        |
+| CI corre smoke E2E de frontend                                                        | docs CI/CD                          | workflow `.github/workflows/ci.yml` inclui `frontend-e2e-smoke`                                                        | OK        |
+| Contrato público de `POST /transactions` não aceita `origin`                          | docs backend api-reference          | a secção de `POST /transactions` agora lista só campos canónicos de input                                                 | OK        |
 
 ## 6. Test Gap Matrix
 
-| Área funcional                               | Existe unit?   | Existe integration?         | Existe E2E?                 | Gap principal                                                        | Risco do gap |
-| -------------------------------------------- | -------------- | --------------------------- | --------------------------- | -------------------------------------------------------------------- | ------------ |
-| Refresh token rotation / replay              | Não verificado | Não há evidência suficiente | Não verificado              | Sem cobertura para refresh concorrente, reuse e replay               | Alto         |
-| Rejoin de membership antigo / owner count    | Não verificado | Não há evidência suficiente | Não verificado              | Não cobre reativação de membership já existente                      | Alto         |
-| Paginação `GET /transactions` com cursor     | Não verificado | Não há evidência suficiente | Não verificado              | Sem teste para `totalCount/totalAmount` versus cursor                | Médio        |
-| Guardrail repo-wide de hardcoded colors      | N/A            | N/A                         | N/A                         | Blind spot em `src/imports/`                                         | Médio        |
-| Scheduler multi-instância / perda de lease   | Não verificado | Não verificado              | N/A                         | Falta prova automatizada de comportamento sob corrida real           | Médio        |
-| Ownership transacional em cenários de borda  | Parcial        | Parcial                     | N/A                         | Há cobertura de leave/promote/remove, mas não de rejoin/reactivation | Médio        |
-| Logout / revoke / refresh family consistency | Não verificado | Parcial                     | Não verificado              | Falta provar coerência completa da família de sessão/tokens          | Médio        |
+| Área funcional                               | Existe unit?   | Existe integration? | Existe E2E?    | Gap principal                                                        | Risco do gap |
+| -------------------------------------------- | -------------- | ------------------- | -------------- | -------------------------------------------------------------------- | ------------ |
+| Refresh token rotation / replay              | Sim            | Sim                 | N/A            | Coberto por testes de cookie, body, replay e concorrência            | Baixo        |
+| Rejoin de membership antigo / owner count    | Não            | Sim                 | Não verificado | Coberto por regressão; sem E2E                                       | Baixo        |
+| Paginação `GET /transactions` com cursor     | Não            | Sim                 | Não verificado | Regressão cobre paginação e totais do filtro completo                | Baixo        |
+| Guardrail repo-wide de hardcoded colors      | Sim            | Sim                 | N/A            | `src/imports/` agora entra no scan por extensão                        | Baixo        |
+| Scheduler multi-instância / perda de lease   | Não verificado | Não verificado      | N/A            | Falta prova automatizada de comportamento sob corrida real           | Médio        |
+| Ownership transacional em cenários de borda  | Parcial        | Parcial             | N/A            | Há cobertura de leave/promote/remove, mas não de rejoin/reactivation | Médio        |
+| Logout / revoke / refresh family consistency | Não verificado | Parcial             | Não verificado | Falta ainda provar coerência completa da família de sessão/tokens    | Médio        |
 
 ## 7. Prioritized Remediation Roadmap
 
 ### Fase 1: corrigir riscos críticos e de integridade
 
-1. Blindar a rotação de refresh token contra concorrência/replay.
-2. Corrigir a consistência de ownership em `joinByInviteCode()` e rever o papel de `activeOwnerCount`.
-3. Tornar o resgate de convite atómico face a revogação/rotação.
-4. Adicionar testes de integração concorrentes para estes fluxos.
+1. Adicionar testes de integração para scheduler.
+2. Fechar os contratos que ainda estão em drift entre API, docs e frontend.
+3. Reforçar a observabilidade dos fluxos concorrentes restantes.
 
 ### Fase 2: corrigir inconsistências estruturais e contratuais
 
-1. Separar `baseFilter` e `pageFilter` em `listTransactions()`.
-2. Restringir a injeção de `X-Account-Id` no frontend aos endpoints account-scoped.
-3. Decidir se `getBudget()` deve persistir a correção de `totalBudget` ou se a doc deve ser ajustada.
-4. Corrigir naming/contrato da API de sessões (`sid` vs `jti`).
-
-### Fase 3: melhorar testes, observabilidade e docs
-
-1. Fechar o blind spot de `check:tokens`.
-2. Formalizar testes de paginação com cursor.
-3. Alinhar a documentação de `POST /transactions` e de `getBudget()`.
-4. Reforçar hardening de env para falhar fechado fora de localhost.
+1. Reforçar hardening de env para falhar fechado fora de localhost.
 
 ### Quick wins
 
-- Corrigir `listTransactions()`.
-- Corrigir documentação contraditória de `POST /transactions`.
-- Corrigir naming `jti`/`sid` na API de sessões.
-- Fechar o gap do guardrail `src/imports/`.
+- Guardrail de tokens já cobre `src/imports/` por extensão.
 
 ### Mudanças estruturais
 
-- Rework da rotação de refresh token para atomicidade real.
-- Rework do modelo de ownership para não depender cegamente de contador derivado sem reconciliação.
-- Suite de testes concorrentes para refresh, convites e ownership.
+- Rework do modelo de ownership já não é bloqueador imediato; o contador é reconciliado no rejoin e os guards existentes continuam válidos.
+- Suite de testes concorrentes continua útil para refresh e scheduler.
 
 ## 8. Final Verdict
 
@@ -543,13 +560,11 @@ Mas também **não está pronto para evolução segura sem correções prioritá
 
 Os principais bloqueadores são:
 
-1. sessão/refresh sem atomicidade forte;
-2. ownership dependente de `activeOwnerCount` suscetível a drift;
-3. alguns contratos API/docs/frontend ainda não totalmente alinhados;
-4. cobertura de testes ainda insuficiente exatamente nos fluxos de refresh, convites e ownership.
+1. cobertura de testes ainda insuficiente nos fluxos de scheduler e hardening.
+2. defaults de ambiente e guardrails ainda exigem endurecimento.
 
 ### Veredicto final
 
 - Estado global do repositório: **Razoavelmente sólido, mas com riscos reais não aceitáveis para evolução confiante sem intervenção**.
 - Pronto para evolução segura: **Não, ainda não**.
-- Principais bloqueadores: **refresh concurrency**, **ownership consistency**, **invite redemption atomicity**, **test gaps em refresh/ownership**.
+- Principais bloqueadores: **test gaps em scheduler/hardening**, **defaults de ambiente**.

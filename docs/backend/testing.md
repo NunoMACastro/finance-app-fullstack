@@ -49,14 +49,23 @@ npm run test
 
 - `auth-flow.test.ts`
   - register/login/me/tutorial
+- `auth-refresh.test.ts`
+  - refresh com cookie e body
+  - reuse sequencial de refresh token
+  - concorrência/replay no mesmo refresh token
 - `accounts-flow.test.ts`
   - create account, invite, join, roles, leave/remocao
+  - reativacao de owner antigo por convite e reconciliação de `activeOwnerCount`
+  - rotação de convite com rejeição do código obsoleto
 - `budget-transactions-flow.test.ts`
   - gating de lancamentos manuais por budget, sincronizacao de totalBudget
+  - reconciliacao persistida de `totalBudget` em `GET /budgets/:month`
+  - paginacao de `GET /transactions` com cursor e totais do filtro completo
 - `income-categories-flow.test.ts`
   - categorias default, regras de inativacao e validacao em incomes
 - `profile-flow.test.ts`
   - profile/self-service (perfil, seguranca, sessoes, export, delete account)
+  - listagem de sessoes com `sid` canonico e alias legado `jti`
 - `stats-category-series.test.ts`
   - consistencia de `categorySeries`
 - `stats-insight-fallback.test.ts`
@@ -85,16 +94,20 @@ Harness partilhado:
 
 - auth:
   - login invalido
-  - refresh token revogado
+  - refresh token revogado/replay
+  - refresh concorrente com um unico vencedor
 - accounts:
   - bloqueio de ultimo owner
   - roles e autorizacao
+  - rejoin de membership owner inativa com reconciliacao de `activeOwnerCount`
+  - join com convite obsoleto/revogado após rotação
 - budgets:
   - `totalBudget` derivado de incomes
   - validacao de percentagens
 - transactions:
   - bloqueio manual sem budget
   - sync de budget ao criar/editar/apagar income
+  - paginacao de `GET /transactions` com cursor e totais do filtro completo
 - stats:
   - tendencia e budgetVsActual deterministas
   - categorySeries coerente por mes

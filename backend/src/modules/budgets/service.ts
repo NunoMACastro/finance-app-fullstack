@@ -312,6 +312,17 @@ export async function getBudget(accountId: string, month: string): Promise<Month
     return emptyBudget(accountId, month, totalBudget);
   }
 
+  if (budget.totalBudget !== totalBudget) {
+    await BudgetModel.updateOne(
+      { accountId, month },
+      {
+        $set: {
+          totalBudget,
+        },
+      },
+    );
+  }
+
   const normalizedCategories = assignCategoryColorSlots(
     upsertProtectedBudgetCategories(
       budget.categories.map((category) => ({

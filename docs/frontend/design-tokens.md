@@ -56,6 +56,7 @@ Nao e permitido usar:
   - falha se existir `dark:` em `src/`.
 - `npm run check:tokens`
   - falha se existirem cores hardcoded fora dos ficheiros de tema.
+  - cobre todo o `src/` com extensões suportadas; `src/imports/` não tem exceção estrutural.
 
 ## Do / Don't
 

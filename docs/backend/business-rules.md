@@ -10,6 +10,16 @@ Este documento descreve as regras funcionais implementadas no codigo atual.
 - Endpoints fora do escopo financeiro (ex.: auth/accounts) podem resolver conta pessoal por fallback interno quando aplicavel.
 - Se nao existir membership ativa para a conta, pedido falha com `ACCOUNT_ACCESS_DENIED`.
 
+## 1.1) Sessões e refresh
+
+- A API de sessoes expõe `sid` como identificador canonico da sessao.
+- Quando a listagem inclui `jti`, esse campo e apenas um alias legado de `sid`; nao representa o `jti` do refresh token.
+- Refresh tokens sao one-time use.
+- `AuthSession.currentRefreshJti` e a fonte de verdade da rotação ativa da sessao.
+- `POST /auth/refresh` avanca a sessao apenas se o `jti` apresentado ainda for o atual.
+- Se dois pedidos concorrentes usarem o mesmo refresh token, apenas um pode vencer; o outro falha com `401` e a sessao continua valida com o refresh mais recente.
+- A revogacao em massa (`logout`, `revoke-all`, delete account) continua a invalidar a familia de sessoes/tokens; replay concorrente normal nao faz logout global.
+
 ### Roles
 
 - `owner`
@@ -34,11 +44,14 @@ Garantida por:
 - Convite so existe para contas `shared`.
 - Codigo guardado como hash (`codeHash`).
 - Novo codigo revoga codigos ativos anteriores.
-- Join por codigo cria/reativa membership do user com role default `viewer`.
+- Join por codigo cria membership com role default `viewer` para users novos; se existir membership inativa, o backend reativa-a preservando a role anterior.
+- `accounts.activeInviteCodeId` e a referencia operacional do convite activo; o backend faz claim atómico desse valor antes de aceitar o join.
 
 ## 4) Regras de ownership
 
 - Conta partilhada nao pode ficar sem owner.
+- `activeOwnerCount` e um contador operacional mantido pelo backend a partir das memberships ativas `owner`.
+- Quando uma membership inativa e reativada por convite, o backend reconcilia `activeOwnerCount` na mesma transacao.
 - Ao demover/remover owner ou sair da conta sendo owner:
   - backend conta owners ativos dentro de transacao,
   - se for o ultimo owner, bloqueia com erro explicito.
@@ -63,11 +76,18 @@ Budget valido quando:
 ## 6) Bloqueio de lancamentos manuais
 
 Em `transactions.service`:
+- `POST /transactions` cria sempre transacoes `manual`.
 - `createTransaction` com `origin=manual` exige budget valido no `input.month`.
 - `updateTransaction` de transacao manual valida mes final (se data mudar de mes).
 - Sem budget valido, erro `BUDGET_REQUIRED_FOR_MANUAL_TRANSACTIONS` (422).
 
 Transacoes recorrentes internas nao passam por este bloqueio.
+
+## 6.1) Listagem paginada de transacoes
+
+- `listTransactions` usa `cursor` apenas para paginação de `items`.
+- `totalCount` e `totalAmount` representam o conjunto filtrado completo e nao apenas a pagina corrente.
+- Os filtros de negocio (`month`, `type`, `categoryId`, `origin`, `dateFrom`, `dateTo`) compoem a base de contagem; o cursor nao altera os totais.
 
 ## 7) totalBudget derivado de receitas
 
@@ -75,7 +95,7 @@ Fonte de verdade:
 - soma de todas as transacoes `type=income` da conta+mes.
 
 Sincronizacao:
-- em `getBudget` (leitura): corrige divergencia se existir,
+- em `getBudget` (leitura): corrige e persiste divergencia se existir,
 - em create/update/delete de transacao income: sincroniza budget do(s) mes(es) afetado(s),
 - em `saveBudget` e `copyBudgetFromMonth`: total e calculado server-side.
 

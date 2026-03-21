@@ -14,6 +14,8 @@ import { config } from "./config";
 import { tokenStore } from "./token-store";
 import type { ApiError } from "./types";
 
+const ACCOUNT_SCOPED_PATHS = ["/transactions", "/budgets", "/income-categories", "/recurring-rules", "/stats"] as const;
+
 // ---- Create instance ----
 export const httpClient = axios.create({
   baseURL: config.apiBaseUrl,
@@ -22,14 +24,35 @@ export const httpClient = axios.create({
   withCredentials: true,
 });
 
+function normalizeRequestPath(url?: string): string {
+  if (!url) return "";
+
+  const path = url.split("?")[0]?.split("#")[0] ?? "";
+  if (/^https?:\/\//i.test(path)) {
+    try {
+      return new URL(path).pathname;
+    } catch {
+      return path;
+    }
+  }
+
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function isAccountScopedRequest(url?: string): boolean {
+  const pathname = normalizeRequestPath(url);
+  return ACCOUNT_SCOPED_PATHS.some((basePath) => pathname === basePath || pathname.startsWith(`${basePath}/`));
+}
+
 // ---- Request interceptor: attach JWT ----
 httpClient.interceptors.request.use((req) => {
   const token = tokenStore.getAccess();
   if (token) {
     req.headers.Authorization = `Bearer ${token}`;
   }
+
   const accountId = getActiveAccountIdHeader();
-  if (accountId) {
+  if (accountId && isAccountScopedRequest(req.url)) {
     req.headers["X-Account-Id"] = accountId;
   } else if ("X-Account-Id" in req.headers) {
     delete req.headers["X-Account-Id"];

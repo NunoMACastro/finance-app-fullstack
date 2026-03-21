@@ -65,7 +65,7 @@ Arquivo: `app/lib/http-client.ts`
 ### Request interceptor
 
 - anexa `Authorization` com access token
-- anexa `X-Account-Id` em todos os requests account-scoped
+- anexa `X-Account-Id` apenas nos requests account-scoped
 - `Stats` v1 usa o mesmo `X-Account-Id` (escopo por conta ativa, sem modo global)
 
 ### Response interceptor

@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { shouldCheckTokenFile } from "./check-tokens-core.js";
 
 const ROOT = path.resolve(process.cwd());
 const SRC_DIR = path.join(ROOT, "src");
 const THEMES_DIR = path.join(SRC_DIR, "styles", "themes");
 
-const INCLUDED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css"]);
 const EXCLUDED_FILES = new Set();
-const EXCLUDED_DIR_FRAGMENTS = [`${path.sep}imports${path.sep}`];
 
 const hardcodedUtilityPattern =
   /\b(?:bg|text|border|from|to|via|ring|shadow|stroke|fill)-(?:sky|cyan|blue|red|green|yellow|pink|violet|indigo|teal|amber|lime|orange|fuchsia|rose|emerald|slate|gray|zinc|neutral|stone|white|black)(?:-[^\s"'`)]*)?/g;
@@ -22,10 +22,7 @@ function walk(dir, collector) {
       walk(filePath, collector);
       continue;
     }
-    if (!INCLUDED_EXTENSIONS.has(path.extname(filePath))) continue;
-    if (EXCLUDED_FILES.has(filePath)) continue;
-    if (filePath.startsWith(THEMES_DIR + path.sep)) continue;
-    if (EXCLUDED_DIR_FRAGMENTS.some((fragment) => filePath.includes(fragment))) continue;
+    if (!shouldCheckTokenFile(filePath, { themesDir: THEMES_DIR, excludedFiles: EXCLUDED_FILES })) continue;
     collector.push(filePath);
   }
 }
@@ -58,20 +55,27 @@ function findViolations(filePath) {
   return violations;
 }
 
-const files = [];
-walk(SRC_DIR, files);
+export function runTokenGuardrail() {
+  const files = [];
+  walk(SRC_DIR, files);
 
-const violations = files.flatMap(findViolations);
+  const violations = files.flatMap(findViolations);
 
-if (violations.length > 0) {
-  console.error("Token guardrail failed. Hardcoded colors detected:\n");
-  for (const violation of violations) {
-    const relativePath = path.relative(ROOT, violation.filePath);
-    console.error(
-      `- ${relativePath}:${violation.line} [${violation.kind}] ${violation.token}\n  ${violation.lineText}`,
-    );
+  if (violations.length > 0) {
+    console.error("Token guardrail failed. Hardcoded colors detected:\n");
+    for (const violation of violations) {
+      const relativePath = path.relative(ROOT, violation.filePath);
+      console.error(
+        `- ${relativePath}:${violation.line} [${violation.kind}] ${violation.token}\n  ${violation.lineText}`,
+      );
+    }
+    process.exit(1);
   }
-  process.exit(1);
+
+  console.log(`Token guardrail passed (${files.length} files checked).`);
 }
 
-console.log(`Token guardrail passed (${files.length} files checked).`);
+const isCliEntry = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isCliEntry) {
+  runTokenGuardrail();
+}
