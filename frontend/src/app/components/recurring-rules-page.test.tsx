@@ -29,6 +29,7 @@ vi.mock("../lib/api", () => ({
 
 vi.mock("../lib/account-context", () => ({
   useAccount: () => ({
+    activeAccountId: "a1",
     canWriteFinancial: true,
   }),
 }));

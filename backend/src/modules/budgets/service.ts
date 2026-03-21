@@ -509,8 +509,7 @@ export async function copyBudgetFromMonth(
 }
 
 export async function syncBudgetTotalFromTransactions(accountId: string, month: string): Promise<void> {
-  void accountId;
-  void month;
+  await syncBudgetTotal(accountId, month);
 }
 
 export async function ensureRecurringExpenseFallbackCategory(

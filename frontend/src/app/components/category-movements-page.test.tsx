@@ -132,8 +132,10 @@ describe("CategoryMovementsPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Aplicar filtros" }));
 
-    expect(screen.getByText("Continente")).toBeInTheDocument();
-    expect(screen.queryByText("Prestação")).not.toBeInTheDocument();
+    expect(await screen.findByText("Continente")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Prestação")).not.toBeInTheDocument();
+    });
     expect(screen.getByText("1 resultados de 2")).toBeInTheDocument();
   });
 

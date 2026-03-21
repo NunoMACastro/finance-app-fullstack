@@ -3,6 +3,7 @@ import { Laptop, Loader2, RefreshCw, ShieldCheck, Smartphone, X } from "lucide-r
 import { toast } from "sonner";
 import { useAuth } from "../lib/auth-context";
 import { getErrorMessage } from "../lib/api-error";
+import { MIN_PASSWORD_LENGTH } from "../lib/password-policy";
 import type { UserSession } from "../lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -91,6 +92,10 @@ export function ProfileSecurityPage() {
           className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
           disabled={savingPassword || !currentPassword || !newPassword}
           onClick={async () => {
+            if (newPassword.length < MIN_PASSWORD_LENGTH) {
+              toast.error(`A nova password deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+              return;
+            }
             setSavingPassword(true);
             try {
               await updatePassword(currentPassword, newPassword);

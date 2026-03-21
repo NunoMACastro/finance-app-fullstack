@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
 import { unprocessable } from "../../lib/api-error.js";
 import { lastNMonthsEndingAt, monthFromDate } from "../../lib/month.js";
@@ -132,6 +133,67 @@ interface StatsInsightLookupContext {
 }
 
 const insightJobs = new Map<string, Promise<void>>();
+const INSIGHT_LEASE_MS = 90_000;
+const INSIGHT_HEARTBEAT_MS = 25_000;
+
+async function claimPendingInsight(insightId: string, ownerId: string) {
+  const now = new Date();
+  const leaseUntil = new Date(now.getTime() + INSIGHT_LEASE_MS);
+  return StatsInsightModel.findOneAndUpdate(
+    {
+      _id: insightId,
+      status: "pending",
+      $or: [
+        { processingLeaseUntil: null },
+        { processingLeaseUntil: { $lte: now } },
+        { processingOwnerId: ownerId },
+      ],
+    },
+    {
+      $set: {
+        processingOwnerId: ownerId,
+        processingLeaseUntil: leaseUntil,
+      },
+    },
+    { new: true },
+  );
+}
+
+async function renewInsightLease(insightId: string, ownerId: string): Promise<boolean> {
+  const now = new Date();
+  const leaseUntil = new Date(now.getTime() + INSIGHT_LEASE_MS);
+  const result = await StatsInsightModel.updateOne(
+    {
+      _id: insightId,
+      status: "pending",
+      processingOwnerId: ownerId,
+      processingLeaseUntil: { $gt: now },
+    },
+    {
+      $set: {
+        processingLeaseUntil: leaseUntil,
+      },
+    },
+  );
+  return result.modifiedCount > 0;
+}
+
+function startInsightLeaseHeartbeat(insightId: string, ownerId: string): () => void {
+  const timer = setInterval(() => {
+    void (async () => {
+      try {
+        const renewed = await renewInsightLease(insightId, ownerId);
+        if (!renewed) {
+          logger.warn({ insightId }, "Stats insight lease was not renewed");
+        }
+      } catch (error) {
+        logger.error({ err: error, insightId }, "Stats insight heartbeat failed");
+      }
+    })();
+  }, INSIGHT_HEARTBEAT_MS);
+  timer.unref();
+  return () => clearInterval(timer);
+}
 
 function semesterKey(month: string): string {
   const yearStr = month.slice(0, 4);
@@ -150,6 +212,10 @@ function round(value: number): number {
 
 function isIntegerNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value);
+}
+
+function isDuplicateMongoKeyError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000;
 }
 
 function categoryMonthKey(categoryId: string, month: string): string {
@@ -524,71 +590,92 @@ function scheduleInsightJob(insightId: string): void {
     return;
   }
 
+  const ownerId = randomUUID();
   const job = (async () => {
-    const insight = await StatsInsightModel.findById(insightId);
-    if (!insight || insight.status !== "pending") {
+    const insight = await claimPendingInsight(insightId, ownerId);
+    if (!insight) {
       return;
     }
+    const stopHeartbeat = startInsightLeaseHeartbeat(insightId, ownerId);
 
-    const rawPayload = insight.rawPayload as AnonymizedStatsInsightPayload | null;
-    const categoryMappings = insight.categoryMappings as Array<{
-      alias: string;
-      categoryId: string;
-      categoryName: string;
-      categoryKind: "expense" | "reserve" | "income";
-      colorSlot?: number;
-    }>;
+    try {
+      const rawPayload = insight.rawPayload as AnonymizedStatsInsightPayload | null;
+      const categoryMappings = insight.categoryMappings as Array<{
+        alias: string;
+        categoryId: string;
+        categoryName: string;
+        categoryKind: "expense" | "reserve" | "income";
+        colorSlot?: number;
+      }>;
 
-    if (!rawPayload || !Array.isArray(categoryMappings)) {
+      if (!rawPayload || !Array.isArray(categoryMappings)) {
+        await StatsInsightModel.updateOne(
+          { _id: insight._id, status: "pending", processingOwnerId: ownerId },
+          {
+            $set: {
+              status: "failed",
+              errorCode: "STATS_INSIGHT_INPUT_INVALID",
+              errorMessage: "Não foi possível preparar o insight IA.",
+              processingOwnerId: null,
+              processingLeaseUntil: null,
+            },
+          },
+        );
+        return;
+      }
+
+      const output = await requestStructuredStatsInsight(rawPayload);
+      if (!output) {
+        await StatsInsightModel.updateOne(
+          { _id: insight._id, status: "pending", processingOwnerId: ownerId },
+          {
+            $set: {
+              status: "failed",
+              errorCode: "STATS_INSIGHT_PROVIDER_UNAVAILABLE",
+              errorMessage: "Não foi possível gerar o insight IA.",
+              processingOwnerId: null,
+              processingLeaseUntil: null,
+            },
+          },
+        );
+        return;
+      }
+
+      const report = remapInsightOutput(output, categoryMappings);
+
       await StatsInsightModel.updateOne(
-        { _id: insight._id, status: "pending" },
+        { _id: insight._id, status: "pending", processingOwnerId: ownerId },
         {
           $set: {
-            status: "failed",
-            errorCode: "STATS_INSIGHT_INPUT_INVALID",
-            errorMessage: "Não foi possível preparar o insight IA.",
+            status: "ready",
+            model: insight.model,
+            summary: report.summary,
+            highlights: report.highlights,
+            risks: report.risks,
+            actions: report.actions,
+            categoryInsights: report.categoryInsights,
+            confidence: report.confidence,
+            limitations: report.limitations ?? [],
+            errorCode: null,
+            errorMessage: null,
+            generatedAt: new Date(),
+            processingOwnerId: null,
+            processingLeaseUntil: null,
           },
         },
       );
-      return;
-    }
-
-    const output = await requestStructuredStatsInsight(rawPayload);
-    if (!output) {
+    } finally {
+      stopHeartbeat();
       await StatsInsightModel.updateOne(
-        { _id: insight._id, status: "pending" },
+        { _id: insight._id, status: "pending", processingOwnerId: ownerId },
         {
           $set: {
-            status: "failed",
-            errorCode: "STATS_INSIGHT_PROVIDER_UNAVAILABLE",
-            errorMessage: "Não foi possível gerar o insight IA.",
+            processingOwnerId: null,
+            processingLeaseUntil: null,
           },
         },
       );
-      return;
     }
-
-    const report = remapInsightOutput(output, categoryMappings);
-
-    await StatsInsightModel.updateOne(
-      { _id: insight._id, status: "pending" },
-      {
-        $set: {
-          status: "ready",
-          model: insight.model,
-          summary: report.summary,
-          highlights: report.highlights,
-          risks: report.risks,
-          actions: report.actions,
-          categoryInsights: report.categoryInsights,
-          confidence: report.confidence,
-          limitations: report.limitations ?? [],
-          errorCode: null,
-          errorMessage: null,
-          generatedAt: new Date(),
-        },
-      },
-    );
   })()
     .catch((error) => {
       logger.error({ err: error, insightId }, "Stats insight background job failed");
@@ -663,29 +750,48 @@ export async function requestStatsInsight(
     return toInsightStatusDto(pendingExisting);
   }
 
-  const insight = await StatsInsightModel.create({
-    accountId,
-    requestedByUserId: userId,
-    periodType: snapshot.periodType,
-    periodKey: snapshot.periodKey,
-    forecastWindow,
-    inputHash,
-    status: "pending",
-    stale: false,
-    model: env.OPENAI_API_KEY ? env.OPENAI_INSIGHT_MODEL : null,
-    rawPayload: payload,
-    categoryMappings: buildInsightCategoryMappings(snapshot),
-    summary: null,
-    confidence: null,
-    generatedAt: null,
-    limitations: [],
-    highlights: [],
-    risks: [],
-    actions: [],
-    categoryInsights: [],
-    errorCode: null,
-    errorMessage: null,
-  });
+  let insight;
+  try {
+    insight = await StatsInsightModel.create({
+      accountId,
+      requestedByUserId: userId,
+      periodType: snapshot.periodType,
+      periodKey: snapshot.periodKey,
+      forecastWindow,
+      inputHash,
+      status: "pending",
+      stale: false,
+      model: env.OPENAI_API_KEY ? env.OPENAI_INSIGHT_MODEL : null,
+      rawPayload: payload,
+      categoryMappings: buildInsightCategoryMappings(snapshot),
+      summary: null,
+      confidence: null,
+      generatedAt: null,
+      limitations: [],
+      highlights: [],
+      risks: [],
+      actions: [],
+      categoryInsights: [],
+      errorCode: null,
+      errorMessage: null,
+      processingOwnerId: null,
+      processingLeaseUntil: null,
+    });
+  } catch (error) {
+    if (!isDuplicateMongoKeyError(error)) {
+      throw error;
+    }
+
+    const pendingAfterConflict = await StatsInsightModel.findOne({
+      ...filter,
+      status: "pending",
+    }).sort({ createdAt: -1 });
+    if (!pendingAfterConflict) {
+      throw error;
+    }
+    scheduleInsightJob(pendingAfterConflict._id.toString());
+    return toInsightStatusDto(pendingAfterConflict);
+  }
 
   scheduleInsightJob(insight._id.toString());
   return toInsightStatusDto(insight);

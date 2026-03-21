@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Sparkles } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 import { statsApi } from "../lib/api";
+import { useAccount } from "../lib/account-context";
 import { useAuth } from "../lib/auth-context";
 import { getErrorMessage } from "../lib/api-error";
 import { formatCurrency as formatCurrencyValue, formatMonthShort } from "../lib/formatting";
@@ -77,6 +78,7 @@ function parseForecastWindow(value: string | null): 3 | 6 {
 export function StatsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { activeAccountId } = useAccount();
   const { user, isAmountsHidden } = useAuth();
   const [period, setPeriod] = useState<"semester" | "year">(() => parsePeriod(searchParams.get("period")));
   const [forecastWindow, setForecastWindow] = useState<3 | 6>(() =>
@@ -113,6 +115,13 @@ export function StatsPage() {
   }, [forecastWindow, period, setSearchParams]);
 
   const loadStats = useCallback(async () => {
+    if (!activeAccountId) {
+      setSnapshot(null);
+      setLoading(false);
+      setRefreshing(false);
+      setLoadError("Conta ativa em falta.");
+      return;
+    }
     const requestId = ++requestIdRef.current;
     const hasSnapshot = hasSnapshotRef.current;
     if (hasSnapshot) {
@@ -143,7 +152,19 @@ export function StatsPage() {
         setRefreshing(false);
       }
     }
-  }, [forecastWindow, period]);
+  }, [activeAccountId, forecastWindow, period]);
+
+  useEffect(() => {
+    requestIdRef.current += 1;
+    hasSnapshotRef.current = false;
+    setSnapshot(null);
+    setLoading(true);
+    setRefreshing(false);
+    setLoadError(null);
+    setInsightOpen(false);
+    setSelectedDriver(null);
+    setSelectedTrendIndex(null);
+  }, [activeAccountId]);
 
   useEffect(() => {
     hasSnapshotRef.current = snapshot !== null;

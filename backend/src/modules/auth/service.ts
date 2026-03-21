@@ -746,30 +746,6 @@ export async function deleteMe(userId: string, currentPassword: string): Promise
     unauthorized("Password atual inválida", "CURRENT_PASSWORD_INVALID");
   }
 
-  const memberships = await AccountMembershipModel.find({ userId, status: "active" }).lean();
-  const accountIds = memberships.map((item) => item.accountId);
-  const accounts = await AccountModel.find({ _id: { $in: accountIds } }).lean();
-  const accountById = new Map(accounts.map((account) => [account._id.toString(), account]));
-
-  const sharedOwnerMemberships = memberships.filter((membership) => {
-    const account = accountById.get(membership.accountId.toString());
-    return account?.type === "shared" && membership.role === "owner";
-  });
-
-  for (const membership of sharedOwnerMemberships) {
-    const account = accountById.get(membership.accountId.toString());
-    if (account && account.activeOwnerCount <= 1) {
-      unprocessable(
-        "Não pode apagar a conta sendo o último owner de uma conta partilhada",
-        "LAST_OWNER_CANNOT_DELETE_ACCOUNT",
-      );
-    }
-  }
-
-  const sharedAccountIds = memberships
-    .filter((membership) => accountById.get(membership.accountId.toString())?.type === "shared")
-    .map((membership) => membership.accountId);
-
   const now = new Date();
   const deletedEmail = `deleted_${user._id.toString()}@deleted.local`;
   const disabledPasswordHash = await hashPassword(randomBytes(24).toString("hex"));
@@ -777,6 +753,45 @@ export async function deleteMe(userId: string, currentPassword: string): Promise
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
+      const activeMemberships = await AccountMembershipModel.find({ userId, status: "active" }).session(session);
+      const accountIds = activeMemberships.map((item) => item.accountId);
+      const accounts = await AccountModel.find({ _id: { $in: accountIds } }).session(session);
+      const accountById = new Map(accounts.map((account) => [account._id.toString(), account]));
+
+      const sharedAccountIds = activeMemberships
+        .filter((membership) => accountById.get(membership.accountId.toString())?.type === "shared")
+        .map((membership) => membership.accountId);
+      const ownerSharedAccountIds = Array.from(
+        new Set(
+          activeMemberships
+            .filter((membership) => {
+              const account = accountById.get(membership.accountId.toString());
+              return account?.type === "shared" && membership.role === "owner";
+            })
+            .map((membership) => membership.accountId.toString()),
+        ),
+      );
+
+      for (const accountId of ownerSharedAccountIds) {
+        const result = await AccountModel.updateOne(
+          {
+            _id: accountId,
+            activeOwnerCount: { $gt: 1 },
+          },
+          {
+            $inc: { activeOwnerCount: -1 },
+          },
+          { session },
+        );
+
+        if (result.modifiedCount === 0) {
+          unprocessable(
+            "Não pode apagar a conta sendo o último owner de uma conta partilhada",
+            "LAST_OWNER_CANNOT_DELETE_ACCOUNT",
+          );
+        }
+      }
+
       if (sharedAccountIds.length > 0) {
         await AccountMembershipModel.updateMany(
           {
@@ -792,20 +807,6 @@ export async function deleteMe(userId: string, currentPassword: string): Promise
           },
           { session },
         );
-
-        const ownerSharedAccountIds = sharedOwnerMemberships.map((membership) => membership.accountId);
-        if (ownerSharedAccountIds.length > 0) {
-          await AccountModel.updateMany(
-            {
-              _id: { $in: ownerSharedAccountIds },
-              activeOwnerCount: { $gt: 0 },
-            },
-            {
-              $inc: { activeOwnerCount: -1 },
-            },
-            { session },
-          );
-        }
       }
 
       await Promise.all([

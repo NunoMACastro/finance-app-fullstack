@@ -21,15 +21,15 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - Autorizacao por membership e role
   - Regras de negocio de orcamento/transacoes/stats
 - MongoDB
-  - Persistencia de users, accounts, memberships, income categories, budgets, transactions, recurring rules, stats snapshots e refresh tokens
+  - Persistencia de users, accounts, memberships, income categories, budgets, transactions, recurring rules, stats snapshots, stats insights e refresh tokens
 
 ## Arquitetura funcional
 
 1. User autentica via `/auth/login` ou `/auth/register`.
-2. Frontend guarda `accessToken` + `refreshToken`.
+2. Frontend guarda apenas `accessToken` em memoria; `refreshToken` fica em cookie HttpOnly.
 3. Frontend carrega `accounts` e escolhe `activeAccountId`.
 4. Cada pedido financeiro segue com `Authorization: Bearer <token>` e `X-Account-Id`.
-5. Backend valida token e contexto de conta (`requireAccountContext`).
+5. Backend valida token e contexto de conta (`requireStrictAccountContext`) nos endpoints account-scoped.
 6. Regras por role:
    - leitura financeira: `owner|editor|viewer`
    - escrita financeira: `owner|editor`
@@ -42,12 +42,13 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
 - Middleware de auth:
   - `requireAuth` valida JWT access token
 - Middleware de contexto de conta:
-  - resolve conta via `X-Account-Id` ou fallback para `personalAccountId`
+  - exige `X-Account-Id` nos endpoints financeiros
   - valida membership ativa
 - Modulos de dominio:
   - `auth`, `accounts`, `income-categories`, `budgets`, `transactions`, `recurring`, `stats`
 - Scheduler:
-  - job diario gera recorrencias e materializa snapshots de stats
+  - job diario gera recorrencias com lock distribuido e heartbeat
+  - snapshots de stats continuam on-demand (nao materializados pelo scheduler)
 
 ## Componentes frontend
 
@@ -66,7 +67,7 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - operacoes de contas partilhadas
 - `http-client`:
   - injecao de token e `X-Account-Id`
-  - refresh token automatico em 401
+  - refresh automatico em 401 usando cookie HttpOnly
   - fila para pedidos concorrentes durante refresh
 - Instrumentacao:
   - `@vercel/analytics/react` montado no root (`App`) para page views

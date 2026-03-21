@@ -43,6 +43,7 @@ export const createInsightSchema = z
     endingMonth: monthKey.optional(),
     year: z.coerce.number().int().min(1970).max(9999).optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
     if (value.periodType === "semester" && value.year !== undefined) {
       ctx.addIssue({

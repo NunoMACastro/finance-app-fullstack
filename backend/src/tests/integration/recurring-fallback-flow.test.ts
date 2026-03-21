@@ -11,6 +11,44 @@ function monthKeyFromOffset(offset: number): string {
 }
 
 describe("recurring fallback integration", () => {
+  test("recurring endpoints validate ObjectId params", async () => {
+    const month = monthKeyFromOffset(0);
+
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Ines",
+      email: "ines.recurring-objectid@example.com",
+      password: "StrongPass1!",
+    });
+
+    expect(registerRes.status).toBe(201);
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
+
+    const invalidIdRes = await request(getIntegrationApp())
+      .put("/api/v1/recurring-rules/not-an-object-id")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        name: "Atualizacao invalida",
+      });
+
+    expect(invalidIdRes.status).toBe(422);
+    expect(invalidIdRes.body.code).toBe("VALIDATION_ERROR");
+    expect(invalidIdRes.body.details?.id).toBe("invalid object id");
+
+    const invalidReassignRes = await request(getIntegrationApp())
+      .post("/api/v1/recurring-rules/not-an-object-id/reassign-category")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        categoryId: "cat_any",
+      });
+
+    expect(invalidReassignRes.status).toBe(422);
+    expect(invalidReassignRes.body.code).toBe("VALIDATION_ERROR");
+    expect(invalidReassignRes.body.details?.id).toBe("invalid object id");
+  });
+
   test("expense fallback creates protected budget category and supports reassign migration", async () => {
     const month = monthKeyFromOffset(-1);
 
@@ -34,6 +72,22 @@ describe("recurring fallback integration", () => {
       });
 
     expect(budgetRes.status).toBe(200);
+
+    const protectedCategoryRes = await request(getIntegrationApp())
+      .post("/api/v1/recurring-rules")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        type: "expense",
+        name: "Teste protegido",
+        amount: 50,
+        dayOfMonth: 1,
+        categoryId: RECURRING_EXPENSE_FALLBACK_CATEGORY_ID,
+        startMonth: month,
+      });
+
+    expect(protectedCategoryRes.status).toBe(422);
+    expect(protectedCategoryRes.body.code).toBe("RECURRING_CATEGORY_PROTECTED");
 
     const createRuleRes = await request(getIntegrationApp())
       .post("/api/v1/recurring-rules")

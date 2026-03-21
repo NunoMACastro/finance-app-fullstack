@@ -2,9 +2,11 @@ import { z } from "zod";
 
 const objectId = z.string().regex(/^[a-fA-F0-9]{24}$/, "invalid object id");
 
-export const createAccountSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-});
+export const createAccountSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+  })
+  .strict();
 
 export const accountIdParamsSchema = z.object({
   accountId: objectId,
@@ -15,10 +17,14 @@ export const memberParamsSchema = z.object({
   userId: objectId,
 });
 
-export const joinByCodeSchema = z.object({
-  code: z.string().trim().min(1).max(64),
-});
+export const joinByCodeSchema = z
+  .object({
+    code: z.string().trim().min(1).max(64),
+  })
+  .strict();
 
-export const updateRoleSchema = z.object({
-  role: z.enum(["owner", "editor", "viewer"]),
-});
+export const updateRoleSchema = z
+  .object({
+    role: z.enum(["owner", "editor", "viewer"]),
+  })
+  .strict();
