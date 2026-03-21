@@ -55,6 +55,7 @@ interface RefreshResponse {
 }
 
 interface SessionDto {
+  sid: string;
   jti: string;
   deviceInfo: string | null;
   createdAt: string;
@@ -423,68 +424,108 @@ export async function refresh(refreshToken: string | undefined, req?: Request): 
   }
   assertUserActive(user);
 
-  const session = await AuthSessionModel.findOne({ sid: payload.sid, userId: payload.sub });
-  if (!session || session.status !== "active" || session.expiresAt.getTime() <= Date.now()) {
-    unauthorized("Sessão inválida ou revogada", "SESSION_INVALID");
-  }
-
+  const tokenHash = sha256(refreshToken);
   const tokenDoc = await RefreshTokenModel.findOne({
     userId: payload.sub,
     sid: payload.sid,
     jti: payload.jti,
-  });
+  }).select({ tokenHash: 1, revokedAt: 1, expiresAt: 1 });
 
   if (!tokenDoc) {
-    await revokeSessionFamily(payload.sid, "compromised");
     unauthorized("Refresh token revogado ou expirado", "REFRESH_TOKEN_REVOKED");
   }
 
-  if (tokenDoc.tokenHash !== sha256(refreshToken)) {
-    await revokeSessionFamily(payload.sid, "compromised");
+  if (tokenDoc.tokenHash !== tokenHash) {
     unauthorized("Refresh token inválido", "REFRESH_TOKEN_INVALID");
   }
 
-  if (tokenDoc.revokedAt || tokenDoc.expiresAt.getTime() <= Date.now()) {
-    await revokeSessionFamily(payload.sid, "compromised");
+  if (tokenDoc.expiresAt.getTime() <= Date.now()) {
     unauthorized("Refresh token revogado ou expirado", "REFRESH_TOKEN_REVOKED");
   }
 
-  const nextJti = newId();
-  const when = new Date();
-  tokenDoc.revokedAt = when;
-  tokenDoc.replacedByJti = nextJti;
-  await tokenDoc.save();
+  const rotationSession = await mongoose.startSession();
+  try {
+    let accessToken = "";
+    let nextRefreshToken = "";
+    const nextJti = newId();
+    const now = new Date();
+    const expiresAt = nextRefreshExpiry();
+    const deviceInfo = req?.get("user-agent") ?? null;
 
-  const accessToken = signAccessToken(payload.sub, payload.sid);
-  const nextRefreshToken = signRefreshToken(payload.sub, payload.sid, nextJti);
-  const expiresAt = nextRefreshExpiry();
-
-  await Promise.all([
-    RefreshTokenModel.create({
-      userId: payload.sub,
-      sid: payload.sid,
-      jti: nextJti,
-      tokenHash: sha256(nextRefreshToken),
-      expiresAt,
-      deviceInfo: req?.get("user-agent") ?? null,
-    }),
-    AuthSessionModel.updateOne(
-      { sid: payload.sid, userId: payload.sub },
-      {
-        $set: {
-          currentRefreshJti: nextJti,
-          expiresAt,
-          lastSeenAt: when,
-          deviceInfo: req?.get("user-agent") ?? null,
+    await rotationSession.withTransaction(async () => {
+      // CAS gate: only the current refresh jti may advance this session.
+      const sessionDoc = await AuthSessionModel.findOneAndUpdate(
+        {
+          sid: payload.sid,
+          userId: payload.sub,
+          status: "active",
+          expiresAt: { $gt: now },
+          currentRefreshJti: payload.jti,
         },
-      },
-    ),
-  ]);
+        {
+          $set: {
+            currentRefreshJti: nextJti,
+            expiresAt,
+            lastSeenAt: now,
+            deviceInfo,
+          },
+        },
+        {
+          new: true,
+          session: rotationSession,
+        },
+      );
 
-  return {
-    accessToken,
-    refreshToken: nextRefreshToken,
-  };
+      if (!sessionDoc) {
+        unauthorized("Refresh token revogado ou expirado", "REFRESH_TOKEN_REVOKED");
+      }
+
+      const revokedToken = await RefreshTokenModel.findOneAndUpdate(
+        {
+          _id: tokenDoc._id,
+          revokedAt: null,
+        },
+        {
+          $set: {
+            revokedAt: now,
+            replacedByJti: nextJti,
+          },
+        },
+        {
+          new: true,
+          session: rotationSession,
+        },
+      );
+
+      if (!revokedToken) {
+        unauthorized("Refresh token revogado ou expirado", "REFRESH_TOKEN_REVOKED");
+      }
+
+      nextRefreshToken = signRefreshToken(payload.sub, payload.sid, nextJti);
+      accessToken = signAccessToken(payload.sub, payload.sid);
+
+      await RefreshTokenModel.create(
+        [
+          {
+            userId: payload.sub,
+            sid: payload.sid,
+            jti: nextJti,
+            tokenHash: sha256(nextRefreshToken),
+            expiresAt,
+            deviceInfo,
+          },
+        ],
+        { session: rotationSession },
+      );
+    });
+
+    return {
+      accessToken,
+      refreshToken: nextRefreshToken,
+    };
+  } finally {
+    await rotationSession.endSession();
+  }
 }
 
 export async function logout(refreshToken?: string): Promise<void> {
@@ -638,6 +679,7 @@ export async function listSessions(userId: string): Promise<SessionDto[]> {
 
   const sessions = await AuthSessionModel.find({ userId }).sort({ createdAt: -1 }).lean();
   return sessions.map((session) => ({
+    sid: session.sid,
     jti: session.sid,
     deviceInfo: session.deviceInfo ?? null,
     createdAt: session.createdAt.toISOString(),

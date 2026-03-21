@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import request from "supertest";
+import { AccountMembershipModel } from "../../models/account-membership.model.js";
+import { AccountModel } from "../../models/account.model.js";
 import { getIntegrationApp } from "./harness.js";
 
 function monthKeyFromNow() {
@@ -8,6 +10,167 @@ function monthKeyFromNow() {
 }
 
 describe("accounts flow integration", () => {
+  test("joining with an old invite code fails after rotation and the new code works", async () => {
+    const ownerRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Invite Owner",
+      email: "invite-owner@example.com",
+      password: "StrongPass1!",
+    });
+    expect(ownerRegister.status).toBe(201);
+
+    const memberRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Invite Member",
+      email: "invite-member@example.com",
+      password: "StrongPass1!",
+    });
+    expect(memberRegister.status).toBe(201);
+
+    const ownerToken = ownerRegister.body.accessToken as string;
+    const memberToken = memberRegister.body.accessToken as string;
+    const memberUserId = memberRegister.body.user.id as string;
+
+    const sharedAccountRes = await request(getIntegrationApp())
+      .post("/api/v1/accounts")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ name: "Invite Race Test" });
+    expect(sharedAccountRes.status).toBe(201);
+    const sharedAccountId = sharedAccountRes.body.id as string;
+
+    const firstInviteRes = await request(getIntegrationApp())
+      .post(`/api/v1/accounts/${sharedAccountId}/invite-codes`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({});
+    expect(firstInviteRes.status).toBe(200);
+    const firstInviteCode = firstInviteRes.body.code as string;
+
+    const rotatedInviteRes = await request(getIntegrationApp())
+      .post(`/api/v1/accounts/${sharedAccountId}/invite-codes`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({});
+    expect(rotatedInviteRes.status).toBe(200);
+    const rotatedInviteCode = rotatedInviteRes.body.code as string;
+
+    const staleJoinRes = await request(getIntegrationApp())
+      .post("/api/v1/accounts/join")
+      .set("Authorization", `Bearer ${memberToken}`)
+      .send({ code: firstInviteCode });
+    expect(staleJoinRes.status).toBe(422);
+    expect(staleJoinRes.body.code).toBe("INVITE_CODE_INVALID_OR_EXPIRED");
+
+    const staleMembership = await AccountMembershipModel.findOne({
+      accountId: sharedAccountId,
+      userId: memberUserId,
+    }).lean();
+    expect(staleMembership).toBeNull();
+
+    const freshJoinRes = await request(getIntegrationApp())
+      .post("/api/v1/accounts/join")
+      .set("Authorization", `Bearer ${memberToken}`)
+      .send({ code: rotatedInviteCode });
+    expect(freshJoinRes.status).toBe(200);
+    expect(freshJoinRes.body.role).toBe("viewer");
+  });
+
+  test("rejoining an inactive owner membership reconciles activeOwnerCount", async () => {
+    const ownerRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Owner",
+      email: "owner-rejoin@example.com",
+      password: "StrongPass1!",
+    });
+    expect(ownerRegister.status).toBe(201);
+
+    const memberRegister = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Member",
+      email: "member-rejoin@example.com",
+      password: "StrongPass1!",
+    });
+    expect(memberRegister.status).toBe(201);
+
+    const ownerToken = ownerRegister.body.accessToken as string;
+    const memberToken = memberRegister.body.accessToken as string;
+    const ownerUserId = ownerRegister.body.user.id as string;
+    const memberUserId = memberRegister.body.user.id as string;
+
+    const createShared = await request(getIntegrationApp())
+      .post("/api/v1/accounts")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ name: "Rejoin Test" });
+
+    expect(createShared.status).toBe(201);
+    const sharedAccountId = createShared.body.id as string;
+
+    const inviteRes = await request(getIntegrationApp())
+      .post(`/api/v1/accounts/${sharedAccountId}/invite-codes`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({});
+
+    expect(inviteRes.status).toBe(200);
+    const inviteCode = inviteRes.body.code as string;
+
+    const memberJoin = await request(getIntegrationApp())
+      .post("/api/v1/accounts/join")
+      .set("Authorization", `Bearer ${memberToken}`)
+      .send({ code: inviteCode });
+
+    expect(memberJoin.status).toBe(200);
+    expect(memberJoin.body.role).toBe("viewer");
+
+    const promoteMember = await request(getIntegrationApp())
+      .patch(`/api/v1/accounts/${sharedAccountId}/members/${memberUserId}/role`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ role: "owner" });
+
+    expect(promoteMember.status).toBe(200);
+    expect(promoteMember.body.role).toBe("owner");
+
+    const ownerLeave = await request(getIntegrationApp())
+      .post(`/api/v1/accounts/${sharedAccountId}/leave`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({});
+
+    expect(ownerLeave.status).toBe(204);
+
+    const accountAfterLeave = await AccountModel.findById(sharedAccountId).lean();
+    expect(accountAfterLeave?.activeOwnerCount).toBe(1);
+
+    const ownerRejoin = await request(getIntegrationApp())
+      .post("/api/v1/accounts/join")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ code: inviteCode });
+
+    expect(ownerRejoin.status).toBe(200);
+    expect(ownerRejoin.body.role).toBe("owner");
+
+    const ownerMembershipAfterRejoin = await AccountMembershipModel.findOne({
+      accountId: sharedAccountId,
+      userId: ownerUserId,
+    }).lean();
+    expect(ownerMembershipAfterRejoin?.status).toBe("active");
+    expect(ownerMembershipAfterRejoin?.leftAt).toBeNull();
+    expect(ownerMembershipAfterRejoin?.role).toBe("owner");
+
+    const accountAfterRejoin = await AccountModel.findById(sharedAccountId).lean();
+    expect(accountAfterRejoin?.activeOwnerCount).toBe(2);
+
+    const memberLeave = await request(getIntegrationApp())
+      .post(`/api/v1/accounts/${sharedAccountId}/leave`)
+      .set("Authorization", `Bearer ${memberToken}`)
+      .send({});
+
+    expect(memberLeave.status).toBe(204);
+
+    const accountAfterMemberLeave = await AccountModel.findById(sharedAccountId).lean();
+    expect(accountAfterMemberLeave?.activeOwnerCount).toBe(1);
+
+    const lastOwnerLeaveBlocked = await request(getIntegrationApp())
+      .post(`/api/v1/accounts/${sharedAccountId}/leave`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({});
+
+    expect(lastOwnerLeaveBlocked.status).toBe(422);
+    expect(lastOwnerLeaveBlocked.body.code).toBe("LAST_OWNER_CANNOT_LEAVE");
+  });
+
   test("shared account supports invite/join, role permissions and dataset isolation", async () => {
     const month = monthKeyFromNow();
 

@@ -84,14 +84,15 @@ describe("profile flow integration", () => {
     expect(sessionsRes.body.length).toBeGreaterThanOrEqual(2);
 
     const historicalSession = sessionsRes.body[1] ?? sessionsRes.body[0];
-    const jti = historicalSession?.jti as string;
+    const sid = historicalSession?.sid as string;
+    expect(historicalSession?.jti).toBe(sid);
     const revokeOneRes = await request(getIntegrationApp())
-      .delete(`/api/v1/auth/sessions/${jti}`)
+      .delete(`/api/v1/auth/sessions/${sid}`)
       .set("Authorization", `Bearer ${secondToken}`);
     expect(revokeOneRes.status).toBe(204);
 
     const deleteRevokedRes = await request(getIntegrationApp())
-      .delete(`/api/v1/auth/sessions/${jti}`)
+      .delete(`/api/v1/auth/sessions/${sid}`)
       .set("Authorization", `Bearer ${secondToken}`);
     expect([204, 404]).toContain(deleteRevokedRes.status);
 

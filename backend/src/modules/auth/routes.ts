@@ -12,7 +12,7 @@ import {
   registerSchema,
   resetTutorialSchema,
   revokeAllSessionsSchema,
-  sessionJtiParamsSchema,
+  sessionSidParamsSchema,
   updateEmailSchema,
   updatePasswordSchema,
   updateProfileSchema,
@@ -183,11 +183,11 @@ authRouter.delete(
 );
 
 authRouter.delete(
-  "/sessions/:jti",
+  "/sessions/:sid",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const params = sessionJtiParamsSchema.parse(req.params);
-    await authService.revokeSession(req.auth!.userId, params.jti);
+    const params = sessionSidParamsSchema.parse(req.params);
+    await authService.revokeSession(req.auth!.userId, params.sid);
     res.status(204).send();
   }),
 );

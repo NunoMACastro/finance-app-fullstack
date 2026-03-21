@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import request from "supertest";
 import { getIntegrationApp } from "./harness.js";
+import { BudgetModel } from "../../models/budget.model.js";
 
 function monthKeyFromNow() {
   const now = new Date();
@@ -111,6 +112,24 @@ describe("budget + transactions integration", () => {
     expect(budgetRes.body.isReady).toBe(true);
     expect(budgetRes.body.totalBudget).toBe(0);
 
+    const forbiddenFieldsRes = await request(getIntegrationApp())
+      .post("/api/v1/transactions")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        month,
+        date: `${month}-11`,
+        type: "expense",
+        origin: "manual",
+        recurringRuleId: "0123456789abcdef01234567",
+        description: "Campo proibido",
+        amount: 12,
+        categoryId: "cat_despesas",
+      });
+
+    expect(forbiddenFieldsRes.status).toBe(422);
+    expect(forbiddenFieldsRes.body.code).toBe("VALIDATION_ERROR");
+
     const incomeRes = await request(getIntegrationApp())
       .post("/api/v1/transactions")
       .set("Authorization", `Bearer ${accessToken}`)
@@ -125,6 +144,7 @@ describe("budget + transactions integration", () => {
       });
 
     expect(incomeRes.status).toBe(201);
+    expect(incomeRes.body.origin).toBe("manual");
 
     const budgetAfterIncome = await request(getIntegrationApp())
       .get(`/api/v1/budgets/${month}`)
@@ -148,5 +168,143 @@ describe("budget + transactions integration", () => {
 
     expect(budgetAfterDelete.status).toBe(200);
     expect(budgetAfterDelete.body.totalBudget).toBe(0);
+  });
+
+  test("getBudget reconciles persisted totalBudget drift", async () => {
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Paula",
+      email: "paula.budget-drift@example.com",
+      password: "StrongPass1!",
+    });
+
+    expect(registerRes.status).toBe(201);
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
+    const month = monthKeyFromNow();
+
+    const budgetRes = await request(getIntegrationApp())
+      .put(`/api/v1/budgets/${month}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        totalBudget: 0,
+        categories: [{ id: "cat_despesas", name: "Despesas", percent: 100 }],
+      });
+
+    expect(budgetRes.status).toBe(200);
+
+    const incomeRes = await request(getIntegrationApp())
+      .post("/api/v1/transactions")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        month,
+        date: `${month}-10`,
+        type: "income",
+        description: "Salario",
+        amount: 1000,
+        categoryId: (await request(getIntegrationApp())
+          .get("/api/v1/income-categories")
+          .set("Authorization", `Bearer ${accessToken}`)
+          .set("X-Account-Id", personalAccountId)).body[0]?.id,
+      });
+
+    expect(incomeRes.status).toBe(201);
+
+    await BudgetModel.updateOne(
+      { accountId: personalAccountId, month },
+      {
+        $set: {
+          totalBudget: 123,
+        },
+      },
+    );
+
+    const beforeRead = await BudgetModel.findOne({ accountId: personalAccountId, month }).lean();
+    expect(beforeRead?.totalBudget).toBe(123);
+
+    const budgetAfterReadRes = await request(getIntegrationApp())
+      .get(`/api/v1/budgets/${month}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
+
+    expect(budgetAfterReadRes.status).toBe(200);
+    expect(budgetAfterReadRes.body.totalBudget).toBe(1000);
+
+    const afterRead = await BudgetModel.findOne({ accountId: personalAccountId, month }).lean();
+    expect(afterRead?.totalBudget).toBe(1000);
+  });
+
+  test("transaction list totals ignore cursor pagination", async () => {
+    const registerRes = await request(getIntegrationApp()).post("/api/v1/auth/register").send({
+      name: "Marta",
+      email: "marta.transactions-pagination@example.com",
+      password: "StrongPass1!",
+    });
+
+    expect(registerRes.status).toBe(201);
+    const accessToken = registerRes.body.accessToken as string;
+    const personalAccountId = registerRes.body.user.personalAccountId as string;
+    const month = monthKeyFromNow();
+
+    const budgetRes = await request(getIntegrationApp())
+      .put(`/api/v1/budgets/${month}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId)
+      .send({
+        totalBudget: 0,
+        categories: [{ id: "cat_despesas", name: "Despesas", percent: 100 }],
+      });
+
+    expect(budgetRes.status).toBe(200);
+    expect(budgetRes.body.isReady).toBe(true);
+
+    const transactionInputs = [
+      { date: `${month}-01`, amount: 10, description: "Despesa 1" },
+      { date: `${month}-02`, amount: 20, description: "Despesa 2" },
+      { date: `${month}-03`, amount: 30, description: "Despesa 3" },
+    ];
+
+    for (const input of transactionInputs) {
+      const createRes = await request(getIntegrationApp())
+        .post("/api/v1/transactions")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .set("X-Account-Id", personalAccountId)
+        .send({
+          month,
+          date: input.date,
+          type: "expense",
+          description: input.description,
+          amount: input.amount,
+          categoryId: "cat_despesas",
+        });
+
+      expect(createRes.status).toBe(201);
+    }
+
+    const firstPageRes = await request(getIntegrationApp())
+      .get(`/api/v1/transactions?month=${month}&limit=2`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
+
+    expect(firstPageRes.status).toBe(200);
+    expect(firstPageRes.body.items).toHaveLength(2);
+    expect(firstPageRes.body.totalCount).toBe(3);
+    expect(firstPageRes.body.totalAmount).toBe(60);
+    expect(firstPageRes.body.hasMore).toBe(true);
+    expect(firstPageRes.body.nextCursor).toEqual(expect.any(String));
+
+    const secondPageRes = await request(getIntegrationApp())
+      .get(`/api/v1/transactions?month=${month}&limit=2&cursor=${firstPageRes.body.nextCursor}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .set("X-Account-Id", personalAccountId);
+
+    expect(secondPageRes.status).toBe(200);
+    expect(secondPageRes.body.items).toHaveLength(1);
+    expect(secondPageRes.body.totalCount).toBe(3);
+    expect(secondPageRes.body.totalAmount).toBe(60);
+    expect(secondPageRes.body.hasMore).toBe(false);
+    expect(secondPageRes.body.nextCursor).toBeNull();
+    expect(secondPageRes.body.items[0].amount).toBe(10);
   });
 });

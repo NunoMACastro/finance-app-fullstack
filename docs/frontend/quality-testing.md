@@ -24,6 +24,8 @@ Nota:
 - TypeScript (`tsc --noEmit`)
 - Theme contract guardrail (`scripts/check-theme-contract.mjs`)
 - Token guardrail (`scripts/check-tokens.mjs`)
+  - varre todo o `src/` com extensões suportadas
+  - `src/imports/` não tem exclusão especial
 - ESLint (`@typescript-eslint`, hooks, react-refresh)
 - Vitest + Testing Library + jsdom
 - Playwright (E2E local/manual)

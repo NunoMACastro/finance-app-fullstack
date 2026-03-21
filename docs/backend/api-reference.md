@@ -65,6 +65,7 @@ Response `200`: igual a register.
 
 ### POST `/auth/refresh`
 Le primeiro o cookie `HttpOnly`. Durante a transicao, continua a aceitar `refreshToken` no body.
+O refresh e one-time use: um token antigo/repetido e rejeitado com `401`, e uma corrida entre pedidos concorrentes nao pode gerar dois refresh tokens validos a partir do mesmo `jti`.
 
 Response `200`:
 ```json
@@ -149,11 +150,13 @@ Efeito adicional: revoga todas as sessoes do user.
 
 ### GET `/auth/sessions`
 Auth obrigatoria. Lista sessoes explicitas por dispositivo/login.
+O identificador canonico da sessao e `sid`. O campo `jti` existe apenas como alias legado temporario para compatibilidade.
 
 Response `200`:
 ```json
 [
   {
+    "sid": "...",
     "jti": "...",
     "deviceInfo": "Mozilla/5.0 ...",
     "createdAt": "2026-03-12T10:00:00.000Z",
@@ -163,8 +166,9 @@ Response `200`:
 ]
 ```
 
-### DELETE `/auth/sessions/:jti`
+### DELETE `/auth/sessions/:sid`
 Auth obrigatoria. Revoga uma sessão ativa.
+O caminho usa o identificador canonico da sessao (`sid`); `jti` nao e o identificador de refresh token aqui.
 
 Se a sessão já estiver revogada, o mesmo endpoint remove-a do histórico (cleanup).
 
@@ -220,6 +224,9 @@ Resumo mensal completo.
 ### GET `/transactions?month=YYYY-MM&type=expense&categoryId=...&origin=...&dateFrom=...&dateTo=...&cursor=...&limit=...`
 Listagem paginada/filtravel de movimentos.
 
+- `cursor` afecta apenas a paginação dos `items`
+- `totalCount` e `totalAmount` são calculados sobre todo o conjunto filtrado, independentemente do cursor
+
 Response `200`:
 ```json
 {
@@ -232,7 +239,35 @@ Response `200`:
 ```
 
 ### POST `/transactions`
-Cria apenas lançamentos manuais. `origin` e `recurringRuleId` deixaram de ser aceites no contrato publico.
+Cria apenas lançamentos manuais.
+O request publico aceita apenas:
+- `month`
+- `date`
+- `type`
+- `description`
+- `amount`
+- `categoryId`
+
+`origin` e `recurringRuleId` nao sao input publico neste endpoint; sao preenchidos pelo backend nos fluxos de recorrencia e resposta.
+
+Response `201`:
+```json
+{
+  "id": "...",
+  "accountId": "...",
+  "userId": "...",
+  "month": "2026-03",
+  "date": "2026-03-10",
+  "type": "expense",
+  "origin": "manual",
+  "description": "Supermercado",
+  "amount": 45.5,
+  "categoryId": "cat1",
+  "categoryResolution": "direct",
+  "createdAt": "2026-03-12T10:00:00.000Z",
+  "updatedAt": "2026-03-12T10:00:00.000Z"
+}
+```
 
 Para `expense`:
 - requer budget valido no mes
@@ -293,6 +328,10 @@ Request:
 ```
 
 Response `200`: `AccountSummary`.
+
+- Se o user já tiver tido membership nesta conta, o backend reativa essa membership em vez de criar outra.
+- A role anterior é preservada na reativação; quando a membership reativada é `owner`, o contador operacional de owners é reconciliado automaticamente.
+- O join só aceita o convite actualmente activo da conta (`activeInviteCodeId`); códigos antigos ou já revogados falham com `INVITE_CODE_INVALID_OR_EXPIRED`.
 
 ### POST `/accounts/:accountId/invite-codes`
 Owner apenas. Gera/regenera codigo de convite.
@@ -410,6 +449,8 @@ Retorna templates predefinidos.
 
 ### GET `/budgets/:month`
 `month` formato `YYYY-MM`.
+
+Recalcula `totalBudget` a partir das receitas e persiste a correcao quando o documento estiver desalinhado.
 
 Response `200` (`MonthBudget`):
 ```json

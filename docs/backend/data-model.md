@@ -8,6 +8,7 @@
 - `accountinvitecodes`
 - `budgets`
 - `transactions`
+- `authsessions`
 - `incomecategories`
 - `recurringrules`
 - `statssnapshots`
@@ -33,6 +34,8 @@ Campos chave:
 - `name`
 - `type` (`personal|shared`, index)
 - `createdByUserId` (index)
+- `activeOwnerCount` (contador operacional de owners ativos)
+- `activeInviteCodeId` (nullable, ponteiro para o convite actualmente activo em contas partilhadas)
 
 Indices:
 - unico parcial: `{ createdByUserId: 1, type: 1 }` com `type="personal"`
@@ -58,6 +61,9 @@ Campos chave:
 - `expiresAt` (index)
 - `revokedAt` (index, nullable)
 - `createdByUserId` (index)
+
+Semântica:
+- `revokedAt` marca histórico/auditoria do código anterior quando ocorre rotação.
 
 Indice:
 - `{ accountId: 1, revokedAt: 1, expiresAt: 1 }`
@@ -170,6 +176,26 @@ Indices:
 - `{ accountId: 1, periodType: 1, periodKey: 1, forecastWindow: 1, inputHash: 1, stale: 1, status: 1, generatedAt: -1, createdAt: -1 }`
 - unico parcial `{ accountId: 1, periodType: 1, periodKey: 1, forecastWindow: 1, inputHash: 1, stale: 1, status: 1 }` com filtro `stale=false` e `status=pending`
 
+## authsessions
+
+Campos chave:
+- `sid` (unique, index)
+- `userId` (index)
+- `status` (`active|revoked|compromised`, index)
+- `revokedAt` (nullable)
+- `compromisedAt` (nullable)
+- `currentRefreshJti` (nullable)
+- `expiresAt` (index)
+- `lastSeenAt` (nullable)
+- `deviceInfo` (nullable)
+
+Invariantes operacionais:
+- `currentRefreshJti` e a fonte de verdade da rotação ativa da sessao.
+- `POST /auth/refresh` so avanca a sessao quando o `jti` apresentado ainda coincide com `currentRefreshJti`.
+- `status != active` implica que a sessao nao pode refrescar.
+- replay/concurrency sao resolvidos por CAS transacional sobre `currentRefreshJti`.
+- A API publica de sessoes expõe `sid` como identificador canonico; `jti` em `GET /auth/sessions` e apenas alias legado do mesmo valor durante a transicao.
+
 ## refreshtokens
 
 Campos chave:
@@ -185,5 +211,7 @@ Campos chave:
 
 - Todo `user` deve referenciar `personalAccountId` valido.
 - Toda conta pessoal deve ter membership ativa owner do proprio user.
+- `activeOwnerCount` e mantido transacionalmente a partir das memberships ativas `owner`; reativacoes por convite precisam reconciliar esse contador antes do commit.
+- `activeInviteCodeId` aponta para o convite actualmente válido; joins usam esse campo como gate operacional.
 - Dados financeiros sao lidos/escritos por `accountId`.
 - `userId` em dados financeiros nao e criterio de autorizacao.

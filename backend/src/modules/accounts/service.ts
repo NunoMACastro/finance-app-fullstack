@@ -64,6 +64,24 @@ async function runInTransaction<T>(fn: (session: ClientSession) => Promise<T>): 
   }
 }
 
+async function reconcileActiveOwnerCount(accountId: string, session: ClientSession): Promise<void> {
+  const activeOwnerCount = await AccountMembershipModel.countDocuments({
+    accountId,
+    status: "active",
+    role: "owner",
+  }).session(session);
+
+  await AccountModel.updateOne(
+    { _id: accountId },
+    {
+      $set: {
+        activeOwnerCount,
+      },
+    },
+    { session },
+  );
+}
+
 async function getActiveMembership(userId: string, accountId: string, session?: ClientSession) {
   const query = AccountMembershipModel.findOne({
     accountId,
@@ -386,56 +404,86 @@ export async function joinByInviteCode(userId: string, code: string): Promise<Ac
 
   const personalAccountId = await ensurePersonalAccountForUser(userId);
 
-  const invite = await AccountInviteCodeModel.findOne({
-    codeHash: sha256(cleanCode),
-    revokedAt: null,
-    expiresAt: { $gt: new Date() },
-  }).sort({ createdAt: -1 });
+  return runInTransaction(async (session) => {
+    const invite = await AccountInviteCodeModel.findOne({
+      codeHash: sha256(cleanCode),
+      revokedAt: null,
+      expiresAt: { $gt: new Date() },
+    })
+      .sort({ createdAt: -1 })
+      .session(session);
 
-  if (!invite) {
-    unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
-  }
+    if (!invite) {
+      unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
+    }
 
-  const account = await getAccountOrThrow(invite.accountId.toString());
-  if (account.type !== "shared") {
-    unprocessable("Código não corresponde a conta partilhada", "INVITE_ONLY_SHARED_ACCOUNT");
-  }
-  if (!account.activeInviteCodeId || account.activeInviteCodeId.toString() !== invite._id.toString()) {
-    unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
-  }
+    const account = await getAccountOrThrow(invite.accountId.toString(), session);
+    if (account.type !== "shared") {
+      unprocessable("Código não corresponde a conta partilhada", "INVITE_ONLY_SHARED_ACCOUNT");
+    }
+    if (!account.activeInviteCodeId || account.activeInviteCodeId.toString() !== invite._id.toString()) {
+      unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
+    }
 
-  const membership = await AccountMembershipModel.findOneAndUpdate(
-    {
-      accountId: account._id,
-      userId,
-    },
-    {
-      $setOnInsert: {
-        role: "viewer",
+    // CAS gate: only the currently active invite may be redeemed by this transaction.
+    const claimedInvite = await AccountModel.findOneAndUpdate(
+      {
+        _id: account._id,
+        activeInviteCodeId: invite._id,
       },
-      $set: {
-        status: "active",
-        leftAt: null,
+      {
+        $set: {
+          activeInviteCodeId: invite._id,
+        },
       },
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    },
-  );
+      {
+        session,
+        new: true,
+      },
+    );
 
-  if (!membership) {
-    notFound("Membro não encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
-  }
+    if (!claimedInvite) {
+      unprocessable("Código de convite inválido ou expirado", "INVITE_CODE_INVALID_OR_EXPIRED");
+    }
 
-  return {
-    id: account._id.toString(),
-    name: account.name,
-    type: account.type,
-    role: membership.role,
-    isPersonalDefault: account._id.toString() === personalAccountId,
-  };
+    const membership = await AccountMembershipModel.findOneAndUpdate(
+      {
+        accountId: account._id,
+        userId,
+      },
+      {
+        $setOnInsert: {
+          role: "viewer",
+        },
+        $set: {
+          status: "active",
+          leftAt: null,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+        session,
+      },
+    );
+
+    if (!membership) {
+      notFound("Membro não encontrado", "ACCOUNT_MEMBER_NOT_FOUND");
+    }
+
+    if (membership.role === "owner") {
+      await reconcileActiveOwnerCount(account._id.toString(), session);
+    }
+
+    return {
+      id: account._id.toString(),
+      name: account.name,
+      type: account.type,
+      role: membership.role,
+      isPersonalDefault: account._id.toString() === personalAccountId,
+    };
+  });
 }
 
 export async function listMembers(userId: string, accountId: string): Promise<MemberDto[]> {

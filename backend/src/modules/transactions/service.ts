@@ -218,35 +218,37 @@ export async function listTransactions(
   }
 
   const limit = query.limit ?? 50;
-  const filter: Record<string, unknown> = {
-    accountId,
+  const accountObjectId = new Types.ObjectId(accountId);
+  const baseFilter: Record<string, unknown> = {
+    accountId: accountObjectId,
     month: query.month,
   };
 
-  if (query.type) filter.type = query.type;
-  if (query.categoryId) filter.categoryId = query.categoryId;
-  if (query.origin) filter.origin = query.origin;
+  if (query.type) baseFilter.type = query.type;
+  if (query.categoryId) baseFilter.categoryId = query.categoryId;
+  if (query.origin) baseFilter.origin = query.origin;
   if (query.dateFrom || query.dateTo) {
-    filter.date = {
+    baseFilter.date = {
       ...(query.dateFrom ? { $gte: parseAndValidateDate(query.dateFrom) } : {}),
       ...(query.dateTo ? { $lte: parseAndValidateDate(query.dateTo) } : {}),
     };
   }
 
+  const pageFilter: Record<string, unknown> = { ...baseFilter };
   const decodedCursor = decodeCursor(query.cursor);
   if (decodedCursor) {
     const cursorDate = parseAndValidateDate(decodedCursor.date);
-    filter.$or = [
+    pageFilter.$or = [
       { date: { $lt: cursorDate } },
       { date: cursorDate, _id: { $lt: new Types.ObjectId(decodedCursor.id) } },
     ];
   }
 
-  const results = await TransactionModel.find(filter)
+  const results = await TransactionModel.find(pageFilter)
     .sort({ date: -1, _id: -1 })
     .limit(limit + 1);
   const aggregate = await TransactionModel.aggregate<{ _id: null; totalCount: number; totalAmount: number }>([
-    { $match: filter },
+    { $match: baseFilter },
     {
       $group: {
         _id: null,
