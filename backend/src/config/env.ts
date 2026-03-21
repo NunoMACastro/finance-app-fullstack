@@ -69,10 +69,6 @@ if (raw.NODE_ENV !== "test" && corsOrigin.trim() === "*") {
   throw new Error("Invalid environment configuration: CORS_ORIGIN='*' is not allowed");
 }
 
-if (raw.NODE_ENV === "production" && !metricsBearerToken) {
-  throw new Error("Invalid environment configuration: METRICS_BEARER_TOKEN is required in production");
-}
-
 export const env = {
   NODE_ENV: raw.NODE_ENV,
   PORT: raw.PORT,

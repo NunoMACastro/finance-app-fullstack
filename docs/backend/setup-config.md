@@ -51,12 +51,14 @@ Definidas em `src/config/env.ts`.
 - `OPENAI_INSIGHT_CACHE_TTL_SECONDS`: legado/deprecated; o fluxo atual usa persistencia em DB + dedupe por `inputHash`
 - `CRON_ENABLED`: ativa scheduler
 - `TIMEZONE`: timezone cron (ex: `Europe/Lisbon`)
+- `METRICS_BEARER_TOKEN`: protege `/metrics` com `Authorization: Bearer ...` quando definido; se ausente, a rota fica desativada
 
 ## Regras de hardening em producao
 
 Em `NODE_ENV=production`:
 - `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN` sao obrigatorias.
 - `CORS_ORIGIN="*"` e proibido.
+- `METRICS_BEARER_TOKEN` e recomendado se `/metrics` for necessário; sem ele, o endpoint nao e exposto.
 
 ## Endpoints de estado
 
@@ -66,7 +68,8 @@ Em `NODE_ENV=production`:
   - retorna `200 { status: "ready" }` se DB ligada
   - retorna `503 { status: "not_ready" }` caso contrario
 - `GET /metrics`
-  - texto Prometheus
+  - texto Prometheus, se `METRICS_BEARER_TOKEN` estiver definido
+  - caso contrario, a rota nao e exposta
 
 ## Notas de seguranca
 

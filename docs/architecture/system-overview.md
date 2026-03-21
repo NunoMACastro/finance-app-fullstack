@@ -93,7 +93,7 @@ Aplicacao de gestao financeira pessoal e partilhada, com:
   - `GET /health`
   - `GET /ready`
 - Metricas Prometheus:
-  - `GET /metrics`
+  - `GET /metrics` quando `METRICS_BEARER_TOKEN` estiver configurado
 - Logs:
   - `pino` com sanitizacao de URI Mongo em logs de conexao
 

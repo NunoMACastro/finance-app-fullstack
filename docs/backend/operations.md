@@ -64,7 +64,7 @@ Uso recomendado:
 - Em dev usa `pino-pretty`
 - Cada request recebe `x-request-id`
 - DB URI e mascarada nos logs de conexao
-- `/metrics` pode exigir `Authorization: Bearer <METRICS_BEARER_TOKEN>`
+- `/metrics` e exposta apenas quando `METRICS_BEARER_TOKEN` esta definido; nesse caso exige `Authorization: Bearer <METRICS_BEARER_TOKEN>`
 
 ## Erros operacionais comuns
 

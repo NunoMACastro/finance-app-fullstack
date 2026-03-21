@@ -104,19 +104,21 @@ export function createApp() {
     res.status(200).json({ status: "ready" });
   });
 
-  app.get("/metrics", async (req, res) => {
-    if (env.METRICS_BEARER_TOKEN) {
+  if (env.METRICS_BEARER_TOKEN) {
+    app.get("/metrics", async (req, res) => {
       const authHeader = req.headers.authorization;
       if (authHeader !== `Bearer ${env.METRICS_BEARER_TOKEN}`) {
         res.status(401).json({ code: "UNAUTHORIZED", message: "Credenciais inválidas para métricas" });
         return;
       }
-    }
 
-    const data = await getMetricsText();
-    res.setHeader("Content-Type", "text/plain; version=0.0.4");
-    res.status(200).send(data);
-  });
+      const data = await getMetricsText();
+      res.setHeader("Content-Type", "text/plain; version=0.0.4");
+      res.status(200).send(data);
+    });
+  } else if (env.NODE_ENV !== "test") {
+    logger.warn("Metrics endpoint disabled because METRICS_BEARER_TOKEN is not set");
+  }
 
   app.use("/api/v1", apiRouter);
 
