@@ -9,6 +9,7 @@ import {
   syncBudgetTotalFromTransactions,
 } from "../budgets/service.js";
 import { assertIncomeCategoryActive } from "../income-categories/service.js";
+import { markStatsInsightsStaleForAccount } from "../stats/service.js";
 
 interface TransactionDto {
   id: string;
@@ -311,6 +312,8 @@ export async function createTransaction(
     await syncBudgetTotalFromTransactions(accountId, transaction.month);
   }
 
+  await markStatsInsightsStaleForAccount(accountId);
+
   return toTransactionDto(transaction);
 }
 
@@ -388,6 +391,8 @@ export async function updateTransaction(
     await syncBudgetTotalFromTransactions(accountId, month);
   }
 
+  await markStatsInsightsStaleForAccount(accountId);
+
   return toTransactionDto(transaction);
 }
 
@@ -400,6 +405,8 @@ export async function deleteTransaction(accountId: string, transactionId: string
   if (deleted.type === "income") {
     await syncBudgetTotalFromTransactions(accountId, deleted.month);
   }
+
+  await markStatsInsightsStaleForAccount(accountId);
 }
 
 export { toTransactionDto };

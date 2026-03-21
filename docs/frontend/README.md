@@ -24,7 +24,7 @@ UI mobile-first para:
 
 - `main.tsx`: bootstrap
 - `app/App.tsx`: providers, gating de auth, maintenance mode, aviso desktop
-- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/recurring/*`, `/profile`, `/profile/*`, `/budget/:month/edit`, `/month/:month/category/:categoryId/movements`)
+- `app/routes.ts`: rotas lazy (`/`, `/stats`, `/stats/insights`, `/recurring/*`, `/profile`, `/profile/*`, `/budget/:month/edit`, `/month/:month/category/:categoryId/movements`)
 - `app/components/*`: ecras e layout
 - `app/lib/*`: API client, stores locais, contextos e tipos
 - `styles/*`: tema, tailwind, fontes
@@ -52,6 +52,7 @@ Escopo de stats v1:
   - `Drivers` (top 3)
   - `Tendência`
   - `Projeção`
+- o insight IA detalhado vive numa página dedicada (`/stats/insights`) e so e pedido apos acao explicita do utilizador
 - detalhe de categoria abre em `sheet` contextual, sem expansão inline pesada.
 
 Padrao de perfil v3:
@@ -98,6 +99,7 @@ Padrao de perfil v3:
 5. Router renderiza as rotas lazy reais:
    - `MonthPage` (`/`)
    - `StatsPage` (`/stats`)
+   - `StatsInsightsPage` (`/stats/insights`)
    - `RecurringRulesPage` (`/profile/recurring` e alias `/recurring/*`)
    - `BudgetEditorPage` (`/budget/:month/edit`)
    - `ProfilePage` e subpaginas (`/profile/*`)

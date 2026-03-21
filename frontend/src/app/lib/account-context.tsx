@@ -113,8 +113,12 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (!activeAccountId) {
+      applyActiveAccount(user.personalAccountId);
+    }
+
     void refreshAccounts();
-  }, [isAuthenticated, refreshAccounts, user]);
+  }, [activeAccountId, applyActiveAccount, isAuthenticated, refreshAccounts, user]);
 
   const setActiveAccount = useCallback(
     (accountId: string) => {

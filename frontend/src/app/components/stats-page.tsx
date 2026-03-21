@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle } from "lucide-react";
-import { useNavigate } from "react-router";
+import { AlertTriangle, Sparkles } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
 import { statsApi } from "../lib/api";
-import { useAccount } from "../lib/account-context";
 import { useAuth } from "../lib/auth-context";
 import { getErrorMessage } from "../lib/api-error";
 import { formatCurrency as formatCurrencyValue, formatMonthShort } from "../lib/formatting";
-import type { UserProfile } from "../lib/types";
+import type { StatsSnapshot, UserProfile } from "../lib/types";
 import { StatsCategoryInsightSheet } from "./stats-category-insight-sheet";
 import { StatsDriversList } from "./stats-drivers-list";
 import { StatsForecastPanel } from "./stats-forecast-panel";
 import { StatsPulsePanel } from "./stats-pulse-panel";
 import { StatsTrendPanel, type StatsTrendPoint } from "./stats-trend-panel";
 import {
-  buildPulseInsight,
   buildStatsViewModel,
-  mapInsightAliasesToCategoryNames,
   type StatsDriver,
 } from "./stats-view-model";
 import { Button } from "./ui/button";
@@ -68,16 +65,25 @@ function formatCurrencyFactory(
   return (value: number) => formatCurrencyValue(value, user, hidden);
 }
 
+function parsePeriod(value: string | null): "semester" | "year" {
+  return value === "year" ? "year" : "semester";
+}
+
+function parseForecastWindow(value: string | null): 3 | 6 {
+  return value === "6" ? 6 : 3;
+}
+
 export function StatsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAmountsHidden } = useAuth();
-  const { activeAccountId } = useAccount();
-  const [period, setPeriod] = useState<"semester" | "year">("semester");
-  const [forecastWindow, setForecastWindow] = useState<3 | 6>(3);
-  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof statsApi.getSemester>> | null>(null);
+  const [period, setPeriod] = useState<"semester" | "year">(() => parsePeriod(searchParams.get("period")));
+  const [forecastWindow, setForecastWindow] = useState<3 | 6>(() =>
+    parseForecastWindow(searchParams.get("forecastWindow")),
+  );
+  const [snapshot, setSnapshot] = useState<StatsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [insightLoading, setInsightLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const hasSnapshotRef = useRef(false);
@@ -95,6 +101,16 @@ export function StatsPage() {
     [user, isAmountsHidden],
   );
 
+  useEffect(() => {
+    setSearchParams(
+      {
+        period,
+        forecastWindow: String(forecastWindow),
+      },
+      { replace: true },
+    );
+  }, [forecastWindow, period, setSearchParams]);
+
   const loadStats = useCallback(async () => {
     const requestId = ++requestIdRef.current;
     const hasSnapshot = hasSnapshotRef.current;
@@ -110,8 +126,8 @@ export function StatsPage() {
     try {
       const data =
         period === "semester"
-          ? await statsApi.getSemester(undefined, forecastWindow, { includeInsight: false })
-          : await statsApi.getYear(undefined, forecastWindow, { includeInsight: false });
+          ? await statsApi.getSemester(undefined, forecastWindow)
+          : await statsApi.getYear(undefined, forecastWindow);
       if (requestId !== requestIdRef.current) return;
       setSnapshot(data);
     } catch (error) {
@@ -124,25 +140,6 @@ export function StatsPage() {
       if (requestId === requestIdRef.current) {
         setLoading(false);
         setRefreshing(false);
-      }
-    }
-  }, [period, forecastWindow, activeAccountId]);
-
-  const loadInsight = useCallback(async () => {
-    const requestId = requestIdRef.current;
-    setInsightLoading(true);
-    try {
-      const enrichedData =
-        period === "semester"
-          ? await statsApi.getSemester(undefined, forecastWindow, { includeInsight: true })
-          : await statsApi.getYear(undefined, forecastWindow, { includeInsight: true });
-      if (requestId !== requestIdRef.current || !enrichedData.insight) return;
-      setSnapshot((current) => (current ? { ...current, insight: enrichedData.insight } : current));
-    } catch {
-      // Falha do enrichment não bloqueia o snapshot principal.
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setInsightLoading(false);
       }
     }
   }, [forecastWindow, period]);
@@ -193,12 +190,6 @@ export function StatsPage() {
       : model
         ? formatPercent(model.unallocatedRate)
         : formatPercent(0);
-  const aiInsightText = snapshot?.insight?.text
-    ? mapInsightAliasesToCategoryNames(snapshot, snapshot.insight.text)
-    : null;
-  const insightMessage = model
-    ? aiInsightText ?? buildPulseInsight(model, formatCurrency)
-    : "";
   const periodOptions = [
     { value: "semester" as const, label: "6M" },
     { value: "year" as const, label: "12M" },
@@ -284,19 +275,22 @@ export function StatsPage() {
         </div>
       ) : null}
 
-      {!snapshot.insight ? (
-        <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-surface px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Análise IA</h2>
+        </div>
           <Button
             type="button"
             variant="outline"
             className="h-11 rounded-xl"
-            onClick={() => void loadInsight()}
-            disabled={insightLoading}
+            onClick={() => {
+              navigate(`/stats/insights?period=${period}&forecastWindow=${forecastWindow}&from=/stats`);
+            }}
           >
-            {insightLoading ? "A gerar insight..." : "Gerar insight IA"}
+            Abrir análise IA
           </Button>
-        </div>
-      ) : null}
+      </div>
 
       <StatsPulsePanel
         periodLabel={periodLabel}
@@ -314,8 +308,6 @@ export function StatsPage() {
         potentialSavings={formatCurrency(model.potentialSavings)}
         budgetUsePercent={model.budgetUsePercent}
         pulseTone={model.pulseTone}
-        insight={insightMessage}
-        insightLoading={insightLoading && !aiInsightText}
       />
 
       <StatsDriversList

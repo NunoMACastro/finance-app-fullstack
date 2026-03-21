@@ -23,7 +23,7 @@ const rawEnvSchema = z.object({
   REDIS_URL: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_INSIGHT_MODEL: z.string().default("gpt-4.1-mini"),
-  OPENAI_INSIGHT_TIMEOUT_MS: z.coerce.number().int().positive().default(2500),
+  OPENAI_INSIGHT_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
   OPENAI_INSIGHT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   CRON_ENABLED: z
     .string()

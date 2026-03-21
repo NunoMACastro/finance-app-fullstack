@@ -70,16 +70,24 @@ Pontos chave:
 
 ### StatsPage
 Responsabilidades:
-- carregar stats em 2 fases (`statsApi.getSemester`/`getYear`)
-  - fase 1: snapshot base com `includeInsight=false` (render imediato da pagina)
-  - fase 2: enrichment opcional com `includeInsight=true` (apenas bloco de insight)
+- carregar snapshot base (`statsApi.getSemester`/`getYear`) sem depender da IA
 - manter escopo account-scoped via conta ativa (sem agregação global no v1)
 - compor stack v3 (`Pulse`, `Drivers`, `Tendência`, `Projeção`)
 - usar `stats-view-model` para derivar métricas e estados semânticos
-- usar insight textual vindo do backend (`snapshot.insight`) quando disponivel
-- manter fallback deterministico local (`buildPulseInsight`) quando insight IA nao vier no payload
+- expor apenas CTA compacto para abrir a análise IA dedicada
 - suportar detalhe por categoria em `StatsCategoryInsightSheet`
 - tratar erros com retry
+
+### StatsInsightsPage
+Responsabilidades:
+- receber `period` e `forecastWindow` via query params
+- mostrar o período recebido apenas como contexto visual; sem seletor `6M/12M`
+- não disparar geração no load
+- iniciar geração apenas após clique explícito em `Gerar insight IA`
+- usar `POST /stats/insights` como entrypoint principal
+- fazer polling de `GET /stats/insights/:id` enquanto estado = `pending`
+- renderizar report IA estruturado (`summary/highlights/risks/actions/categoryInsights`)
+- suportar `Gerar novamente` e `Voltar para estatísticas`
 
 ### BudgetEditorPage
 Responsabilidades:
@@ -154,7 +162,7 @@ Caracteristicas:
 - em `stats`, separa explicacao de:
   - saldo do periodo
   - breakdown do pulse
-  - bloco de analise (IA + fallback local)
+  - CTA para abrir a análise IA dedicada
 - overlay com highlight do elemento alvo
 - animacoes por fade no local (sem vir do canto)
 - delay de auto-start (feito no `layout.tsx`, 1000ms)

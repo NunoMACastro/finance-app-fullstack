@@ -2,11 +2,67 @@ import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 import { sha256 } from "../../lib/hash.js";
 
-export interface StatsAiInsight {
-  text: string;
-  source: "ai";
-  generatedAt: string;
-  model: string;
+export type StatsInsightStatus = "pending" | "ready" | "failed";
+export type StatsInsightConfidence = "low" | "medium" | "high";
+export type StatsInsightHighlightSeverity = "info" | "warning" | "positive";
+export type StatsInsightRiskSeverity = "warning" | "high";
+export type StatsInsightActionPriority = "high" | "medium" | "low";
+export type StatsInsightCategoryKind = "expense" | "reserve";
+export type StatsInsightMappingKind = StatsInsightCategoryKind | "income";
+
+export interface StatsInsightHighlight {
+  title: string;
+  detail: string;
+  severity: StatsInsightHighlightSeverity;
+}
+
+export interface StatsInsightRisk {
+  title: string;
+  detail: string;
+  severity: StatsInsightRiskSeverity;
+}
+
+export interface StatsInsightAction {
+  title: string;
+  detail: string;
+  priority: StatsInsightActionPriority;
+}
+
+export interface StatsInsightCategoryItem {
+  categoryId: string;
+  categoryAlias: string;
+  categoryKind: StatsInsightCategoryKind;
+  categoryName: string;
+  title: string;
+  detail: string;
+  action?: string;
+}
+
+export interface StatsInsightReport {
+  summary: string;
+  highlights: StatsInsightHighlight[];
+  risks: StatsInsightRisk[];
+  actions: StatsInsightAction[];
+  categoryInsights: StatsInsightCategoryItem[];
+  confidence: StatsInsightConfidence;
+  limitations?: string[];
+}
+
+export interface StatsInsightStatusDto {
+  id: string;
+  periodType: "semester" | "year";
+  periodKey: string;
+  forecastWindow: 3 | 6;
+  status: StatsInsightStatus;
+  stale: boolean;
+  requestedAt: string;
+  generatedAt: string | null;
+  model: string | null;
+  report: StatsInsightReport | null;
+  error: {
+    code: string;
+    message: string;
+  } | null;
 }
 
 interface StatsTrendItemLike {
@@ -71,13 +127,13 @@ export interface StatsSnapshotForInsight {
     projectedBalance: number;
     windowMonths: 3 | 6;
     sampleSize: number;
-    confidence: "low" | "medium" | "high";
+    confidence: StatsInsightConfidence;
   };
 }
 
 interface AnonymizedExpenseCategoryPayload {
   alias: string;
-  categoryType: "expense" | "reserve";
+  categoryType: StatsInsightCategoryKind;
   budgetStatus: "under" | "over" | "on_target";
   totalBudgeted: number;
   totalActual: number;
@@ -126,63 +182,173 @@ export interface AnonymizedStatsInsightPayload {
     projectedBalance: number;
     windowMonths: 3 | 6;
     sampleSize: number;
-    confidence: "low" | "medium" | "high";
+    confidence: StatsInsightConfidence;
   };
   expenseCategories: AnonymizedExpenseCategoryPayload[];
   incomeCategories: AnonymizedIncomeCategoryPayload[];
 }
 
-interface BuildInsightCacheKeyInput {
-  accountId: string;
-  forecastWindow: 3 | 6;
-  payload: AnonymizedStatsInsightPayload;
+export interface StatsInsightCategoryMapping {
+  alias: string;
+  categoryId: string;
+  categoryName: string;
+  categoryKind: StatsInsightMappingKind;
 }
 
-interface GenerateStatsInsightInput {
-  accountId: string;
-  forecastWindow: 3 | 6;
-  snapshot: StatsSnapshotForInsight;
+interface OpenAiInsightResponse {
+  summary: string;
+  highlights: StatsInsightHighlight[];
+  risks: StatsInsightRisk[];
+  actions: StatsInsightAction[];
+  categoryInsights: Array<{
+    categoryAlias: string;
+    categoryKind: StatsInsightCategoryKind;
+    title: string;
+    detail: string;
+    action?: string;
+  }>;
+  confidence: StatsInsightConfidence;
+  limitations?: string[];
 }
 
-interface InsightCacheEntry {
-  value: StatsAiInsight;
-  expiresAtMs: number;
-}
-
-const MAX_INSIGHT_TEXT_LENGTH = 420;
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const MAX_ITEMS_PER_SECTION = 5;
+const MAX_LIMITATIONS = 4;
+const MAX_EXPENSE_CATEGORIES = 5;
+const MAX_INCOME_CATEGORIES = 3;
 
 const insightJsonSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    insight: {
+    summary: {
       type: "string",
       description:
-        "Insight financeiro em português de Portugal, em tom direto por tu, 1-2 frases curtas e acionáveis, sem inventar dados.",
+        "Resumo executivo curto em português de Portugal, direto e acionável, sem inventar dados.",
+    },
+    highlights: {
+      type: "array",
+      maxItems: MAX_ITEMS_PER_SECTION,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          severity: {
+            type: "string",
+            enum: ["info", "warning", "positive"],
+          },
+        },
+        required: ["title", "detail", "severity"],
+      },
+    },
+    risks: {
+      type: "array",
+      maxItems: MAX_ITEMS_PER_SECTION,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          severity: {
+            type: "string",
+            enum: ["warning", "high"],
+          },
+        },
+        required: ["title", "detail", "severity"],
+      },
+    },
+    actions: {
+      type: "array",
+      maxItems: MAX_ITEMS_PER_SECTION,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          priority: {
+            type: "string",
+            enum: ["high", "medium", "low"],
+          },
+        },
+        required: ["title", "detail", "priority"],
+      },
+    },
+    categoryInsights: {
+      type: "array",
+      maxItems: MAX_ITEMS_PER_SECTION,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          categoryAlias: { type: "string" },
+          categoryKind: {
+            type: "string",
+            enum: ["expense", "reserve"],
+          },
+          title: { type: "string" },
+          detail: { type: "string" },
+          action: { type: "string" },
+        },
+        required: ["categoryAlias", "categoryKind", "title", "detail", "action"],
+      },
+    },
+    confidence: {
+      type: "string",
+      enum: ["low", "medium", "high"],
+    },
+    limitations: {
+      type: "array",
+      maxItems: MAX_LIMITATIONS,
+      items: { type: "string" },
     },
   },
-  required: ["insight"],
+  required: ["summary", "highlights", "risks", "actions", "categoryInsights", "confidence", "limitations"],
 } as const;
 
 const insightSystemPrompt = [
   "És um analista financeiro para uma app de orçamento pessoal.",
-  "Recebes apenas dados agregados e anonimizados (sem nomes de categorias reais).",
+  "Recebes apenas dados agregados e anonimizados.",
   "Responde sempre em Português de Portugal.",
   "Fala diretamente com o utilizador por tu; nunca uses você.",
-  "Gera exatamente 1 a 2 frases curtas com recomendação acionável (idealmente <= 220 caracteres).",
-  "Usa números presentes nos dados; não inventes valores nem factos.",
-  "No payload, categorias com categoryType='reserve' representam poupança/investimento/reserva.",
-  "Interpretação de budgetStatus: over=excedeu orçamento, under=sobrou orçamento, on_target=em linha.",
-  "Nunca afirmes que uma categoria excedeu quando budgetStatus for under ou on_target.",
-  "Não trates baixa execução em reservas como problema nem recomendes gastar esse montante.",
-  "Prioriza recomendações sobre categoryType='expense' quando houver desvios.",
-  "Não menciones limitações do dataset nem o facto de estar anonimizado.",
+  "Não inventes valores, percentagens nem causalidade.",
+  "Usa apenas sinais presentes no payload.",
+  "Categorias expense são despesa corrente; reserve são poupança/investimento/reserva.",
+  "Usa categoryInsights apenas para aliases Cx das expense/reserve categories.",
+  "Nunca uses aliases Ix em categoryInsights; income concentration deve ir para summary/highlights/risks/actions.",
+  "Quando mencionares aliases no texto, usa apenas aliases presentes no payload.",
+  "Não menciones limitações do dataset salvo se forem estritamente relevantes; nesse caso usa limitations.",
+  "O campo limitations deve existir sempre e ser um array; usa [] quando não houver notas.",
+  "Cada item de categoryInsights deve incluir sempre action; usa string vazia quando não houver ação adicional.",
+  "Prefere recomendações concretas e curtas em vez de texto genérico.",
   "Devolve apenas JSON válido no formato solicitado.",
+].join(" ");
+
+const jsonObjectFallbackPrompt = [
+  "Devolve apenas JSON válido.",
+  "Usa exatamente estas chaves: summary, highlights, risks, actions, categoryInsights, confidence, limitations.",
+  "highlights: array de objetos { title, detail, severity } onde severity e info|warning|positive.",
+  "risks: array de objetos { title, detail, severity } onde severity e warning|high.",
+  "actions: array de objetos { title, detail, priority } onde priority e high|medium|low.",
+  "categoryInsights: array de objetos { categoryAlias, categoryKind, title, detail, action } onde categoryKind e expense|reserve e action pode ser string vazia.",
+  "confidence: low|medium|high.",
+  "limitations e sempre array; usa [] quando nao houver notas.",
 ].join(" ");
 
 function safeTrimText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function clipText(value: string, maxLength = 280): string {
+  const normalized = safeTrimText(value);
+  if (!normalized) return "";
+  if (normalized.length <= maxLength) return normalized;
+  const clipped = normalized.slice(0, maxLength);
+  const lastSpace = clipped.lastIndexOf(" ");
+  return `${clipped.slice(0, lastSpace >= 60 ? lastSpace : maxLength).trim()}...`;
 }
 
 function pickLastMonths(trend: StatsTrendItemLike[], monthsLimit: number): string[] {
@@ -194,8 +360,57 @@ function indexByMonth<T extends { month: string }>(items: T[]): Map<string, T> {
 }
 
 function buildAliasMap(categoryIds: string[], prefix: "C" | "I"): Map<string, string> {
-  const sorted = [...categoryIds].sort((a, b) => a.localeCompare(b));
+  const sorted = [...new Set(categoryIds)].sort((a, b) => a.localeCompare(b));
   return new Map(sorted.map((categoryId, index) => [categoryId, `${prefix}${index + 1}`]));
+}
+
+function selectExpenseCategories(snapshot: StatsSnapshotForInsight): StatsBudgetVsActualItemLike[] {
+  return [...snapshot.budgetVsActual]
+    .sort((a, b) => {
+      const aSignal = Math.max(Math.abs(a.actual), Math.abs(a.difference), Math.abs(a.budgeted));
+      const bSignal = Math.max(Math.abs(b.actual), Math.abs(b.difference), Math.abs(b.budgeted));
+      if (bSignal !== aSignal) return bSignal - aSignal;
+      return a.categoryId.localeCompare(b.categoryId);
+    })
+    .slice(0, MAX_EXPENSE_CATEGORIES);
+}
+
+function selectIncomeCategories(snapshot: StatsSnapshotForInsight): StatsIncomeByCategoryItemLike[] {
+  return [...snapshot.incomeByCategory]
+    .sort((a, b) => {
+      if (b.amount !== a.amount) return b.amount - a.amount;
+      return a.categoryId.localeCompare(b.categoryId);
+    })
+    .slice(0, MAX_INCOME_CATEGORIES);
+}
+
+export function buildInsightCategoryMappings(snapshot: StatsSnapshotForInsight): StatsInsightCategoryMapping[] {
+  const selectedExpenseCategories = selectExpenseCategories(snapshot);
+  const selectedIncomeCategories = selectIncomeCategories(snapshot);
+  const expenseAliasMap = buildAliasMap(
+    selectedExpenseCategories.map((item) => item.categoryId),
+    "C",
+  );
+  const incomeAliasMap = buildAliasMap(
+    selectedIncomeCategories.map((item) => item.categoryId),
+    "I",
+  );
+
+  const expenseMappings: StatsInsightCategoryMapping[] = selectedExpenseCategories.map((item) => ({
+    alias: expenseAliasMap.get(item.categoryId) ?? "C0",
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+    categoryKind: item.categoryKind === "reserve" ? "reserve" : "expense",
+  }));
+
+  const incomeMappings: StatsInsightCategoryMapping[] = selectedIncomeCategories.map((item) => ({
+    alias: incomeAliasMap.get(item.categoryId) ?? "I0",
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+    categoryKind: "income" as const,
+  }));
+
+  return [...expenseMappings, ...incomeMappings];
 }
 
 export function anonymizeStatsForInsight(
@@ -205,11 +420,24 @@ export function anonymizeStatsForInsight(
   const months = pickLastMonths(snapshot.trend, monthsLimit);
   const monthSet = new Set(months);
   const trend = snapshot.trend.filter((item) => monthSet.has(item.month));
+  const selectedExpenseCategories = selectExpenseCategories(snapshot);
+  const selectedIncomeCategories = selectIncomeCategories(snapshot);
 
-  const expenseCategoryIds = snapshot.budgetVsActual.map((item) => item.categoryId);
-  const incomeCategoryIds = snapshot.incomeByCategory.map((item) => item.categoryId);
-  const expenseAliasMap = buildAliasMap(expenseCategoryIds, "C");
-  const incomeAliasMap = buildAliasMap(incomeCategoryIds, "I");
+  const mappings = buildInsightCategoryMappings({
+    ...snapshot,
+    budgetVsActual: selectedExpenseCategories,
+    incomeByCategory: selectedIncomeCategories,
+  });
+  const expenseAliasMap = new Map(
+    mappings
+      .filter((mapping) => mapping.categoryKind === "expense" || mapping.categoryKind === "reserve")
+      .map((mapping) => [mapping.categoryId, mapping.alias]),
+  );
+  const incomeAliasMap = new Map(
+    mappings
+      .filter((mapping) => mapping.categoryKind === "income")
+      .map((mapping) => [mapping.categoryId, mapping.alias]),
+  );
 
   const expenseSeriesByCategory = new Map(
     snapshot.categorySeries.map((series) => [series.categoryId, indexByMonth(series.monthly)]),
@@ -218,7 +446,7 @@ export function anonymizeStatsForInsight(
     snapshot.incomeCategorySeries.map((series) => [series.categoryId, indexByMonth(series.monthly)]),
   );
 
-  const expenseCategories: AnonymizedExpenseCategoryPayload[] = snapshot.budgetVsActual.map((item) => {
+  const expenseCategories: AnonymizedExpenseCategoryPayload[] = selectedExpenseCategories.map((item) => {
     const alias = expenseAliasMap.get(item.categoryId) ?? "C0";
     const monthlySeries = expenseSeriesByCategory.get(item.categoryId) ?? new Map();
     const totalDifference = item.difference;
@@ -258,7 +486,7 @@ export function anonymizeStatsForInsight(
     };
   });
 
-  const incomeCategories: AnonymizedIncomeCategoryPayload[] = snapshot.incomeByCategory.map((item) => {
+  const incomeCategories: AnonymizedIncomeCategoryPayload[] = selectedIncomeCategories.map((item) => {
     const alias = incomeAliasMap.get(item.categoryId) ?? "I0";
     const monthlySeries = incomeSeriesByCategory.get(item.categoryId) ?? new Map();
 
@@ -285,60 +513,123 @@ export function anonymizeStatsForInsight(
   };
 }
 
-export function buildInsightCacheKey(input: BuildInsightCacheKeyInput): string {
-  const payloadHash = sha256(JSON.stringify(input.payload));
-  return [
-    input.accountId,
-    input.payload.periodType,
-    input.payload.periodKey,
-    String(input.forecastWindow),
-    payloadHash,
-  ].join("|");
+export function buildInsightInputHash(payload: AnonymizedStatsInsightPayload): string {
+  return sha256(JSON.stringify(payload));
 }
 
-export function parseInsightStructuredOutput(rawText: string): string | null {
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseHighlights(value: unknown): StatsInsightHighlight[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item): StatsInsightHighlight => ({
+      title: clipText(String(item.title ?? ""), 90),
+      detail: clipText(String(item.detail ?? ""), 220),
+      severity:
+        item.severity === "warning" || item.severity === "positive"
+          ? item.severity
+          : "info",
+    }))
+    .filter((item) => item.title && item.detail)
+    .slice(0, MAX_ITEMS_PER_SECTION);
+}
+
+function parseRisks(value: unknown): StatsInsightRisk[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item): StatsInsightRisk => ({
+      title: clipText(String(item.title ?? ""), 90),
+      detail: clipText(String(item.detail ?? ""), 220),
+      severity: item.severity === "high" ? "high" : "warning",
+    }))
+    .filter((item) => item.title && item.detail)
+    .slice(0, MAX_ITEMS_PER_SECTION);
+}
+
+function parseActions(value: unknown): StatsInsightAction[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item): StatsInsightAction => ({
+      title: clipText(String(item.title ?? ""), 90),
+      detail: clipText(String(item.detail ?? ""), 220),
+      priority:
+        item.priority === "high" || item.priority === "low"
+          ? item.priority
+          : "medium",
+    }))
+    .filter((item) => item.title && item.detail)
+    .slice(0, MAX_ITEMS_PER_SECTION);
+}
+
+function parseCategoryInsights(
+  value: unknown,
+): OpenAiInsightResponse["categoryInsights"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item): OpenAiInsightResponse["categoryInsights"][number] => ({
+      categoryAlias: safeTrimText(String(item.categoryAlias ?? "")),
+      categoryKind: item.categoryKind === "reserve" ? "reserve" : "expense",
+      title: clipText(String(item.title ?? ""), 90),
+      detail: clipText(String(item.detail ?? ""), 220),
+      ...(safeTrimText(String(item.action ?? ""))
+        ? { action: clipText(String(item.action ?? ""), 180) }
+        : {}),
+    }))
+    .filter((item) => item.categoryAlias && item.title && item.detail)
+    .slice(0, MAX_ITEMS_PER_SECTION);
+}
+
+export function parseInsightStructuredOutput(rawText: string): OpenAiInsightResponse | null {
   try {
-    const parsed = JSON.parse(rawText) as { insight?: unknown };
-    if (typeof parsed.insight !== "string") {
-      return null;
-    }
-    const text = safeTrimText(parsed.insight);
-    if (!text) return null;
-    if (text.length <= MAX_INSIGHT_TEXT_LENGTH) return text;
+    const parsed = JSON.parse(rawText) as Record<string, unknown>;
+    const summary = clipText(String(parsed.summary ?? ""), 280);
+    if (!summary) return null;
 
-    const clipped = text.slice(0, MAX_INSIGHT_TEXT_LENGTH);
-    const sentenceEnd = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
-    if (sentenceEnd >= 80) {
-      return clipped.slice(0, sentenceEnd + 1).trim();
-    }
+    const confidence: StatsInsightConfidence =
+      parsed.confidence === "low" || parsed.confidence === "high"
+        ? parsed.confidence
+        : "medium";
+    const limitations = Array.isArray(parsed.limitations)
+      ? parsed.limitations
+          .map((item) => clipText(String(item ?? ""), 160))
+          .filter(Boolean)
+          .slice(0, MAX_LIMITATIONS)
+      : undefined;
 
-    const wordEnd = clipped.lastIndexOf(" ");
-    return `${clipped.slice(0, wordEnd >= 80 ? wordEnd : MAX_INSIGHT_TEXT_LENGTH).trim()}...`;
+    return {
+      summary,
+      highlights: parseHighlights(parsed.highlights),
+      risks: parseRisks(parsed.risks),
+      actions: parseActions(parsed.actions),
+      categoryInsights: parseCategoryInsights(parsed.categoryInsights),
+      confidence,
+      ...(limitations && limitations.length > 0 ? { limitations } : {}),
+    };
   } catch {
     return null;
   }
 }
 
 function extractOutputText(responseBody: unknown): string | null {
-  if (typeof responseBody !== "object" || responseBody === null) return null;
+  if (!isObject(responseBody)) return null;
 
-  const withOutputText = responseBody as { output_text?: unknown };
-  if (typeof withOutputText.output_text === "string" && withOutputText.output_text.trim()) {
-    return withOutputText.output_text;
+  if (typeof responseBody.output_text === "string" && responseBody.output_text.trim()) {
+    return responseBody.output_text;
   }
 
-  const withOutput = responseBody as {
-    output?: Array<{
-      type?: unknown;
-      content?: Array<{ type?: unknown; text?: unknown }>;
-    }>;
-  };
-  if (!Array.isArray(withOutput.output)) return null;
+  const output = responseBody.output;
+  if (!Array.isArray(output)) return null;
 
-  for (const outputItem of withOutput.output) {
-    if (!Array.isArray(outputItem.content)) continue;
+  for (const outputItem of output) {
+    if (!isObject(outputItem) || !Array.isArray(outputItem.content)) continue;
     for (const contentItem of outputItem.content) {
-      if (contentItem.type !== "output_text") continue;
+      if (!isObject(contentItem)) continue;
       if (typeof contentItem.text === "string" && contentItem.text.trim()) {
         return contentItem.text;
       }
@@ -348,51 +639,44 @@ function extractOutputText(responseBody: unknown): string | null {
   return null;
 }
 
-export class StatsInsightMemoStore {
-  private readonly cache = new Map<string, InsightCacheEntry>();
-  private readonly inFlight = new Map<string, Promise<StatsAiInsight | null>>();
+function buildOpenAiRequestBody(
+  payload: AnonymizedStatsInsightPayload,
+  format:
+    | {
+        type: "json_schema";
+        name: string;
+        schema: typeof insightJsonSchema;
+        description: string;
+        strict: boolean;
+      }
+    | { type: "json_object" },
+): Record<string, unknown> {
+  const inputText =
+    format.type === "json_object"
+      ? `JSON payload:\n${JSON.stringify(payload)}`
+      : JSON.stringify(payload);
 
-  constructor(private readonly nowFn: () => number = () => Date.now()) {}
-
-  get(key: string): StatsAiInsight | null {
-    const hit = this.cache.get(key);
-    if (!hit) return null;
-    if (hit.expiresAtMs <= this.nowFn()) {
-      this.cache.delete(key);
-      return null;
-    }
-    return hit.value;
-  }
-
-  set(key: string, value: StatsAiInsight, ttlSeconds: number): void {
-    this.cache.set(key, {
-      value,
-      expiresAtMs: this.nowFn() + ttlSeconds * 1000,
-    });
-  }
-
-  async runWithDedupe(
-    key: string,
-    factory: () => Promise<StatsAiInsight | null>,
-  ): Promise<StatsAiInsight | null> {
-    const existing = this.inFlight.get(key);
-    if (existing) {
-      return existing;
-    }
-
-    const runPromise = factory().finally(() => {
-      this.inFlight.delete(key);
-    });
-    this.inFlight.set(key, runPromise);
-    return runPromise;
-  }
+  return {
+    model: env.OPENAI_INSIGHT_MODEL,
+    instructions:
+      format.type === "json_schema"
+        ? insightSystemPrompt
+        : `${insightSystemPrompt} ${jsonObjectFallbackPrompt}`,
+    input: inputText,
+    max_output_tokens: 900,
+    text: {
+      format,
+    },
+  };
 }
 
-const insightStore = new StatsInsightMemoStore();
-
-async function requestInsightFromOpenAi(
-  payload: AnonymizedStatsInsightPayload,
-): Promise<string | null> {
+async function sendOpenAiInsightRequest(body: Record<string, unknown>): Promise<{
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json?: unknown;
+  errorText?: string;
+}> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OPENAI_INSIGHT_TIMEOUT_MS);
 
@@ -403,99 +687,181 @@ async function requestInsightFromOpenAi(
         "Content-Type": "application/json",
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,
       },
+      body: JSON.stringify(body),
       signal: controller.signal,
-      body: JSON.stringify({
-        model: env.OPENAI_INSIGHT_MODEL,
-        input: [
-          {
-            role: "system",
-            content: [{ type: "input_text", text: insightSystemPrompt }],
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: JSON.stringify(payload),
-              },
-            ],
-          },
-        ],
-        max_output_tokens: 180,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "stats_insight_response",
-            strict: true,
-            schema: insightJsonSchema,
-          },
-        },
-      }),
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      logger.warn(
-        {
-          statusCode: response.status,
-          body: errorBody.slice(0, 300),
-        },
-        "OpenAI stats insight request failed",
-      );
-      return null;
+      const errorText = await response.text();
+      return {
+        ok: false,
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+      };
     }
 
-    const body = (await response.json()) as unknown;
-    return extractOutputText(body);
-  } catch (error) {
-    if (controller.signal.aborted) {
-      logger.warn(
-        { timeoutMs: env.OPENAI_INSIGHT_TIMEOUT_MS },
-        "OpenAI stats insight request timed out",
-      );
-      return null;
-    }
-
-    logger.warn({ err: error }, "OpenAI stats insight request errored");
-    return null;
+    const json = (await response.json()) as unknown;
+    return {
+      ok: true,
+      status: response.status,
+      statusText: response.statusText,
+      json,
+    };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function generateStatsInsight(
-  input: GenerateStatsInsightInput,
-): Promise<StatsAiInsight | null> {
-  if (env.NODE_ENV === "test") return null;
-  if (!env.OPENAI_API_KEY) return null;
+function replaceAliases(text: string, mappings: StatsInsightCategoryMapping[]): string {
+  const normalized = safeTrimText(text);
+  if (!normalized) return normalized;
 
-  const anonymizedPayload = anonymizeStatsForInsight(input.snapshot);
-  const cacheKey = buildInsightCacheKey({
-    accountId: input.accountId,
-    forecastWindow: input.forecastWindow,
-    payload: anonymizedPayload,
-  });
+  return [...mappings]
+    .sort((a, b) => b.alias.length - a.alias.length)
+    .reduce((current, mapping) => {
+      return current.replace(new RegExp(`\\b${mapping.alias}\\b`, "g"), mapping.categoryName);
+    }, normalized);
+}
 
-  const cached = insightStore.get(cacheKey);
-  if (cached) return cached;
+export function remapInsightOutput(
+  output: OpenAiInsightResponse,
+  mappings: StatsInsightCategoryMapping[],
+): StatsInsightReport {
+  const mappingByAlias = new Map(mappings.map((mapping) => [mapping.alias, mapping]));
 
-  return insightStore.runWithDedupe(cacheKey, async () => {
-    const rawOutput = await requestInsightFromOpenAi(anonymizedPayload);
-    if (!rawOutput) return null;
+  const categoryInsights: StatsInsightCategoryItem[] = output.categoryInsights
+    .map((item) => {
+      const mapping = mappingByAlias.get(item.categoryAlias);
+      if (!mapping) return null;
+      if (mapping.categoryKind !== "expense" && mapping.categoryKind !== "reserve") return null;
 
-    const parsedText = parseInsightStructuredOutput(rawOutput);
-    if (!parsedText) {
-      logger.warn("OpenAI stats insight output was not valid JSON schema");
+      return {
+        categoryId: mapping.categoryId,
+        categoryAlias: item.categoryAlias,
+        categoryKind: mapping.categoryKind,
+        categoryName: mapping.categoryName,
+        title: replaceAliases(item.title, mappings),
+        detail: replaceAliases(item.detail, mappings),
+        ...(item.action ? { action: replaceAliases(item.action, mappings) } : {}),
+      };
+    })
+    .filter((item): item is StatsInsightCategoryItem => item !== null);
+
+  return {
+    summary: replaceAliases(output.summary, mappings),
+    highlights: output.highlights.map((item) => ({
+      ...item,
+      title: replaceAliases(item.title, mappings),
+      detail: replaceAliases(item.detail, mappings),
+    })),
+    risks: output.risks.map((item) => ({
+      ...item,
+      title: replaceAliases(item.title, mappings),
+      detail: replaceAliases(item.detail, mappings),
+    })),
+    actions: output.actions.map((item) => ({
+      ...item,
+      title: replaceAliases(item.title, mappings),
+      detail: replaceAliases(item.detail, mappings),
+    })),
+    categoryInsights,
+    confidence: output.confidence,
+    ...(output.limitations?.length
+      ? {
+          limitations: output.limitations.map((item) => replaceAliases(item, mappings)),
+        }
+      : {}),
+  };
+}
+
+export async function requestStructuredStatsInsight(
+  payload: AnonymizedStatsInsightPayload,
+): Promise<OpenAiInsightResponse | null> {
+  if (env.NODE_ENV === "test") {
+    return null;
+  }
+
+  if (!env.OPENAI_API_KEY) {
+    return null;
+  }
+
+  try {
+    const primaryResponse = await sendOpenAiInsightRequest(
+      buildOpenAiRequestBody(payload, {
+        type: "json_schema",
+        name: "finance_stats_insight",
+        description: "Structured financial insight report for personal budgeting stats.",
+        strict: true,
+        schema: insightJsonSchema,
+      }),
+    );
+
+    let responseBody = primaryResponse.json;
+    let usedFallback = false;
+
+    if (!primaryResponse.ok) {
+      logger.warn(
+        {
+          status: primaryResponse.status,
+          statusText: primaryResponse.statusText,
+          errorText: primaryResponse.errorText?.slice(0, 600),
+        },
+        "OpenAI stats insight request failed",
+      );
+
+      if (primaryResponse.status !== 400) {
+        return null;
+      }
+
+      const fallbackResponse = await sendOpenAiInsightRequest(
+        buildOpenAiRequestBody(payload, {
+          type: "json_object",
+        }),
+      );
+
+      if (!fallbackResponse.ok) {
+        logger.warn(
+          {
+            status: fallbackResponse.status,
+            statusText: fallbackResponse.statusText,
+            errorText: fallbackResponse.errorText?.slice(0, 600),
+          },
+          "OpenAI stats insight fallback request failed",
+        );
+        return null;
+      }
+
+      responseBody = fallbackResponse.json;
+      usedFallback = true;
+    }
+
+    const outputText = extractOutputText(responseBody);
+    if (!outputText) {
+      logger.warn("OpenAI stats insight response did not include output text");
       return null;
     }
 
-    const insight: StatsAiInsight = {
-      text: parsedText,
-      source: "ai",
-      generatedAt: new Date().toISOString(),
-      model: env.OPENAI_INSIGHT_MODEL,
-    };
-    insightStore.set(cacheKey, insight, env.OPENAI_INSIGHT_CACHE_TTL_SECONDS);
-    return insight;
-  });
+    const parsed = parseInsightStructuredOutput(outputText);
+    if (!parsed) {
+      logger.warn(
+        {
+          usedFallback,
+          outputPreview: outputText.slice(0, 600),
+        },
+        "OpenAI stats insight output was not valid JSON schema",
+      );
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      logger.warn("OpenAI stats insight request timed out");
+      return null;
+    }
+
+    logger.warn({ err: error }, "OpenAI stats insight request errored");
+    return null;
+  }
 }

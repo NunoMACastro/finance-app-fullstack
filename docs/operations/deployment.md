@@ -24,10 +24,10 @@ Recomendadas:
 - `RATE_LIMIT_*`
 - `CRON_ENABLED=true`
 - `TIMEZONE=Europe/Lisbon`
-- `OPENAI_API_KEY` (opcional; ativa insight IA em stats)
+- `OPENAI_API_KEY` (opcional; ativa recurso dedicado de insight IA em stats)
 - `OPENAI_INSIGHT_MODEL` (opcional; default economico)
-- `OPENAI_INSIGHT_TIMEOUT_MS` (opcional; timeout curto para nao bloquear UX)
-- `OPENAI_INSIGHT_CACHE_TTL_SECONDS` (opcional; cache em memoria para custo/latencia)
+- `OPENAI_INSIGHT_TIMEOUT_MS` (opcional; alvo recomendado `8000` para equilibrar UX e latencia do provider)
+- `OPENAI_INSIGHT_CACHE_TTL_SECONDS` (legado/deprecated; sem efeito principal no fluxo persistido atual)
 
 Restricoes:
 - `CORS_ORIGIN` nao pode ser `*` em producao.
@@ -50,6 +50,8 @@ Restricoes:
    - troca de conta
    - month fetch
    - stats fetch
+   - abrir `/stats/insights` e confirmar que nenhum pedido de insight ocorre ate ao clique em `Gerar insight IA`
+   - gerar insight IA e confirmar polling/estado final
 
 ## Migracoes
 

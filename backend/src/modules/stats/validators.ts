@@ -33,3 +33,36 @@ export const compareQuerySchema = z.object({
   from: monthKey,
   to: monthKey,
 });
+
+const periodType = z.enum(["semester", "year"]);
+
+export const createInsightSchema = z
+  .object({
+    periodType,
+    forecastWindow: forecastWindow.optional(),
+    endingMonth: monthKey.optional(),
+    year: z.coerce.number().int().min(1970).max(9999).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.periodType === "semester" && value.year !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["year"],
+        message: "year só é permitido para periodType=year",
+      });
+    }
+
+    if (value.periodType === "year" && value.endingMonth !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endingMonth"],
+        message: "endingMonth só é permitido para periodType=semester",
+      });
+    }
+  });
+
+export const latestInsightQuerySchema = createInsightSchema;
+
+export const statsInsightParamsSchema = z.object({
+  id: z.string().regex(/^[a-fA-F0-9]{24}$/, "id inválido"),
+});

@@ -45,10 +45,10 @@ Definidas em `src/config/env.ts`.
 - `RATE_LIMIT_WINDOW_MS`: janela rate limit global
 - `RATE_LIMIT_MAX`: max pedidos por janela
 - `AUTH_RATE_LIMIT_MAX`: max pedidos auth por janela
-- `OPENAI_API_KEY`: chave OpenAI (opcional, usada para enriquecer stats com insight IA)
+- `OPENAI_API_KEY`: chave OpenAI (opcional, usada para gerar insights IA dedicados em stats)
 - `OPENAI_INSIGHT_MODEL`: modelo OpenAI para insight de stats (default `gpt-4.1-mini`)
-- `OPENAI_INSIGHT_TIMEOUT_MS`: timeout da chamada OpenAI em ms (default `2500`)
-- `OPENAI_INSIGHT_CACHE_TTL_SECONDS`: TTL do cache em memoria para insights IA (default `300`)
+- `OPENAI_INSIGHT_TIMEOUT_MS`: timeout da chamada OpenAI em ms (default `8000`; o snapshot base continua independente deste pedido)
+- `OPENAI_INSIGHT_CACHE_TTL_SECONDS`: legado/deprecated; o fluxo atual usa persistencia em DB + dedupe por `inputHash`
 - `CRON_ENABLED`: ativa scheduler
 - `TIMEZONE`: timezone cron (ex: `Europe/Lisbon`)
 
@@ -71,5 +71,6 @@ Em `NODE_ENV=production`:
 ## Notas de seguranca
 
 - URI Mongo e sanitizada em logs (`***@`) para nao expor credenciais.
+- abrir `/stats` nao dispara qualquer pedido OpenAI; a geracao do insight acontece apenas apos `POST /stats/insights` iniciado por acao explicita do utilizador.
 - Nunca commitar `.env` com segredos.
 - Se qualquer segredo for exposto (ex: commit acidental, screenshot, log), rodar imediatamente a chave no provider e atualizar o ambiente de runtime.

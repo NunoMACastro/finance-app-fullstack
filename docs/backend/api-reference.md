@@ -13,6 +13,9 @@ Base URL local: `http://localhost:3001/api/v1`
   - `application/json`
 - Refresh token:
   - cookie `HttpOnly` (`SameSite=Lax`; `Secure` em producao)
+- Cache para endpoints account-scoped de stats/insights:
+  - `Cache-Control: no-store`
+  - `Vary: Authorization, X-Account-Id`
 
 ## Auth
 
@@ -241,8 +244,10 @@ Falha com `422 BUDGET_CATEGORY_IN_USE` quando existirem transacoes ou recorrenci
 
 ## Stats
 
-- `includeInsight` e `false` por omissao em `/stats/semester` e `/stats/year`
-- a UI deve pedir enrichment IA explicitamente quando necessario
+- `includeInsight` passou a legado/deprecated em `/stats/semester` e `/stats/year`
+- a UI pede insight IA via recurso dedicado `/stats/insights`
+- abrir `/stats` nao dispara qualquer pedido de insight IA
+- o entrypoint de interface e `POST /stats/insights`, iniciado apenas por acao explicita do utilizador
 - `GET /stats/compare-budget` valida `from <= to` e rejeita ranges acima de 24 meses com `422`
 
 ## Accounts
@@ -641,20 +646,16 @@ Response `200`:
 
 Requer auth + account context.
 
-### GET `/stats/semester?endingMonth=YYYY-MM&forecastWindow=3|6&includeInsight=true|false`
+### GET `/stats/semester?endingMonth=YYYY-MM&forecastWindow=3|6`
 - `endingMonth` opcional.
 - `forecastWindow` opcional (`3` por default).
-- `includeInsight` opcional (`true` por default).
-  - `true`: tenta enriquecer com insight IA (quando OpenAI configurado).
-  - `false`: devolve snapshot base sem tentar IA (latencia menor).
+- devolve sempre snapshot base sem IA inline.
 
-### GET `/stats/year?year=YYYY&forecastWindow=3|6&includeInsight=true|false`
+### GET `/stats/year?year=YYYY&forecastWindow=3|6`
 - `year` opcional.
   - quando omitido, backend devolve janela movel dos ultimos 12 meses a terminar no mes UTC atual.
 - `forecastWindow` opcional (`3` por default).
-- `includeInsight` opcional (`true` por default).
-  - `true`: tenta enriquecer com insight IA (quando OpenAI configurado).
-  - `false`: devolve snapshot base sem tentar IA (latencia menor).
+- devolve sempre snapshot base sem IA inline.
 
 Response `200` (`StatsSnapshot`):
 ```json
@@ -725,17 +726,10 @@ Response `200` (`StatsSnapshot`):
     "sampleSize": 3,
     "confidence": "high"
   },
-  "insight": {
-    "text": "As despesas em C1 estão acima do ritmo esperado. Reduz 10% em despesas discricionárias esta semana para recuperar margem.",
-    "source": "ai",
-    "generatedAt": "2026-03-17T11:20:00.000Z",
-    "model": "gpt-4.1-mini"
-  }
 }
 ```
 
 Notas:
-- `insight` e opcional.
 - `totalsBreakdown` e opcional (nao-breaking) e separa explicitamente:
   - `consumption`: soma de `actual` em categorias nao `reserve`;
   - `savings`: soma de `actual` em categorias `reserve`;
@@ -743,7 +737,114 @@ Notas:
   - `potentialSavings`: `savings + max(unallocated, 0)`;
   - `rates.*`: `value / totalIncome * 100` (se `totalIncome <= 0`, taxa = `0`).
 - `categoryKind` ausente e tratado como `expense` no calculo de `consumption`.
-- se OpenAI estiver indisponivel/sem chave/timeout, os endpoints continuam `200` e devolvem apenas `StatsSnapshot` sem `insight`.
+- `includeInsight` pode continuar a ser aceite por compatibilidade, mas nao altera o payload.
+
+### POST `/stats/insights`
+Cria ou reutiliza um pedido de insight IA para o snapshot atual.
+
+Uso esperado:
+- iniciado por clique/acao explicita do utilizador na UI
+- a rota pode devolver:
+  - `200` com `status=ready` quando reutiliza insight atual
+  - `202` com `status=pending` quando criou/reutilizou job assincrono
+  - `202` com `status=failed` quando o estado persistido anterior ja esta indisponivel
+
+Body:
+```json
+{
+  "periodType": "semester",
+  "forecastWindow": 3
+}
+```
+
+Response `202` (`pending`) ou `200` (`ready`):
+```json
+{
+  "id": "67db2d9e5f9e9b2b0d47ac10",
+  "periodType": "semester",
+  "periodKey": "2026-S1",
+  "forecastWindow": 3,
+  "status": "pending",
+  "stale": false,
+  "requestedAt": "2026-03-20T18:45:01.000Z",
+  "generatedAt": null,
+  "model": "gpt-4.1-mini",
+  "report": null,
+  "error": null
+}
+```
+
+Regras:
+- dedupe por `accountId + periodType + periodKey + forecastWindow + inputHash`
+- se ja existir insight `ready` e nao `stale` para o mesmo snapshot, o backend devolve-o sem nova chamada ao provider
+- se ja existir `pending` igual, o backend devolve esse pedido
+
+### GET `/stats/insights/:id`
+Devolve o estado atual de um pedido de insight IA (`pending | ready | failed`).
+
+Uso esperado:
+- polling apenas depois de `POST /stats/insights` devolver `pending`
+
+### GET `/stats/insights/latest?periodType=semester|year&forecastWindow=3|6`
+Devolve o insight mais recente do periodo pedido para a conta ativa.
+- pode devolver `ready`, `failed` ou `pending`
+- quando nao existe insight ainda, devolve `404 STATS_INSIGHT_NOT_FOUND`
+
+Nota:
+- endpoint auxiliar para integracoes/backoffice/debug
+- nao faz parte do fluxo automatico da UI principal
+
+Response `200` (`ready`):
+```json
+{
+  "id": "67db2d9e5f9e9b2b0d47ac10",
+  "periodType": "semester",
+  "periodKey": "2026-S1",
+  "forecastWindow": 3,
+  "status": "ready",
+  "stale": true,
+  "requestedAt": "2026-03-20T18:45:01.000Z",
+  "generatedAt": "2026-03-20T18:45:03.000Z",
+  "model": "gpt-4.1-mini",
+  "report": {
+    "summary": "Despesas continua a ser a maior fonte de pressão no período.",
+    "highlights": [
+      {
+        "title": "Consumo concentrado",
+        "detail": "Despesas absorve a maior parte do orçamento disponível.",
+        "severity": "warning"
+      }
+    ],
+    "risks": [
+      {
+        "title": "Margem curta",
+        "detail": "Uma subida adicional nesta categoria reduz rapidamente a margem mensal.",
+        "severity": "warning"
+      }
+    ],
+    "actions": [
+      {
+        "title": "Definir teto semanal",
+        "detail": "Mantém um teto semanal nesta categoria para estabilizar a execução.",
+        "priority": "high"
+      }
+    ],
+    "categoryInsights": [
+      {
+        "categoryId": "cat1",
+        "categoryAlias": "C1",
+        "categoryKind": "expense",
+        "categoryName": "Despesas",
+        "title": "Maior pressão do período",
+        "detail": "Despesas representa o maior desvio agregado neste período.",
+        "action": "Acompanha esta categoria todas as semanas."
+      }
+    ],
+    "confidence": "medium"
+  },
+  "error": null
+}
+```
 
 ### GET `/stats/compare-budget?from=YYYY-MM&to=YYYY-MM`
 Compara budgeted vs actual no intervalo.

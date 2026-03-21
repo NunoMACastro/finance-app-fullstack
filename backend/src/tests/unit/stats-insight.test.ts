@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
-  StatsInsightMemoStore,
   anonymizeStatsForInsight,
-  buildInsightCacheKey,
+  buildInsightCategoryMappings,
+  buildInsightInputHash,
   parseInsightStructuredOutput,
-  type StatsAiInsight,
+  remapInsightOutput,
   type StatsSnapshotForInsight,
 } from "../../modules/stats/insight.service.js";
 
@@ -39,7 +39,7 @@ function buildSnapshotFixture(): StatsSnapshotForInsight {
       },
       {
         categoryId: "cat_a",
-        categoryName: "Despesas fixas",
+        categoryName: "Investimento",
         categoryKind: "reserve",
         budgeted: 3200,
         actual: 3000,
@@ -49,7 +49,8 @@ function buildSnapshotFixture(): StatsSnapshotForInsight {
     categorySeries: [
       {
         categoryId: "cat_a",
-        categoryName: "Despesas fixas",
+        categoryName: "Investimento",
+        categoryKind: "reserve",
         monthly: trend.map((item, index) => ({
           month: item.month,
           budgeted: 300 + index * 4,
@@ -59,6 +60,7 @@ function buildSnapshotFixture(): StatsSnapshotForInsight {
       {
         categoryId: "cat_b",
         categoryName: "Lazer",
+        categoryKind: "expense",
         monthly: trend.map((item, index) => ({
           month: item.month,
           budgeted: 180 + index * 3,
@@ -110,7 +112,7 @@ function buildSnapshotFixture(): StatsSnapshotForInsight {
 }
 
 describe("stats insight helpers", () => {
-  test("anonymizeStatsForInsight keeps only last six months and anonymizes categories deterministically", () => {
+  test("anonymizeStatsForInsight keeps only last months and anonymizes categories deterministically", () => {
     const snapshot = buildSnapshotFixture();
     const anonymized = anonymizeStatsForInsight(snapshot, 6);
 
@@ -118,91 +120,77 @@ describe("stats insight helpers", () => {
     expect(anonymized.trend).toHaveLength(6);
 
     expect(anonymized.expenseCategories).toHaveLength(2);
-    expect(anonymized.expenseCategories[0]?.alias).toBe("C2");
-    expect(anonymized.expenseCategories[1]?.alias).toBe("C1");
-    expect(anonymized.expenseCategories[0]?.categoryType).toBe("expense");
-    expect(anonymized.expenseCategories[1]?.categoryType).toBe("reserve");
-    expect(anonymized.expenseCategories[0]?.budgetStatus).toBe("over");
-    expect(anonymized.expenseCategories[0]?.totalRemaining).toBe(0);
-    expect(anonymized.expenseCategories[0]?.totalOvershoot).toBe(200);
-    expect(anonymized.expenseCategories[1]?.budgetStatus).toBe("under");
-    expect(anonymized.expenseCategories[1]?.totalRemaining).toBe(200);
-    expect(anonymized.expenseCategories[1]?.totalOvershoot).toBe(0);
-    expect(anonymized.expenseCategories[0]?.monthly).toHaveLength(6);
-    expect(anonymized.expenseCategories[1]?.monthly).toHaveLength(6);
-
-    expect(anonymized.incomeCategories).toHaveLength(2);
-    expect(anonymized.incomeCategories[0]?.alias).toBe("I2");
-    expect(anonymized.incomeCategories[1]?.alias).toBe("I1");
-    expect(anonymized.incomeCategories[0]?.monthly).toHaveLength(6);
-    expect(anonymized.incomeCategories[1]?.monthly).toHaveLength(6);
-
-    expect(JSON.stringify(anonymized)).not.toContain("Despesas fixas");
+    expect(anonymized.expenseCategories[0]?.alias).toBe("C1");
+    expect(anonymized.expenseCategories[1]?.alias).toBe("C2");
+    expect(anonymized.incomeCategories[0]?.alias).toBe("I1");
+    expect(anonymized.incomeCategories[1]?.alias).toBe("I2");
+    expect(JSON.stringify(anonymized)).not.toContain("Investimento");
     expect(JSON.stringify(anonymized)).not.toContain("Freelance");
   });
 
-  test("parseInsightStructuredOutput extracts the expected field", () => {
-    expect(parseInsightStructuredOutput('{"insight":"  Ajusta 12% em C1 para recuperar margem.  "}')).toBe(
-      "Ajusta 12% em C1 para recuperar margem.",
-    );
-    expect(parseInsightStructuredOutput('{"message":"wrong"}')).toBeNull();
-    expect(parseInsightStructuredOutput("not-json")).toBeNull();
-  });
-
-  test("buildInsightCacheKey is deterministic for same payload", () => {
+  test("buildInsightInputHash is deterministic for same payload", () => {
     const payload = anonymizeStatsForInsight(buildSnapshotFixture(), 6);
-    const keyA = buildInsightCacheKey({
-      accountId: "acc_1",
-      forecastWindow: 6,
-      payload,
-    });
-    const keyB = buildInsightCacheKey({
-      accountId: "acc_1",
-      forecastWindow: 6,
-      payload,
-    });
+    const hashA = buildInsightInputHash(payload);
+    const hashB = buildInsightInputHash(payload);
 
-    expect(keyA).toBe(keyB);
+    expect(hashA).toBe(hashB);
   });
 
-  test("StatsInsightMemoStore respects ttl and de-duplicates in-flight requests", async () => {
-    let now = 1_000;
-    const store = new StatsInsightMemoStore(() => now);
-    const value: StatsAiInsight = {
-      text: "Ritmo estável.",
-      source: "ai",
-      generatedAt: new Date(0).toISOString(),
-      model: "gpt-4.1-mini",
-    };
+  test("parseInsightStructuredOutput extracts structured report", () => {
+    const parsed = parseInsightStructuredOutput(
+      JSON.stringify({
+        summary: " Ajusta o foco em C1 para recuperar margem. ",
+        highlights: [{ title: "Pressão", detail: "C1 subiu este período.", severity: "warning" }],
+        risks: [{ title: "Margem", detail: "I1 continua demasiado concentrado.", severity: "high" }],
+        actions: [{ title: "Cortar", detail: "Reduz 10% em C1.", priority: "high" }],
+        categoryInsights: [
+          {
+            categoryAlias: "C1",
+            categoryKind: "expense",
+            title: "Categoria mais pressionada",
+            detail: "C1 excedeu o esperado.",
+            action: "Revê esta categoria semanalmente.",
+          },
+        ],
+        confidence: "medium",
+        limitations: ["Horizonte curto."],
+      }),
+    );
 
-    store.set("key", value, 2);
-    expect(store.get("key")).toEqual(value);
-    now = 3_500;
-    expect(store.get("key")).toBeNull();
+    expect(parsed?.summary).toBe("Ajusta o foco em C1 para recuperar margem.");
+    expect(parsed?.highlights[0]?.severity).toBe("warning");
+    expect(parsed?.actions[0]?.priority).toBe("high");
+    expect(parsed?.categoryInsights[0]?.categoryAlias).toBe("C1");
+  });
 
-    let calls = 0;
-    const dedupeValue: StatsAiInsight = {
-      text: "Prioriza corte em C1.",
-      source: "ai",
-      generatedAt: new Date(0).toISOString(),
-      model: "gpt-4.1-mini",
-    };
+  test("remapInsightOutput replaces aliases and resolves category mappings", () => {
+    const snapshot = buildSnapshotFixture();
+    const mappings = buildInsightCategoryMappings(snapshot);
+    const report = remapInsightOutput(
+      {
+        summary: "C1 continua a ser a categoria crítica e I1 concentra demasiado rendimento.",
+        highlights: [{ title: "C1 apertado", detail: "C1 já excedeu o budget.", severity: "warning" }],
+        risks: [{ title: "Dependência", detail: "I1 pesa demasiado no total.", severity: "high" }],
+        actions: [{ title: "Revê C1", detail: "Define um teto semanal em C1.", priority: "high" }],
+        categoryInsights: [
+          {
+            categoryAlias: "C1",
+            categoryKind: "reserve",
+            title: "C1 a exigir atenção",
+            detail: "C1 precisa de consistência.",
+            action: "Mantém o plano de C1.",
+          },
+        ],
+        confidence: "medium",
+        limitations: ["Ler I1 com cautela."],
+      },
+      mappings,
+    );
 
-    const factory = async () => {
-      calls += 1;
-      await new Promise((resolve) => setTimeout(resolve, 15));
-      return dedupeValue;
-    };
-
-    const [a, b, c] = await Promise.all([
-      store.runWithDedupe("same", factory),
-      store.runWithDedupe("same", factory),
-      store.runWithDedupe("same", factory),
-    ]);
-
-    expect(calls).toBe(1);
-    expect(a).toEqual(dedupeValue);
-    expect(b).toEqual(dedupeValue);
-    expect(c).toEqual(dedupeValue);
+    expect(report.summary).toContain("Investimento");
+    expect(report.summary).toContain("Salario");
+    expect(report.categoryInsights[0]?.categoryId).toBe("cat_a");
+    expect(report.categoryInsights[0]?.categoryName).toBe("Investimento");
+    expect(report.limitations?.[0]).toContain("Salario");
   });
 });

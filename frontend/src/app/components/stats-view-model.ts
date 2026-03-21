@@ -204,41 +204,6 @@ export function getDriverStatusLabel(status: StatsDriverStatus): string {
   return "OK";
 }
 
-export function buildPulseInsight(
-  model: StatsViewModel,
-  formatCurrency: (value: number) => string,
-): string {
-  const top = model.topDrivers[0];
-
-  if (model.budgetedTotal <= 0) {
-    return "Ainda sem orçamento comparável neste período. Define limites para desbloquear recomendações melhores.";
-  }
-
-  if (model.budgetDelta < 0) {
-    return `Acima do orçamento agregado em ${formatCurrency(
-      Math.abs(model.budgetDelta),
-    )}. Prioriza corte na categoria com maior pressão.`;
-  }
-
-  if (top?.status === "exceeded") {
-    return `${top.categoryName} já excedeu o limite. Atua primeiro nesta categoria para recuperar margem.`;
-  }
-
-  if (top?.status === "tight") {
-    return `${top.categoryName} está com margem apertada. Revê despesas variáveis antes de fechar o período.`;
-  }
-
-  if (model.savingsRate >= 20) {
-    return "Ritmo muito sólido. Mantém consistência para fechar o período com boa margem.";
-  }
-
-  if (model.savingsRate >= 10) {
-    return "Ritmo estável. Pequenos ajustes em despesas discricionárias podem melhorar a taxa de poupança.";
-  }
-
-  return "Ritmo frágil. Define um teto semanal para recuperar controlo das despesas.";
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

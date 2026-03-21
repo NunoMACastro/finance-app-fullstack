@@ -1,6 +1,7 @@
 import { Types, type ClientSession } from "mongoose";
 import { conflict, notFound, unprocessable } from "../../lib/api-error.js";
 import { IncomeCategoryModel } from "../../models/income-category.model.js";
+import { markStatsInsightsStaleForAccount } from "../stats/service.js";
 
 export const DEFAULT_INCOME_CATEGORY_NAME = "Outras receitas";
 
@@ -125,6 +126,7 @@ export async function createIncomeCategory(accountId: string, input: { name: str
       isDefault: false,
     });
 
+    await markStatsInsightsStaleForAccount(accountId);
     return toDto(category);
   } catch (error) {
     if (isDuplicateKeyError(error)) {
@@ -167,6 +169,7 @@ export async function updateIncomeCategory(
     throw error;
   }
 
+  await markStatsInsightsStaleForAccount(accountId);
   return toDto(category);
 }
 
@@ -182,6 +185,7 @@ export async function softDeleteIncomeCategory(accountId: string, incomeCategory
 
   category.active = false;
   await category.save();
+  await markStatsInsightsStaleForAccount(accountId);
 }
 
 export async function assertIncomeCategoryActive(accountId: string, incomeCategoryId?: string): Promise<void> {

@@ -1,4 +1,3 @@
-import { AlertTriangle, CheckCircle2, Info, TrendingUp } from "lucide-react";
 import type { StatsPulseTone } from "./stats-view-model";
 
 function toneTextClass(tone: StatsPulseTone): string {
@@ -6,13 +5,6 @@ function toneTextClass(tone: StatsPulseTone): string {
   if (tone === "warning") return "text-status-warning";
   if (tone === "danger") return "text-status-danger";
   return "text-muted-foreground";
-}
-
-function toneSoftClass(tone: StatsPulseTone): string {
-  if (tone === "success") return "bg-success-soft";
-  if (tone === "warning") return "bg-warning-soft";
-  if (tone === "danger") return "bg-danger-soft";
-  return "bg-surface-soft";
 }
 
 function toneBarClass(tone: StatsPulseTone): string {
@@ -38,8 +30,6 @@ export function StatsPulsePanel({
   potentialSavings,
   budgetUsePercent,
   pulseTone,
-  insight,
-  insightLoading = false,
 }: {
   periodLabel: string;
   totalBalance: string;
@@ -56,18 +46,7 @@ export function StatsPulsePanel({
   potentialSavings: string;
   budgetUsePercent: number;
   pulseTone: StatsPulseTone;
-  insight: string;
-  insightLoading?: boolean;
 }) {
-  const Icon =
-    pulseTone === "danger"
-      ? AlertTriangle
-      : pulseTone === "success"
-        ? CheckCircle2
-        : pulseTone === "warning"
-          ? TrendingUp
-          : Info;
-
   return (
     <section
       className="space-y-4"
@@ -120,17 +99,6 @@ export function StatsPulsePanel({
           <span className="text-sm text-muted-foreground">Poupança total potencial</span>
           <span className="text-sm tabular-nums text-foreground">{potentialSavings}</span>
         </div>
-      </div>
-
-      <div className={`rounded-xl px-3 py-2 ${toneSoftClass(pulseTone)}`} data-tour="stats-pulse-insight">
-        <p className={`flex items-center gap-2 text-sm ${toneTextClass(pulseTone)}`}>
-          <Icon className="h-4 w-4 shrink-0" />
-          {insightLoading ? (
-            <span className="animate-pulse">A gerar análise IA...</span>
-          ) : (
-            <span>{insight}</span>
-          )}
-        </p>
       </div>
     </section>
   );

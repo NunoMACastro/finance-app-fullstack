@@ -108,21 +108,24 @@ Ordenacao hibrida da lista:
 
 ### Fluxo de carregamento
 1. escolher periodo (`6M`/`12M`)
-2. pedir snapshot base (`includeInsight=false`) e renderizar imediatamente:
-   - `Pulse do período` (saldo + breakdown financeiro + insight)
+2. pedir snapshot base e renderizar imediatamente:
+   - `Pulse do período` (saldo + breakdown financeiro + microcopy local)
    - `Drivers` (top 3 categorias críticas)
    - `Tendência` (receitas/despesas/saldo)
    - `Projeção` (3M/6M + confiança)
-3. em paralelo, pedir enrichment (`includeInsight=true`) e atualizar apenas o bloco de insight quando chegar
+3. mostrar CTA compacto `Abrir análise IA`
+4. navegar para `/stats/insights?period=...&forecastWindow=...`
 
 Escopo funcional v1:
 - stats são sempre da conta ativa (`account-scoped`), sem agregação global entre contas nesta vaga
 - troca de conta no seletor (quando visível) recarrega os dados de stats dessa conta
+- abrir `/stats` nunca dispara pedidos de insight IA
 
 ### Interacoes
 - selecao de ponto no grafico de tendencia
 - tap em driver abre `sheet` contextual de detalhe da categoria
 - no `sheet`, CTA opcional para abrir movimentos da categoria no mês mais recente
+- CTA `Abrir análise IA` navega para a página dedicada e preserva contexto (`period`, `forecastWindow`)
 
 Linhas do `Pulse` (ordem fixa):
 1. `Receitas`
@@ -141,7 +144,32 @@ Linhas do `Pulse` (ordem fixa):
   - `Pulse` e `Drivers` degradam para mensagens curtas sem quebrar layout
 - sem crash
 
-## 5) Profile page (`/profile`)
+## 5) Stats insights page (`/stats/insights`)
+
+### Fluxo de carregamento
+1. abrir a página a partir de `/stats` ou por deep link com `period`/`forecastWindow`
+2. mostrar o período atual em modo read-only e permitir apenas ajustar a janela `3M/6M`
+3. mostrar estado inicial vazio, sem disparar pedidos ao backend
+4. quando o utilizador toca `Gerar insight IA`:
+   - `POST /stats/insights`
+   - se `ready`, renderizar imediatamente
+   - se `pending`, iniciar polling de `GET /stats/insights/:id`
+   - se `failed`, mostrar erro curto + retry
+
+### Interacoes
+- alterar `3M/6M` invalida o insight atual em memória
+- `Gerar novamente` repete o fluxo para o contexto atual
+- `Voltar` regressa a `/stats`
+
+### Conteúdo
+- resumo executivo
+- highlights
+- riscos
+- ações
+- categorias em foco
+- metadata (`generatedAt`, `model`, `confidence`, `stale`)
+
+## 6) Profile page (`/profile`)
 
 Arquitetura de navegacao:
 - `/profile` (hub): lista flat de secções
@@ -187,7 +215,7 @@ Conteúdo por secção:
   - join: entrar por código
   - members (owner): gerar convite + gerir membros
 
-## 6) Tutorial por pagina
+## 7) Tutorial por pagina
 
 Comportamento:
 - auto somente quando `tutorialSeenAt` for `null`
@@ -199,11 +227,11 @@ Comportamento:
 - no escopo `stats`, o tutorial explica separadamente:
   - saldo do período
   - breakdown do pulse (consumo, poupanças, por alocar/em falta, aderência, taxas, potencial)
-  - bloco de análise (IA com fallback local)
+  - CTA para abrir a análise IA dedicada
 - nao faz navegacao forcada
 - marca visto em skip ou done
 
-## 7) Troca de conta ativa
+## 8) Troca de conta ativa
 
 1. user troca no dropdown
 2. `AccountContext` atualiza header local + storage

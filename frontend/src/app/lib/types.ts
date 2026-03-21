@@ -301,12 +301,61 @@ export interface StatsSnapshot {
     sampleSize: number;
     confidence: "low" | "medium" | "high";
   };
-  insight?: {
-    text: string;
-    source: "ai";
-    generatedAt: string;
-    model: string;
-  };
+}
+
+export interface StatsInsightHighlight {
+  title: string;
+  detail: string;
+  severity: "info" | "warning" | "positive";
+}
+
+export interface StatsInsightRisk {
+  title: string;
+  detail: string;
+  severity: "warning" | "high";
+}
+
+export interface StatsInsightAction {
+  title: string;
+  detail: string;
+  priority: "high" | "medium" | "low";
+}
+
+export interface StatsInsightCategoryItem {
+  categoryId: string;
+  categoryAlias: string;
+  categoryKind: "expense" | "reserve";
+  categoryName: string;
+  title: string;
+  detail: string;
+  action?: string;
+}
+
+export interface StatsInsightReport {
+  summary: string;
+  highlights: StatsInsightHighlight[];
+  risks: StatsInsightRisk[];
+  actions: StatsInsightAction[];
+  categoryInsights: StatsInsightCategoryItem[];
+  confidence: "low" | "medium" | "high";
+  limitations?: string[];
+}
+
+export interface StatsInsightStatusResponse {
+  id: string;
+  periodType: "semester" | "year";
+  periodKey: string;
+  forecastWindow: 3 | 6;
+  status: "pending" | "ready" | "failed";
+  stale: boolean;
+  requestedAt: string;
+  generatedAt: string | null;
+  model: string | null;
+  report: StatsInsightReport | null;
+  error: {
+    code: string;
+    message: string;
+  } | null;
 }
 
 // ── Errors ────────────────────────────────────────────────

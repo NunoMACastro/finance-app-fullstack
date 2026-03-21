@@ -114,13 +114,17 @@ Acoes:
 ### Stats sem insight IA
 Causa:
 - `OPENAI_API_KEY` ausente/invalida
-- timeout no provider (`OPENAI_INSIGHT_TIMEOUT_MS`)
+- timeout no provider (`OPENAI_INSIGHT_TIMEOUT_MS`, alvo recomendado: `8000ms`)
 - erro temporario da API OpenAI
-- chamada com `includeInsight=false` (cliente pediu snapshot base sem IA)
+- pedido dedicado `/stats/insights` falhou ou ficou indisponivel
 
 Comportamento esperado:
 - endpoints `/stats/semester` e `/stats/year` continuam a responder `200`
-- payload de stats vem sem campo `insight` (fallback gracioso no frontend)
+- snapshot base continua utilizavel
+- abrir `/stats` nao tenta gerar/reutilizar insight automaticamente
+- a geracao so acontece apos `POST /stats/insights` iniciado por acao explicita do utilizador
+- recurso `/stats/insights/:id` pode ficar em `failed`
+- frontend continua com `Pulse` local e permite `Tentar novamente`
 
 ### Exposicao de segredo detetada
 Causa:

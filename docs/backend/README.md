@@ -41,8 +41,9 @@ Pasta fonte: `backend/src`
 - `recurring`
   - CRUD de regras recorrentes + generate + reassign category
 - `stats`
-  - semestre, ano, compare-budget, snapshot materialization
-  - enrichment opcional de insight IA (OpenAI) com fallback gracioso
+  - semestre, ano, compare-budget e insights IA dedicados
+  - snapshots calculados on-demand
+  - insight IA via recurso dedicado assincrono (`/stats/insights`) sobre snapshot base
 
 ## Middleware de seguranca e observabilidade
 
@@ -76,9 +77,7 @@ Formato padrao:
 ## Scoping de autorizacao
 
 1. `requireAuth` valida JWT e popula `req.auth.userId`.
-2. `requireAccountContext` resolve `accountId`:
-   - `X-Account-Id` se presente
-   - fallback para `user.personalAccountId`
+2. endpoints financeiros usam `requireStrictAccountContext` e exigem `X-Account-Id`.
 3. Membership ativa e role sao carregadas para `req.auth`.
 
 Guards de role:

@@ -4,9 +4,19 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const statsApiMocks = vi.hoisted(() => ({
   getSemester: vi.fn(),
   getYear: vi.fn(),
+  getLatestInsight: vi.fn(),
+  requestInsight: vi.fn(),
+  getInsight: vi.fn(),
 }));
 
 const navigateMock = vi.hoisted(() => vi.fn());
+const searchParamsState = vi.hoisted(() => new URLSearchParams());
+const setSearchParamsMock = vi.hoisted(() => vi.fn((next: Record<string, string>) => {
+  searchParamsState.forEach((_value, key) => searchParamsState.delete(key));
+  Object.entries(next).forEach(([key, value]) => {
+    searchParamsState.set(key, value);
+  });
+}));
 
 vi.mock("../lib/auth-context", () => ({
   useAuth: () => ({
@@ -25,6 +35,9 @@ vi.mock("../lib/api", () => ({
   statsApi: {
     getSemester: statsApiMocks.getSemester,
     getYear: statsApiMocks.getYear,
+    getLatestInsight: statsApiMocks.getLatestInsight,
+    requestInsight: statsApiMocks.requestInsight,
+    getInsight: statsApiMocks.getInsight,
   },
 }));
 
@@ -33,6 +46,7 @@ vi.mock("react-router", async () => {
   return {
     ...actual,
     useNavigate: () => navigateMock,
+    useSearchParams: () => [searchParamsState, setSearchParamsMock],
   };
 });
 
@@ -41,7 +55,6 @@ import { StatsPage } from "./stats-page";
 function buildSnapshot(
   windowMonths: 3 | 6,
   expenseActual = 2400,
-  insightText?: string,
   overrides?: { totalsBreakdown?: { unallocated: number; unallocatedRate: number } },
 ) {
   const forecastConfidence = windowMonths === 3 ? "high" : "medium";
@@ -161,59 +174,43 @@ function buildSnapshot(
       sampleSize: 3,
       confidence: forecastConfidence,
     },
-    ...(insightText
-      ? {
-          insight: {
-            text: insightText,
-            source: "ai" as const,
-            generatedAt: "2026-03-17T11:00:00.000Z",
-            model: "gpt-4.1-mini",
-          },
-        }
-      : {}),
   };
 }
 
 describe("StatsPage", () => {
   beforeEach(() => {
     navigateMock.mockReset();
-    statsApiMocks.getSemester.mockImplementation((_, forecastWindow: 3 | 6 = 3, options?: { includeInsight?: boolean }) =>
-      Promise.resolve(
-        options?.includeInsight
-          ? buildSnapshot(forecastWindow, 450, "As despesas de C1 subiram 12%. Ajusta o teto semanal.")
-          : buildSnapshot(forecastWindow),
-      ),
+    setSearchParamsMock.mockClear();
+    searchParamsState.forEach((_value, key) => searchParamsState.delete(key));
+    statsApiMocks.getSemester.mockImplementation(async (_endingMonth?: string, windowMonths?: 3 | 6) =>
+      buildSnapshot(windowMonths ?? 3),
     );
-    statsApiMocks.getYear.mockImplementation((_, forecastWindow: 3 | 6 = 3, options?: { includeInsight?: boolean }) =>
-      Promise.resolve(buildSnapshot(forecastWindow)),
+    statsApiMocks.getYear.mockImplementation(async (_year?: number, windowMonths?: 3 | 6) =>
+      buildSnapshot(windowMonths ?? 3),
     );
+    statsApiMocks.getLatestInsight.mockReset();
+    statsApiMocks.requestInsight.mockReset();
+    statsApiMocks.getInsight.mockReset();
   });
 
-  test("renders pulse and updates forecast window from 3M to 6M", async () => {
+  test("renders pulse and updates forecast window from 3M to 6M without requesting insight", async () => {
     const { container } = render(<StatsPage />);
 
     await screen.findByText("Pulse do período");
     expect(container.querySelector('[data-ui-v3-page="stats"]')).toBeInTheDocument();
     expect(screen.getByText("A mostrar dados da conta ativa")).toBeInTheDocument();
 
-    expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3, { includeInsight: false });
+    expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 3);
+    expect(statsApiMocks.getLatestInsight).not.toHaveBeenCalled();
+    expect(statsApiMocks.requestInsight).not.toHaveBeenCalled();
     expect(screen.getByText("Confiança alta: 3 meses de dados usados.")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Selecionar período" })).toHaveAttribute("data-ui-v3-segmented", "true");
-    expect(screen.getByRole("group", { name: "Selecionar janela da projeção" })).toHaveAttribute("data-ui-v3-segmented", "true");
 
     const sixMonthButtons = screen.getAllByRole("button", { name: "6M" });
     fireEvent.click(sixMonthButtons[sixMonthButtons.length - 1]);
 
     await waitFor(() => {
-      expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 6, { includeInsight: false });
+      expect(statsApiMocks.getSemester).toHaveBeenCalledWith(undefined, 6);
     });
-
-    expect(screen.getByText("Consumo")).toBeInTheDocument();
-    expect(screen.getByText("Poupanças")).toBeInTheDocument();
-    expect(screen.getByText("Valor por alocar")).toBeInTheDocument();
-    expect(screen.getByText("Aderência ao orçamento")).toBeInTheDocument();
-    expect(screen.getByText("Taxa por alocar")).toBeInTheDocument();
-    expect(screen.getByText("Poupança total potencial")).toBeInTheDocument();
 
     expect(screen.getByText("Confiança média: dados limitados (3/6 meses).")).toBeInTheDocument();
   });
@@ -242,24 +239,18 @@ describe("StatsPage", () => {
     expect(await screen.findByText("Pulse do período")).toBeInTheDocument();
   });
 
-  test("prefers backend insight text when available", async () => {
-    statsApiMocks.getSemester
-      .mockResolvedValueOnce(buildSnapshot(3))
-      .mockResolvedValueOnce(buildSnapshot(3, 450, "As despesas de C1 subiram 12%. Ajusta o teto semanal para recuperar margem."));
-
+  test("navigates to dedicated analysis page with preserved context", async () => {
     render(<StatsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Gerar insight IA" }));
-    expect(
-      await screen.findByText(
-        "As despesas de Despesas subiram 12%. Ajusta o teto semanal para recuperar margem.",
-      ),
-    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir análise IA" }));
+
+    expect(navigateMock).toHaveBeenCalledWith("/stats/insights?period=semester&forecastWindow=3&from=/stats");
   });
 
   test("shows deficit labels when unallocated is negative", async () => {
-    statsApiMocks.getSemester
-      .mockResolvedValueOnce(buildSnapshot(3, 5000, undefined, { totalsBreakdown: { unallocated: -200, unallocatedRate: -3.33 } }))
-      .mockResolvedValueOnce(buildSnapshot(3, 5000, undefined, { totalsBreakdown: { unallocated: -200, unallocatedRate: -3.33 } }));
+    statsApiMocks.getSemester.mockResolvedValueOnce(
+      buildSnapshot(3, 5000, { totalsBreakdown: { unallocated: -200, unallocatedRate: -3.33 } }),
+    );
 
     render(<StatsPage />);
 

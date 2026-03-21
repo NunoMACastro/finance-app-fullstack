@@ -20,6 +20,7 @@ import type {
   ReassignRecurringCategoryResult,
   SaveBudgetDto,
   StatsSnapshot,
+  StatsInsightStatusResponse,
   ThemePalette,
   Transaction,
   TransactionListResponse,
@@ -302,15 +303,11 @@ export const statsApi = {
   async getSemester(
     endingMonth?: string,
     forecastWindow: 3 | 6 = 3,
-    options?: { includeInsight?: boolean },
   ): Promise<StatsSnapshot> {
     const { data } = await httpClient.get<StatsSnapshot>("/stats/semester", {
       params: {
         ...(endingMonth ? { endingMonth } : {}),
         forecastWindow,
-        ...(options?.includeInsight !== undefined
-          ? { includeInsight: options.includeInsight }
-          : {}),
       },
     });
     return data;
@@ -319,16 +316,39 @@ export const statsApi = {
   async getYear(
     year?: number,
     forecastWindow: 3 | 6 = 3,
-    options?: { includeInsight?: boolean },
   ): Promise<StatsSnapshot> {
     const { data } = await httpClient.get<StatsSnapshot>("/stats/year", {
       params: {
         ...(year ? { year } : {}),
         forecastWindow,
-        ...(options?.includeInsight !== undefined
-          ? { includeInsight: options.includeInsight }
-          : {}),
       },
+    });
+    return data;
+  },
+
+  async requestInsight(input: {
+    periodType: "semester" | "year";
+    forecastWindow?: 3 | 6;
+    endingMonth?: string;
+    year?: number;
+  }): Promise<StatsInsightStatusResponse> {
+    const { data } = await httpClient.post<StatsInsightStatusResponse>("/stats/insights", input);
+    return data;
+  },
+
+  async getInsight(id: string): Promise<StatsInsightStatusResponse> {
+    const { data } = await httpClient.get<StatsInsightStatusResponse>(`/stats/insights/${id}`);
+    return data;
+  },
+
+  async getLatestInsight(query: {
+    periodType: "semester" | "year";
+    forecastWindow?: 3 | 6;
+    endingMonth?: string;
+    year?: number;
+  }): Promise<StatsInsightStatusResponse> {
+    const { data } = await httpClient.get<StatsInsightStatusResponse>("/stats/insights/latest", {
+      params: query,
     });
     return data;
   },

@@ -40,7 +40,7 @@ Normativa:
   - ações globais de ícone (privacidade, tutorial, sair)
 - O seletor de conta ativa `MUST` ser contextual:
   - aparece apenas quando existe conta `shared`
-  - aparece apenas em `/` e `/stats`
+  - aparece apenas em `/` e rotas `startsWith("/stats")`
   - fica oculto nas restantes rotas
 
 ## 4. Regras por Componente
@@ -130,6 +130,8 @@ Normativa:
 - `MUST` usar drilldown de categoria em `sheet` contextual (não inline expandido).
 - `MUST` manter projeção com seletor `3M/6M` e nota de confiança.
   - o seletor de período e projeção `MUST` usar `SegmentedControlV3`.
+- o report IA detalhado `MUST` viver em página dedicada (`/stats/insights`) e nao inline em `/stats`.
+- abrir `/stats` `MUST NOT` disparar qualquer pedido de insight IA.
 
 ### Budget Editor
 - `MUST` apresentar templates em lista compacta.

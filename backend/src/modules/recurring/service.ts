@@ -12,6 +12,7 @@ import {
   assertIncomeCategoryActive,
   ensureDefaultIncomeCategoryForAccount,
 } from "../income-categories/service.js";
+import { markStatsInsightsStaleForAccount } from "../stats/service.js";
 
 type GenerationStatus = "ok" | "fallback";
 
@@ -273,6 +274,7 @@ export async function createRule(
     lastGenerationStatus: null,
   });
 
+  await markStatsInsightsStaleForAccount(accountId);
   return toDto(rule, 0);
 }
 
@@ -311,6 +313,7 @@ export async function updateRule(
 
   await rule.save();
   const pendingFallbackCount = await getPendingFallbackCount(accountId, rule._id);
+  await markStatsInsightsStaleForAccount(accountId);
   return toDto(rule, pendingFallbackCount);
 }
 
@@ -319,6 +322,7 @@ export async function deleteRule(accountId: string, ruleId: string): Promise<voi
   if (result.deletedCount === 0) {
     notFound("Regra recorrente não encontrada", "RECURRING_RULE_NOT_FOUND");
   }
+  await markStatsInsightsStaleForAccount(accountId);
 }
 
 export async function reassignRuleCategory(
@@ -379,6 +383,7 @@ export async function reassignRuleCategory(
   rule.categoryId = categoryId;
   rule.userId = new Types.ObjectId(actorUserId);
   await rule.save();
+  await markStatsInsightsStaleForAccount(accountId);
 
   const pendingFallbackCount = await getPendingFallbackCount(accountId, rule._id);
   return {
@@ -445,6 +450,7 @@ export async function generateForAccountMonth(
 
   if (created > 0) {
     await syncBudgetTotalFromTransactions(accountId, month);
+    await markStatsInsightsStaleForAccount(accountId);
   }
 
   return {

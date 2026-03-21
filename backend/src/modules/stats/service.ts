@@ -1,11 +1,23 @@
-import { BudgetModel } from "../../models/budget.model.js";
-import { IncomeCategoryModel } from "../../models/income-category.model.js";
-import { StatsSnapshotModel } from "../../models/stats-snapshot.model.js";
-import { TransactionModel } from "../../models/transaction.model.js";
+import { Types } from "mongoose";
 import { unprocessable } from "../../lib/api-error.js";
 import { lastNMonthsEndingAt, monthFromDate } from "../../lib/month.js";
-import { Types } from "mongoose";
-import { generateStatsInsight, type StatsAiInsight } from "./insight.service.js";
+import { BudgetModel } from "../../models/budget.model.js";
+import { IncomeCategoryModel } from "../../models/income-category.model.js";
+import { StatsInsightModel } from "../../models/stats-insight.model.js";
+import { StatsSnapshotModel } from "../../models/stats-snapshot.model.js";
+import { TransactionModel } from "../../models/transaction.model.js";
+import { env } from "../../config/env.js";
+import { logger } from "../../config/logger.js";
+import {
+  anonymizeStatsForInsight,
+  buildInsightCategoryMappings,
+  buildInsightInputHash,
+  remapInsightOutput,
+  requestStructuredStatsInsight,
+  type AnonymizedStatsInsightPayload,
+  type StatsInsightReport,
+  type StatsInsightStatusDto,
+} from "./insight.service.js";
 
 interface TrendItem {
   month: string;
@@ -88,7 +100,6 @@ export interface StatsSnapshotDto {
     sampleSize: number;
     confidence: "low" | "medium" | "high";
   };
-  insight?: StatsAiInsight;
 }
 
 interface BudgetCompareDto {
@@ -101,6 +112,24 @@ interface BudgetCompareDto {
   };
   items: BudgetVsActualItem[];
 }
+
+export interface StatsInsightRequestInput {
+  periodType: "semester" | "year";
+  forecastWindow?: 3 | 6;
+  endingMonth?: string;
+  year?: number;
+}
+
+type StatsInsightStatus = "pending" | "ready" | "failed";
+
+interface StatsInsightLookupContext {
+  snapshot: StatsSnapshotDto;
+  payload: AnonymizedStatsInsightPayload;
+  inputHash: string;
+  forecastWindow: 3 | 6;
+}
+
+const insightJobs = new Map<string, Promise<void>>();
 
 function semesterKey(month: string): string {
   const yearStr = month.slice(0, 4);
@@ -124,6 +153,80 @@ function categoryMonthKey(categoryId: string, month: string): string {
 function resolveRate(value: number, totalIncome: number): number {
   if (totalIncome <= 0) return 0;
   return (value / totalIncome) * 100;
+}
+
+function periodsMonthsLimit(periodType: "semester" | "year"): number {
+  return periodType === "semester" ? 6 : 12;
+}
+
+function toInsightStatusDto(doc: {
+  _id: Types.ObjectId;
+  periodType: "semester" | "year";
+  periodKey: string;
+  forecastWindow: number;
+  status: StatsInsightStatus;
+  stale: boolean;
+  createdAt: Date;
+  generatedAt?: Date | null;
+  model?: string | null;
+  summary?: string | null;
+  highlights?: Array<{ title: string; detail: string; severity: "info" | "warning" | "positive" }>;
+  risks?: Array<{ title: string; detail: string; severity: "warning" | "high" }>;
+  actions?: Array<{ title: string; detail: string; priority: "high" | "medium" | "low" }>;
+  categoryInsights?: Array<{
+    categoryId: string;
+    categoryAlias: string;
+    categoryKind: "expense" | "reserve";
+    categoryName: string;
+    title: string;
+    detail: string;
+    action?: string | null;
+  }>;
+  confidence?: StatsInsightReport["confidence"] | null;
+  limitations?: string[];
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}): StatsInsightStatusDto {
+  const hasReport = doc.status === "ready" && doc.summary && doc.confidence;
+  const categoryInsights = (doc.categoryInsights ?? []).map((item) => ({
+    categoryId: item.categoryId,
+    categoryAlias: item.categoryAlias,
+    categoryKind: item.categoryKind,
+    categoryName: item.categoryName,
+    title: item.title,
+    detail: item.detail,
+    ...(item.action ? { action: item.action } : {}),
+  }));
+
+  return {
+    id: doc._id.toString(),
+    periodType: doc.periodType,
+    periodKey: doc.periodKey,
+    forecastWindow: doc.forecastWindow === 6 ? 6 : 3,
+    status: doc.status,
+    stale: doc.stale,
+    requestedAt: doc.createdAt.toISOString(),
+    generatedAt: doc.generatedAt ? doc.generatedAt.toISOString() : null,
+    model: doc.model ?? null,
+    report: hasReport
+      ? {
+          summary: doc.summary!,
+          highlights: doc.highlights ?? [],
+          risks: doc.risks ?? [],
+          actions: doc.actions ?? [],
+          categoryInsights,
+          confidence: doc.confidence!,
+          ...(doc.limitations && doc.limitations.length > 0 ? { limitations: doc.limitations } : {}),
+        }
+      : null,
+    error:
+      doc.status === "failed"
+        ? {
+            code: doc.errorCode ?? "STATS_INSIGHT_FAILED",
+            message: doc.errorMessage ?? "Não foi possível gerar o insight IA.",
+          }
+        : null,
+  };
 }
 
 export function buildTotalsBreakdown(
@@ -357,27 +460,139 @@ async function buildStats(
   };
 }
 
+async function resolveStatsSnapshot(
+  accountId: string,
+  request: StatsInsightRequestInput,
+): Promise<{ snapshot: StatsSnapshotDto; forecastWindow: 3 | 6 }> {
+  const forecastWindow = request.forecastWindow ?? 3;
+
+  if (request.periodType === "semester") {
+    const anchor = request.endingMonth ?? monthFromDate(new Date());
+    const months = lastNMonthsEndingAt(anchor, 6);
+    const periodKey = semesterKey(anchor);
+    const snapshot = await buildStats(accountId, "semester", periodKey, months, forecastWindow);
+    return { snapshot, forecastWindow };
+  }
+
+  const snapshot = await (async () => {
+    if (request.year) {
+      return buildStats(accountId, "year", String(request.year), monthsForYear(request.year), forecastWindow);
+    }
+    const anchor = monthFromDate(new Date());
+    return buildStats(accountId, "year", anchor.slice(0, 4), lastNMonthsEndingAt(anchor, 12), forecastWindow);
+  })();
+
+  return { snapshot, forecastWindow };
+}
+
+async function buildInsightLookupContext(
+  accountId: string,
+  request: StatsInsightRequestInput,
+): Promise<StatsInsightLookupContext> {
+  const { snapshot, forecastWindow } = await resolveStatsSnapshot(accountId, request);
+  const payload = anonymizeStatsForInsight(snapshot, periodsMonthsLimit(snapshot.periodType));
+  const inputHash = buildInsightInputHash(payload);
+  return {
+    snapshot,
+    payload,
+    inputHash,
+    forecastWindow,
+  };
+}
+
+function scheduleInsightJob(insightId: string): void {
+  if (insightJobs.has(insightId)) {
+    return;
+  }
+
+  const job = (async () => {
+    const insight = await StatsInsightModel.findById(insightId);
+    if (!insight || insight.status !== "pending") {
+      return;
+    }
+
+    const rawPayload = insight.rawPayload as AnonymizedStatsInsightPayload | null;
+    const categoryMappings = insight.categoryMappings as Array<{
+      alias: string;
+      categoryId: string;
+      categoryName: string;
+      categoryKind: "expense" | "reserve" | "income";
+    }>;
+
+    if (!rawPayload || !Array.isArray(categoryMappings)) {
+      await StatsInsightModel.updateOne(
+        { _id: insight._id, status: "pending" },
+        {
+          $set: {
+            status: "failed",
+            errorCode: "STATS_INSIGHT_INPUT_INVALID",
+            errorMessage: "Não foi possível preparar o insight IA.",
+          },
+        },
+      );
+      return;
+    }
+
+    const output = await requestStructuredStatsInsight(rawPayload);
+    if (!output) {
+      await StatsInsightModel.updateOne(
+        { _id: insight._id, status: "pending" },
+        {
+          $set: {
+            status: "failed",
+            errorCode: "STATS_INSIGHT_PROVIDER_UNAVAILABLE",
+            errorMessage: "Não foi possível gerar o insight IA.",
+          },
+        },
+      );
+      return;
+    }
+
+    const report = remapInsightOutput(output, categoryMappings);
+
+    await StatsInsightModel.updateOne(
+      { _id: insight._id, status: "pending" },
+      {
+        $set: {
+          status: "ready",
+          model: insight.model,
+          summary: report.summary,
+          highlights: report.highlights,
+          risks: report.risks,
+          actions: report.actions,
+          categoryInsights: report.categoryInsights,
+          confidence: report.confidence,
+          limitations: report.limitations ?? [],
+          errorCode: null,
+          errorMessage: null,
+          generatedAt: new Date(),
+        },
+      },
+    );
+  })()
+    .catch((error) => {
+      logger.error({ err: error, insightId }, "Stats insight background job failed");
+    })
+    .finally(() => {
+      insightJobs.delete(insightId);
+    });
+
+  insightJobs.set(insightId, job);
+}
+
 export async function getSemesterStats(
   accountId: string,
   endingMonth?: string,
   forecastWindow: 3 | 6 = 3,
   includeInsight = false,
 ): Promise<StatsSnapshotDto> {
-  const anchor = endingMonth ?? monthFromDate(new Date());
-  const months = lastNMonthsEndingAt(anchor, 6);
-  const periodKey = semesterKey(anchor);
-  const snapshot = await buildStats(accountId, "semester", periodKey, months, forecastWindow);
-
-  if (!includeInsight) {
-    return snapshot;
-  }
-
-  const insight = await generateStatsInsight({
-    accountId,
+  void includeInsight;
+  const { snapshot } = await resolveStatsSnapshot(accountId, {
+    periodType: "semester",
+    endingMonth,
     forecastWindow,
-    snapshot,
   });
-  return insight ? { ...snapshot, insight } : snapshot;
+  return snapshot;
 }
 
 export async function getYearStats(
@@ -386,24 +601,147 @@ export async function getYearStats(
   forecastWindow: 3 | 6 = 3,
   includeInsight = false,
 ): Promise<StatsSnapshotDto> {
-  const snapshot = await (async () => {
-    if (year) {
-      return buildStats(accountId, "year", String(year), monthsForYear(year), forecastWindow);
-    }
-    const anchor = monthFromDate(new Date());
-    return buildStats(accountId, "year", anchor.slice(0, 4), lastNMonthsEndingAt(anchor, 12), forecastWindow);
-  })();
+  void includeInsight;
+  const { snapshot } = await resolveStatsSnapshot(accountId, {
+    periodType: "year",
+    year,
+    forecastWindow,
+  });
+  return snapshot;
+}
 
-  if (!includeInsight) {
-    return snapshot;
+export async function requestStatsInsight(
+  accountId: string,
+  userId: string,
+  request: StatsInsightRequestInput,
+): Promise<StatsInsightStatusDto> {
+  const { snapshot, payload, inputHash, forecastWindow } = await buildInsightLookupContext(accountId, request);
+
+  const filter = {
+    accountId,
+    periodType: snapshot.periodType,
+    periodKey: snapshot.periodKey,
+    forecastWindow,
+    inputHash,
+    stale: false,
+  };
+
+  const readyExisting = await StatsInsightModel.findOne({
+    ...filter,
+    status: "ready",
+  }).sort({ generatedAt: -1, createdAt: -1 });
+  if (readyExisting) {
+    return toInsightStatusDto(readyExisting);
   }
 
-  const insight = await generateStatsInsight({
+  const pendingExisting = await StatsInsightModel.findOne({
+    ...filter,
+    status: "pending",
+  }).sort({ createdAt: -1 });
+  if (pendingExisting) {
+    scheduleInsightJob(pendingExisting._id.toString());
+    return toInsightStatusDto(pendingExisting);
+  }
+
+  const insight = await StatsInsightModel.create({
     accountId,
+    requestedByUserId: userId,
+    periodType: snapshot.periodType,
+    periodKey: snapshot.periodKey,
     forecastWindow,
-    snapshot,
+    inputHash,
+    status: "pending",
+    stale: false,
+    model: env.OPENAI_API_KEY ? env.OPENAI_INSIGHT_MODEL : null,
+    rawPayload: payload,
+    categoryMappings: buildInsightCategoryMappings(snapshot),
+    summary: null,
+    confidence: null,
+    generatedAt: null,
+    limitations: [],
+    highlights: [],
+    risks: [],
+    actions: [],
+    categoryInsights: [],
+    errorCode: null,
+    errorMessage: null,
   });
-  return insight ? { ...snapshot, insight } : snapshot;
+
+  scheduleInsightJob(insight._id.toString());
+  return toInsightStatusDto(insight);
+}
+
+export async function getStatsInsightById(
+  accountId: string,
+  insightId: string,
+): Promise<StatsInsightStatusDto | null> {
+  if (!Types.ObjectId.isValid(insightId)) {
+    return null;
+  }
+
+  const insight = await StatsInsightModel.findOne({ _id: insightId, accountId });
+  if (!insight) {
+    return null;
+  }
+
+  if (insight.status === "pending") {
+    scheduleInsightJob(insight._id.toString());
+  }
+
+  return toInsightStatusDto(insight);
+}
+
+export async function getLatestStatsInsight(
+  accountId: string,
+  request: StatsInsightRequestInput,
+): Promise<StatsInsightStatusDto | null> {
+  const { snapshot, inputHash, forecastWindow } = await buildInsightLookupContext(accountId, request);
+
+  const exactCurrent = await StatsInsightModel.findOne({
+    accountId,
+    periodType: snapshot.periodType,
+    periodKey: snapshot.periodKey,
+    forecastWindow,
+    inputHash,
+  }).sort({ createdAt: -1 });
+
+  if (exactCurrent) {
+    if (exactCurrent.status === "pending") {
+      scheduleInsightJob(exactCurrent._id.toString());
+    }
+    return toInsightStatusDto(exactCurrent);
+  }
+
+  const latest = await StatsInsightModel.findOne({
+    accountId,
+    periodType: snapshot.periodType,
+    periodKey: snapshot.periodKey,
+    forecastWindow,
+  }).sort({ createdAt: -1 });
+
+  if (!latest) {
+    return null;
+  }
+
+  if (latest.status === "pending") {
+    scheduleInsightJob(latest._id.toString());
+  }
+
+  return toInsightStatusDto(latest);
+}
+
+export async function markStatsInsightsStaleForAccount(accountId: string): Promise<void> {
+  await StatsInsightModel.updateMany(
+    {
+      accountId,
+      stale: false,
+    },
+    {
+      $set: {
+        stale: true,
+      },
+    },
+  );
 }
 
 export async function compareBudget(accountId: string, from: string, to: string): Promise<BudgetCompareDto> {
@@ -425,7 +763,7 @@ export async function compareBudget(accountId: string, from: string, to: string)
     months.push(monthFromDate(cursor));
     cursor.setUTCMonth(cursor.getUTCMonth() + 1);
     if (months.length > 24) {
-      unprocessable("Intervalo demasiado largo para comparação", "STATS_COMPARE_RANGE_TOO_LARGE", {
+      unprocessable("Intervalo demasiado longo para comparação", "STATS_COMPARE_RANGE_TOO_LARGE", {
         maxMonths: "24",
       });
     }

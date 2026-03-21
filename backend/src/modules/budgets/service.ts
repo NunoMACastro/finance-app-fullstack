@@ -4,6 +4,7 @@ import { TransactionModel } from "../../models/transaction.model.js";
 import { newCategoryId } from "../../lib/hash.js";
 import { notFound, unprocessable } from "../../lib/api-error.js";
 import { Types } from "mongoose";
+import { markStatsInsightsStaleForAccount } from "../stats/service.js";
 
 export type BudgetCategoryKind = "expense" | "reserve";
 
@@ -370,6 +371,7 @@ export async function saveBudget(
     },
   );
 
+  await markStatsInsightsStaleForAccount(accountId);
   return toBudgetDto(updated);
 }
 
@@ -412,6 +414,7 @@ export async function addCategory(
   budget.userId = new Types.ObjectId(actorUserId);
   budget.totalBudget = await sumIncomeForMonth(accountId, month);
   await budget.save();
+  await markStatsInsightsStaleForAccount(accountId);
   return toBudgetDto(budget);
 }
 
@@ -458,6 +461,7 @@ export async function removeCategory(
   budget.totalBudget = await sumIncomeForMonth(accountId, month);
   await budget.save();
 
+  await markStatsInsightsStaleForAccount(accountId);
   return toBudgetDto(budget);
 }
 
@@ -500,6 +504,7 @@ export async function copyBudgetFromMonth(
     },
   );
 
+  await markStatsInsightsStaleForAccount(accountId);
   return toBudgetDto(updated);
 }
 

@@ -24,6 +24,13 @@ export function createAppRouter() {
           },
         },
         {
+          path: "stats/insights",
+          lazy: async () => {
+            const mod = await import("./components/stats-insights-page");
+            return { Component: mod.StatsInsightsPage };
+          },
+        },
+        {
           path: "recurring/*",
           lazy: async () => {
             const mod = await import("./components/recurring-rules-page");

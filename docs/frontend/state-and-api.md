@@ -13,10 +13,13 @@ Contem contratos espelho do backend para:
 - recurring rules
 - recurring rules (inclui metadados operacionais: `lastGenerationAt`, `lastGenerationStatus`, `pendingFallbackCount`)
 - stats (`categorySeries` incluido)
-  - `StatsSnapshot.insight` opcional (`text`, `source`, `generatedAt`, `model`) quando backend enriquece com IA
   - `StatsSnapshot.totalsBreakdown` opcional:
     - `consumption`, `savings`, `unallocated`, `potentialSavings`
     - `rates.savings`, `rates.unallocated`, `rates.potentialSavings`
+- insight IA dedicado:
+  - `StatsInsightStatusResponse`
+  - `StatsInsightReport`
+  - `StatsInsightHighlight`, `StatsInsightRisk`, `StatsInsightAction`, `StatsInsightCategoryItem`
 - transactions incluem metadados de categoria recorrente:
   - `categoryResolution?: direct | fallback`
   - `requestedCategoryId?` quando houve fallback
@@ -46,8 +49,10 @@ Modulos:
   - `reassignCategory(id, { categoryId, migratePastFallbackTransactions })`
 - `budgetApi`
 - `statsApi`
-  - `statsApi.getSemester/getYear` suportam `options.includeInsight?: boolean`
-  - `includeInsight` e `false` por omissao; quando `true`, resposta pode vir com `snapshot.insight` inline
+  - `statsApi.getSemester/getYear` devolvem apenas snapshot base
+  - `statsApi.requestInsight`
+  - `statsApi.getInsight`
+  - `statsApi.getLatestInsight` (auxiliar; nao usado automaticamente pela UI principal)
 
 Modo unico:
 - real API via `httpClient`
@@ -159,7 +164,7 @@ Acoes:
 
 Comportamento de UI (seletor de conta):
 - aparece apenas quando existe pelo menos uma conta `shared`
-- aparece apenas nas rotas contextuais: `/` e `/stats`
+- aparece apenas nas rotas contextuais: `/` e rotas `startsWith("/stats")`
 - fica oculto nas restantes rotas para reduzir clutter e evitar troca acidental de contexto
 
 Politica de selecao da conta ativa:
@@ -186,8 +191,10 @@ Arquivo: `app/lib/account-store.ts`
 ## Gestao de concorrencia e race conditions
 
 - Stats/Month usam estados de loading/erro robustos para mudancas rapidas de conta/periodo.
-- Stats carrega primeiro o snapshot base e so faz enrichment IA quando o utilizador pede explicitamente
-- narrativa final prioriza `snapshot.insight.text`; fallback local deterministico (`buildPulseInsight`) quando ausente/erro.
+- `/stats` carrega apenas o snapshot base e nunca dispara pedidos de insight IA.
+- a analise IA vive em `/stats/insights` e so faz `POST /stats/insights` apos clique explicito do utilizador.
+- a pagina dedicada usa `POST /stats/insights` como entrypoint principal; `GET /stats/insights/:id` serve apenas para polling quando o backend responde `pending`.
+- `getLatestInsight` permanece disponivel no client por compatibilidade/API auxiliar, mas nao faz parte do fluxo automatico da interface.
 - metricas do `Pulse`:
   - preferem `snapshot.totalsBreakdown` quando presente
   - fallback local deterministico (derivado de `budgetVsActual` + `totals`) quando ausente
