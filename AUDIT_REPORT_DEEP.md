@@ -2,1143 +2,990 @@
 
 ## 1. Executive Summary
 
-- Visão geral: a aplicação mostra boa intenção documental e vários blocos funcionais já organizados, mas ainda está abaixo do nível esperado para produção moderna em segurança, integridade de dados multi-conta, robustez operacional e supply chain.
-- Findings totais: 37
+- Visão geral objetiva: a aplicação tem boa base modular e vários guardrails úteis, mas está atualmente abaixo de um baseline de produção robusta por falhas críticas de integridade (`totalBudget`), problemas de consistência FE multi-conta, drift documental relevante e gaps de supply-chain/operação.
+- Findings totais: **34**
 - Distribuição por severidade:
-    - Critical: 0
-    - High: 12
-    - Medium: 20
-    - Low: 5
+  - Critical: **0**
+  - High: **7**
+  - Medium: **21**
+  - Low: **5**
+  - Info: **1**
 - Top riscos:
-    - Segredos ativos de desenvolvimento/testes expostos no workspace do repositório.
-    - Modelo de auth/session abaixo do baseline moderno: segredos fracos/default, refresh rotation sem reuse detection, sessões não invalidadas em mudança de password, tokens em `localStorage`.
-    - Isolamento multi-conta frágil em pontos críticos: fallback silencioso de `X-Account-Id`, race no frontend ao trocar conta, e proteções de “último owner” vulneráveis a concorrência.
-    - Integridade funcional incompleta entre budget/transações/categorias: `origin` de transação é controlado pelo cliente, categoria de despesa não é validada contra budget, remoção de categoria pode deixar lançamentos órfãos e invisíveis na UI.
-    - Operação/CI abaixo do estado da arte: cron não é seguro para multi-instância, `/metrics` é público, readiness é superficial, CI não faz secret scanning nem gates modernos de supply chain.
-- Avaliação global curta: aceitável como base de MVP evoluído; insuficiente para produção real multi-tenant/finance sem remediação prioritária.
+  - Invariante funcional crítica quebrada: sincronização de `totalBudget` após mutações de receitas está efetivamente desativada.
+  - Build backend quebrado em `stats/service.ts`, bloqueando pipeline de qualidade.
+  - Fluxos FE de `Stats` e `Recorrências` não recarregam de forma segura ao trocar conta ativa.
+  - Divergência entre SSOT e implementação em contratos de account context/scheduler.
+  - Vulnerabilidades conhecidas em dependências frontend (`flatted`, `vite`).
+- Avaliação global curta: **MVP evoluído com qualidade parcial; não pronto para produção financeira multi-conta sem remediação prioritária.**
 
 ## 2. Scope and Method
 
-### O que foi lido
+### O que foi lido (SSOT obrigatório)
 
-- SSOT documental lido pela ordem pedida:
-    - `README.md`
-    - `README_AGENTS.md`
-    - `docs/README.md`
-    - `docs/architecture/system-overview.md`
-    - `docs/architecture/domain-model.md`
-    - `docs/backend/README.md`
-    - `docs/backend/setup-config.md`
-    - `docs/backend/api-reference.md`
-    - `docs/backend/business-rules.md`
-    - `docs/backend/data-model.md`
-    - `docs/backend/operations.md`
-    - `docs/backend/testing.md`
-    - `docs/frontend/README.md`
-    - `docs/frontend/setup-config.md`
-    - `docs/frontend/architecture.md`
-    - `docs/frontend/screens-flows.md`
-    - `docs/frontend/state-and-api.md`
-    - `docs/frontend/quality-testing.md`
-    - `docs/frontend/ui-v3-spec.md`
-    - `docs/frontend/design-tokens.md`
-    - `docs/operations/deployment.md`
-    - `docs/operations/ci-cd.md`
-    - `docs/operations/runbooks.md`
-- Ficheiro adicional lido por relevância: `docs/testing.md`
+- `README.md`
+- `README_AGENTS.md`
+- `docs/README.md`
+- `docs/architecture/system-overview.md`
+- `docs/architecture/domain-model.md`
+- `docs/backend/README.md`
+- `docs/backend/setup-config.md`
+- `docs/backend/api-reference.md`
+- `docs/backend/business-rules.md`
+- `docs/backend/data-model.md`
+- `docs/backend/operations.md`
+- `docs/backend/testing.md`
+- `docs/frontend/README.md`
+- `docs/frontend/setup-config.md`
+- `docs/frontend/architecture.md`
+- `docs/frontend/screens-flows.md`
+- `docs/frontend/state-and-api.md`
+- `docs/frontend/quality-testing.md`
+- `docs/frontend/ui-v3-spec.md`
+- `docs/frontend/design-tokens.md`
+- `docs/operations/deployment.md`
+- `docs/operations/ci-cd.md`
+- `docs/operations/runbooks.md`
 
 ### Mapeamento docs -> código
 
-- Não foi necessário remapear nomes/pastas: a estrutura real coincide com a estrutura pedida.
-- Observação: existe documentação adicional de testes em `docs/testing.md`, referenciada por `docs/backend/testing.md`.
-
-### O que foi auditado no código
-
-- Backend:
-    - bootstrap/config/middleware
-    - auth, accounts, budgets, transactions, recurring, stats, jobs, models, scripts, testes
-- Frontend:
-    - app bootstrap, providers, contexts, stores, HTTP client, páginas principais, testes e contratos UI
-- Operação:
-    - `.github/workflows/ci.yml`
-    - `package.json`/`package-lock.json` de backend e frontend
+- Mapeamento direto (sem necessidade de equivalência por renome): a estrutura real corresponde à estrutura pedida.
+- Documento adicional relevante lido: `docs/testing.md`.
 
 ### O que foi executado
 
-- Ambiente:
-    - `node -v` -> `v24.11.1`
-    - `npm -v` -> `11.6.2`
-- Backend:
-    - `npm run build` -> passou
-    - `npm run test:unit` -> passou (`30 tests`)
-    - `npm run test:integration` -> falhou por limitação do sandbox (`listen EPERM 0.0.0.0`)
-    - `npm audit --package-lock-only` -> `0 vulnerabilities`
-    - `npm audit signatures --package-lock-only` -> falhou por permissões na cache npm
-- Frontend:
-    - `npm run typecheck` -> falhou (`tsc: command not found`)
-    - `npm run lint` -> falhou (`eslint: command not found`)
-    - `npm run test` -> falhou (`vitest: command not found`)
-    - `npm run build` -> falhou (`vite: command not found`)
-    - `npm audit --package-lock-only` -> encontrou 2 vulnerabilidades (`flatted`, `vite`)
+Backend:
+- `npm run build` -> **falha** (TS2322 / TS2345 em `src/modules/stats/service.ts`)
+- `npm run test:unit` -> **passa** (31 testes)
+- `npm run test:integration` -> **falha por limitação de ambiente sandbox** (`listen EPERM 0.0.0.0` em mongodb-memory-server)
+- `npm audit --package-lock-only` (com rede) -> **0 vulnerabilidades**
+
+Frontend:
+- `npm run typecheck` -> **passa**
+- `npm run lint` -> **falha** (`no-unsafe-finally` em 2 ficheiros)
+- `npm run check:tokens` -> **passa**
+- `npm run check-theme-contract` -> **passa**
+- `npm run test` -> **falha** (1 teste falhado em `category-movements-page.test.tsx` + warnings `act(...)`)
+- `npm run build` -> **passa**
+- `npm audit --package-lock-only` (com rede) -> **2 vulnerabilidades** (`flatted`, `vite`)
 
 ### Limitações do ambiente
 
-- `npm ci` falhou em backend e frontend com `EACCES` ao tentar remover/escrever `node_modules`.
-- O frontend local estava com `node_modules/.bin` ausente, pelo que os scripts não puderam ser executados.
-- Os testes de integração backend falharam por restrições do sandbox em sockets/listeners do `MongoMemoryServer`.
-- Não houve acesso de rede útil para validações externas adicionais além dos comandos locais.
+- Testes de integração backend não executáveis no sandbox por restrição de bind/listen.
+- `npm audit signatures` não ficou executado nesta ronda (aprovação não concluída), portanto não houve validação efetiva de provenance/assinaturas.
 
 ### Baseline usada para “estado da arte”
 
 - OWASP ASVS 5.0
-- OWASP API Security Top 10 2023
+- OWASP API Security Top 10 (2023)
 - RFC 8725 (JWT BCP)
-- Security best practices oficiais de Express/Node.js/MongoDB/npm
-- Boas práticas modernas de CI/supply chain para npm
+- Security best practices oficiais de Express/Node.js/MongoDB
+- Práticas modernas npm supply-chain (audit + signatures/provenance)
 
 ## 3. Findings Summary Table
 
-| ID    | Severity | Confidence | Area               | Category             | Title                                                                        | Evidence                                                                                                                                                                                                                                        | Short impact                                                             |
-| ----- | -------- | ---------- | ------------------ | -------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| F-001 | Medium   | High       | Security           | Security             | Segredos ativos de desenvolvimento expostos em `backend/.env`                | `backend/.env:3-12`                                                                                                                                                                                                                             | Compromisso do ambiente local/dev e custo indevido limitado              |
-| F-002 | High     | High       | Auth               | Security             | Segredos JWT fracos/default aceites pelo runtime                             | `backend/.env:4-5`, `backend/src/config/env.ts:48-55`                                                                                                                                                                                           | Assinatura de tokens fica trivial em ambientes mal configurados          |
-| F-003 | Medium   | High       | Auth               | State-of-the-Art Gap | JWT sem pinning explícito de algoritmo/issuer/audience                       | `backend/src/lib/jwt.ts:15-35`                                                                                                                                                                                                                  | Validação abaixo do BCP moderno                                          |
-| F-004 | Medium   | High       | Auth               | Validation           | Política de password demasiado fraca                                         | `backend/src/modules/auth/validators.ts:8-12`, `backend/src/modules/auth/validators.ts:54-57`                                                                                                                                                   | Facilita credenciais fracas                                              |
-| F-005 | High     | High       | Auth               | Auth                 | Alteração de password não revoga sessões                                     | `backend/src/modules/auth/service.ts:498-510`                                                                                                                                                                                                   | Sessões roubadas permanecem válidas                                      |
-| F-006 | High     | High       | Auth               | Auth                 | Refresh rotation sem reuse detection real                                    | `backend/src/modules/auth/service.ts:303-355`                                                                                                                                                                                                   | Reutilização de refresh comprometido não corta a cadeia                  |
-| F-007 | Medium   | High       | Auth               | Auth                 | Logout/revogação não invalida access tokens já emitidos                      | `backend/src/modules/auth/service.ts:526-566`, `backend/src/lib/jwt.ts:15-35`                                                                                                                                                                   | Janela residual de acesso após revogação                                 |
-| F-008 | High     | High       | API                | API Contract         | Cliente pode criar transações com `origin=recurring`                         | `backend/src/modules/transactions/validators.ts:9-18`, `backend/src/modules/transactions/service.ts:152-159`                                                                                                                                    | Bypass de regra de budget/manual e poluição de modelo                    |
-| F-009 | High     | High       | Backend            | Data Integrity       | Categoria de despesa não é validada contra o budget                          | `backend/src/modules/transactions/service.ts:95-114`, `backend/src/modules/transactions/service.ts:160`, `backend/src/modules/transactions/service.ts:218`                                                                                      | Despesas podem referenciar categorias inválidas                          |
-| F-010 | Medium   | High       | Backend            | Data Integrity       | Sync de incomes -> `totalBudget` não é atómico                               | `backend/src/modules/transactions/service.ts:162-179`, `backend/src/modules/transactions/service.ts:242-267`, `backend/src/modules/budgets/service.ts:266-279`                                                                                  | Divergências transitórias/permanentes sob falha                          |
-| F-011 | Medium   | High       | Backend            | Maintainability      | `GET /budgets/:month` tem side effects de escrita                            | `backend/src/modules/budgets/service.ts:305-335`                                                                                                                                                                                                | Leituras mudam estado e mascaram drift                                   |
-| F-012 | High     | High       | Backend            | Data Integrity       | Remover categoria não verifica transações existentes                         | `backend/src/modules/budgets/service.ts:429-463`                                                                                                                                                                                                | Lançamentos órfãos ficam sem categoria válida                            |
-| F-013 | High     | High       | FE <-> BE <-> BD   | Frontend             | UI mensal esconde despesas órfãs                                             | `frontend/src/app/components/month-page.tsx:434-474`, `frontend/src/app/components/month-page.tsx:721-739`                                                                                                                                      | Utilizador perde visibilidade de gastos reais                            |
-| F-014 | Medium   | High       | Frontend           | Frontend             | UI permite lançar manualmente na categoria técnica de fallback               | `frontend/src/app/components/month-page.tsx:1086-1112`, `docs/backend/business-rules.md:107-117`                                                                                                                                                | Categoria interna do sistema entra no fluxo manual                       |
-| F-015 | High     | High       | Multi-account      | Authorization        | Backend faz fallback silencioso para conta pessoal sem `X-Account-Id`        | `backend/src/middleware/account-context.ts:24-33`                                                                                                                                                                                               | Falhas de header mudam silenciosamente o tenant alvo                     |
-| F-016 | High     | High       | Frontend           | Frontend             | Race no `MonthPage` pode misturar dados entre contas                         | `frontend/src/app/components/month-page.tsx:301-321`, `frontend/src/app/components/stats-page.tsx:116-126`                                                                                                                                      | Resposta antiga pode sobrescrever estado da conta ativa                  |
-| F-017 | High     | High       | Frontend           | Security             | Access e refresh tokens guardados em `localStorage`                          | `frontend/src/app/lib/token-store.ts:4-37`, `docs/frontend/state-and-api.md:172-176`                                                                                                                                                            | XSS passa a ser compromissão total de sessão                             |
-| F-018 | Medium   | High       | Frontend           | Concurrency          | Interceptor repete pedidos não idempotentes após refresh                     | `frontend/src/app/lib/http-client.ts:54-105`                                                                                                                                                                                                    | POST/PUT/DELETE podem ser reexecutados indevidamente                     |
-| F-019 | Medium   | Medium     | Frontend           | Concurrency          | Refresh queue é por tab apenas; há race multi-tab                            | `frontend/src/app/lib/http-client.ts:39-105`, `frontend/src/app/lib/token-store.ts:11-37`                                                                                                                                                       | Tabs podem invalidar sessões umas das outras                             |
-| F-020 | High     | High       | Docs/Operations    | Docs Drift           | Setup/documentação subestima requisito real de replica set                   | `backend/.env.example:3-5`, `docs/backend/setup-config.md:5-16`, `docs/backend/operations.md:132-137`, `backend/src/modules/auth/service.ts:192-249`                                                                                            | Instalações “válidas” pela doc podem falhar em runtime                   |
-| F-021 | Medium   | High       | Backend            | Security             | `trust proxy` fixo em `1`                                                    | `backend/src/app.ts:26-28`                                                                                                                                                                                                                      | Forwarded headers podem ser mal confiados                                |
-| F-022 | Medium   | High       | Security           | State-of-the-Art Gap | Rate limiting é in-memory e pouco adaptado às superfícies críticas           | `backend/src/app.ts:71-82`, `backend/src/routes/index.ts:14-25`                                                                                                                                                                                 | Não escala entre instâncias e pode criar lockouts/refresh noise          |
-| F-023 | Medium   | Medium     | Operations         | Backend              | Scheduler não é seguro para multi-instância e falha em cascata               | `backend/src/jobs/scheduler.ts:14-37`                                                                                                                                                                                                           | Duplicação de jobs ou abortar snapshots restantes                        |
-| F-024 | Medium   | High       | Operations         | Security             | `/metrics` é público e usa labels com cardinalidade não controlada           | `backend/src/app.ts:97-100`, `backend/src/middleware/metrics.ts:22-35`                                                                                                                                                                          | Exposição operacional e custo em Prometheus                              |
-| F-025 | Low      | High       | Database           | Database             | Refresh tokens e invite codes sem TTL cleanup                                | `backend/src/models/refresh-token.model.ts:19-23`, `backend/src/models/account-invite-code.model.ts:16-24`                                                                                                                                      | Bloat operacional desnecessário                                          |
-| F-026 | Low      | High       | Backend            | Maintainability      | Snapshots de stats são materializados mas não consumidos                     | `backend/src/modules/stats/service.ts:360-405`, `backend/src/modules/stats/service.ts:441-480`                                                                                                                                                  | Trabalho em background sem valor funcional atual                         |
-| F-027 | Medium   | High       | API                | API Contract         | `compare-budget` aceita ranges inválidos e corta silenciosamente >36 meses   | `backend/src/modules/stats/validators.ts:32-35`, `backend/src/modules/stats/service.ts:408-423`                                                                                                                                                 | API devolve resultados incompletos sem sinalizar erro                    |
-| F-028 | Medium   | High       | FE <-> BE <-> BD   | Validation           | `currency` aceita qualquer código de 3 chars e pode partir renderização      | `backend/src/modules/auth/validators.ts:27-37`, `frontend/src/app/lib/formatting.ts:9-21`                                                                                                                                                       | Perfil inválido pode quebrar UI                                          |
-| F-029 | Medium   | High       | Frontend           | Docs Drift           | Derivação de `monthKey` no FE é inconsistente com contrato UTC               | `frontend/src/app/components/month-page.tsx:258-293`, `frontend/src/app/components/recurring-rules-page.tsx:25-28`, `frontend/src/app/components/budget-editor-page.tsx:60-64`, `frontend/src/app/components/category-movements-page.tsx:86-91` | Bugs em fronteiras de mês/timezone                                       |
-| F-030 | Low      | High       | Frontend/API       | Performance          | UI filtra localmente após buscar o mês inteiro                               | `backend/src/modules/transactions/service.ts:116-133`, `frontend/src/app/components/category-movements-page.tsx:131-179`                                                                                                                        | Escala mal com volume de lançamentos                                     |
-| F-031 | Low      | High       | Frontend           | Docs Drift           | Frontend ignora `expiresAt` do convite                                       | `backend/src/modules/accounts/service.ts:349-351`, `frontend/src/app/components/profile-shared-members-page.tsx:96-101`                                                                                                                         | UX/documentação divergentes e código expirado pode parecer válido        |
-| F-032 | High     | Medium     | Multi-account      | Concurrency          | Proteção “último owner” é vulnerável a corridas concorrentes                 | `backend/src/modules/accounts/service.ts:473-485`, `backend/src/modules/accounts/service.ts:525-538`, `backend/src/modules/accounts/service.ts:560-577`, `backend/src/modules/auth/service.ts:649-661`                                          | Conta partilhada pode ficar sem owner ativo                              |
-| F-033 | Medium   | Medium     | Backend            | Concurrency          | Geração de convite pode deixar múltiplos códigos ativos em concorrência      | `backend/src/modules/accounts/service.ts:326-347`, `backend/src/models/account-invite-code.model.ts:38`                                                                                                                                         | Invariante “um código ativo” não é garantido                             |
-| F-034 | Low      | High       | Operations         | Backend              | Readiness check só olha para `mongoose.readyState`                           | `backend/src/app.ts:88-95`, `backend/src/config/db.ts:18-20`                                                                                                                                                                                    | Pode sinalizar pronto enquanto operações críticas falham                 |
-| F-035 | Medium   | High       | Privacy/Operations | State-of-the-Art Gap | Insight IA envia dados financeiros agregados por defeito                     | `backend/src/modules/stats/service.ts:363-405`, `backend/src/modules/stats/insight.service.ts:201-280`, `frontend/src/app/components/stats-page.tsx:120-126`                                                                                    | Transferência para terceiro sem opt-in explícito                         |
-| F-036 | Medium   | High       | CI/CD              | CI/CD                | CI não tem gates modernos de security/supply-chain/secret scanning           | `.github/workflows/ci.yml:8-74`, `backend/.env:3-12`                                                                                                                                                                                            | Exposição de segredos e dependências frágeis passam sem travas dedicadas |
-| F-037 | Medium   | High       | Testing            | Testing              | Faltam testes automatizados para riscos críticos de auth/session/concurrency | `docs/backend/testing.md:84-102`, `find backend/src/tests -maxdepth 2 -type f`, `find frontend/src -name '*test.ts*'`                                                                                                                           | Regressões de segurança e multi-conta podem passar despercebidas         |
+| ID | Severity | Confidence | Area | Category | Title | Evidence | Short impact |
+|---|---|---|---|---|---|---|---|
+| F-001 | High | High | Backend | Backend | Build backend quebrado em `stats/service.ts` | `npm run build` (backend), `backend/src/modules/stats/service.ts:215`, `backend/src/modules/stats/service.ts:350` | Pipeline e release bloqueados |
+| F-002 | High | High | Backend | Data Integrity | `syncBudgetTotalFromTransactions` está vazio (no-op) | `backend/src/modules/budgets/service.ts:511-514` + chamadas em `transactions/recurring` | Invariante `totalBudget` não sincroniza em mutações de income |
+| F-003 | Medium | High | Docs/Backend | Docs Drift | SSOT diz que sync ocorre em create/update/delete income, código não cumpre | `docs/backend/business-rules.md:76-79`, `README_AGENTS.md:65-66`, `backend/src/modules/budgets/service.ts:511-514` | Drift funcional e risco de decisões erradas |
+| F-004 | Medium | High | API/AuthZ | Docs Drift | `X-Account-Id` opcional vs obrigatório em docs | `docs/backend/business-rules.md:9`, `README_AGENTS.md:48`, `docs/backend/api-reference.md:10`, `backend/src/middleware/account-context.ts:30-33` | Integrações quebram por contrato ambíguo |
+| F-005 | High | High | Frontend | Frontend | `StatsPage` não reage à troca de conta ativa | `frontend/src/app/components/stats-page.tsx:80`, `frontend/src/app/components/stats-page.tsx:146`, `docs/frontend/screens-flows.md:242` | UI pode mostrar dados da conta errada |
+| F-006 | High | High | Frontend | Frontend | `RecurringRulesPage` não depende de conta ativa para recarregar | `frontend/src/app/components/recurring-rules-page.tsx:104`, `frontend/src/app/components/recurring-rules-page.tsx:152` | Stale state e risco de ação em contexto errado |
+| F-007 | Medium | High | Frontend | Validation | `MonthPage` usa calendário local em pontos críticos de mês | `frontend/src/app/components/month-page.tsx:69-75`, `frontend/src/app/components/month-page.tsx:292-295` | Divergência UTC em fronteiras de mês |
+| F-008 | Medium | High | Frontend | Validation | `RecurringRulesPage` calcula mês corrente por timezone local | `frontend/src/app/components/recurring-rules-page.tsx:25-28` | Possível drift entre FE e BE em UTC |
+| F-009 | Medium | High | Frontend | Maintainability | Lint falha (`no-unsafe-finally`) em 2 ficheiros | `frontend/src/app/components/month-page.tsx:324`, `frontend/src/app/components/category-movements-page.tsx:152`, `npm run lint` | Código com anti-pattern e gate de qualidade vermelho |
+| F-010 | Medium | High | Testing | Testing | Suite frontend falha (1 teste) + warnings `act(...)` | `frontend/src/app/components/category-movements-page.test.tsx:135`, output `npm run test` | Regressões podem passar despercebidas |
+| F-011 | Medium | High | Supply Chain | Security | Vulnerabilidades npm no frontend (`flatted`, `vite`) | output `npm audit --package-lock-only` (frontend) | Exposição a CVEs conhecidas |
+| F-012 | Medium | Medium | Supply Chain | CI/CD | Sem gate de signatures/provenance na pipeline | `.github/workflows/ci.yml`, `docs/operations/ci-cd.md:62` | Integridade da cadeia de dependências incompleta |
+| F-013 | Medium | High | Backend/Ops | Security | `/metrics` pode ficar público sem token | `backend/src/app.ts:107-114`, `backend/src/config/env.ts:22`, `backend/src/config/env.ts:83` | Exposição de telemetria a terceiros |
+| F-014 | Medium | High | Operations | Backend | Sem graceful shutdown explícito | `backend/src/server.ts:7-16` | Risco de cortes abruptos e perda de requests |
+| F-015 | Medium | Medium | Security | Security | Logging sem política de redaction estruturada | `backend/src/config/logger.ts:4-16`, `backend/src/app.ts:54` | Possível leak de dados sensíveis em logs |
+| F-016 | High | Medium | Auth/Accounts | Concurrency | `deleteMe` valida “último owner” fora da transação | `backend/src/modules/auth/service.ts:759-766`, `backend/src/modules/auth/service.ts:777-807` | Corrida pode violar invariante de owner |
+| F-017 | Medium | Medium | Scheduler | Concurrency | Lease de scheduler sem heartbeat/renovação | `backend/src/jobs/scheduler.ts:10`, `backend/src/jobs/scheduler.ts:14`, `backend/src/jobs/scheduler.ts:72-76` | Risco de execução concorrente em jobs longos |
+| F-018 | Medium | Medium | API | Validation | Params de ID não validados como ObjectId em transações/recorrências | `backend/src/modules/transactions/validators.ts:41-43`, `backend/src/modules/recurring/validators.ts:5-7` | Erros 500/CastError possíveis |
+| F-019 | Low | Medium | API | API Contract | Schemas não estritos (campos extra silenciosamente ignorados) | Ex.: `backend/src/modules/transactions/validators.ts:20-27`, `backend/src/modules/budgets/validators.ts:27-30` | Contrato ambíguo e debugging difícil |
+| F-020 | Medium | High | FE<->BE Contract | API Contract | Password mínima diverge (FE=6, BE=10) | `frontend/src/app/components/auth-page.tsx:80-83`, `backend/src/modules/auth/validators.ts:11` | UX quebrada e erros evitáveis |
+| F-021 | Medium | High | Docs Drift | Docs Drift | Arquitetura diz FE guarda refresh token; implementação usa cookie HttpOnly | `docs/architecture/system-overview.md:29`, `frontend/src/app/lib/token-store.ts:1-5`, `backend/src/lib/cookies.ts:27-33` | Modelo de ameaça/documentação incoerente |
+| F-022 | Medium | High | Docs Drift | Docs Drift | Arquitetura diz scheduler materializa snapshots; código não faz | `docs/architecture/system-overview.md:50`, `docs/backend/operations.md:26`, `backend/src/jobs/scheduler.ts:82-91` | Expectativas operacionais erradas |
+| F-023 | Medium | High | Docs Drift | Docs Drift | Docs FE dizem Month/Stats robustos na troca de conta; implementação falha em Stats/Recorrências | `docs/frontend/state-and-api.md:194`, `frontend/src/app/components/stats-page.tsx:115-157`, `frontend/src/app/components/recurring-rules-page.tsx:132-156` | Falsa sensação de robustez |
+| F-024 | High | High | Business Rules | Data Integrity | Regra recorrente pode ser criada com categoria técnica de fallback | `frontend/src/app/components/recurring-rules-page.tsx:158-159`, `frontend/src/app/components/recurring-rules-page.tsx:427-429`, `backend/src/modules/recurring/service.ts:121-140` | Categoria técnica pode entrar em fluxo normal |
+| F-025 | Medium | Medium | Database | Performance | Índice insuficiente para listagem paginada/sort de transações | `backend/src/models/transaction.model.ts:73-77`, `backend/src/modules/transactions/service.ts:245-247` | Risco de degradação com crescimento da coleção |
+| F-026 | Medium | Medium | Database | Performance | Queries de fallback recorrente sem índice composto dedicado | `backend/src/modules/recurring/service.ts:143-148`, `backend/src/modules/recurring/service.ts:356-362`, `backend/src/models/transaction.model.ts:73-77` | Scans desnecessários em operações de manutenção |
+| F-027 | Low | Medium | Security | State-of-the-Art Gap | Default `CORS_ORIGIN='*'` fora de produção é frágil | `backend/src/config/env.ts:60`, `backend/src/app.ts:68-74` | Defaults inseguros/ambíguos em ambientes intermédios |
+| F-028 | Low | Medium | Security | State-of-the-Art Gap | Rate-limit auth sem dimensão por utilizador/email | `backend/src/modules/auth/routes.ts:24-43` | Menor resistência a brute force distribuído |
+| F-029 | Low | High | CI/CD | Testing | E2E Playwright não corre em CI por defeito | `docs/operations/ci-cd.md:49`, `.github/workflows/ci.yml` | Falta cobertura de regressões de fluxo real |
+| F-030 | Medium | Medium | CI/CD | State-of-the-Art Gap | Pipeline sem SAST/CodeQL/Semgrep | `.github/workflows/ci.yml` | Superfícies de risco não analisadas automaticamente |
+| F-031 | Info | Medium | Security | Other | Segredos reais presentes em `.env` local do workspace | `backend/.env:3`, `backend/.env:12`, `git ls-files backend/.env` | Risco operacional local (não confirmado em histórico git) |
+| F-032 | Medium | Medium | Stats | Concurrency | Dedup de jobs de insight é apenas em memória por instância | `backend/src/modules/stats/service.ts:134`, `backend/src/modules/stats/service.ts:515-594` | Multi-instância pode duplicar chamadas ao provider |
+| F-033 | Medium | High | Backend | API Contract | Erros de tipagem `colorSlot` indicam contrato BE/FE inconsistente (nullability) | `backend/src/modules/stats/service.ts:215`, `backend/src/modules/stats/service.ts:350`, output build | Drift de tipos e risco de regressões |
+| F-034 | Low | Medium | Operations | Other | Readiness depende de comandos admin (`hello`), sensível a permissões | `backend/src/config/db.ts:29-36` | Falsos negativos em ambientes com perfis restritos |
 
 ## 4. Findings (DETALHADO E COMPLETO)
 
-### [F-001] [Medium] [Security] Segredos ativos de desenvolvimento expostos em `backend/.env`
-
-- Status: Confirmed
-- Category: Security
-- Impact: compromisso do ambiente de desenvolvimento/testes, incluindo acesso à base de dados de dev e potencial consumo indevido da API da OpenAI associada ao ambiente local.
-- Why this matters: embora os segredos expostos não sejam de produção e a base de dados referida não contenha dados reais, continuam a ser credenciais ativas guardadas dentro da árvore do projeto. Isso mantém risco de exfiltração local, uso indevido de recursos e normalização de um padrão operacional frágil.
-- Evidence:
-    - `backend/.env:3`
-    - `backend/.env:12`
-    - `backend/.env:4-5`
-    - command output: `git ls-files backend/.env frontend/.env backend/.env.example` devolveu apenas `backend/.env.example`, confirmando que o ficheiro exposto está no workspace mas não trackado
-- Expected / state-of-the-art behavior:
-    - Segredos ativos, mesmo de desenvolvimento, não devem ficar guardados em ficheiros locais dentro da árvore do repositório.
-    - Ambientes locais devem receber segredos via configuração externa ao repo, IDE, shell env, ou secret manager apropriado ao contexto.
-- Current behavior:
-    - `backend/.env` contém uma URI MongoDB ativa para uma base de dados de testes/dev e uma `OPENAI_API_KEY` usada localmente.
-- Risk scenario:
-    - Um commit acidental, partilha da pasta, backup inseguro, extensão maliciosa ou exfiltração local expõe o ambiente de dev/testes e permite uso indevido desses recursos.
-- Context that reduces severity:
-    - A URI Mongo apontada é apenas de testes/dev.
-    - A base de dados não contém dados reais.
-    - Produção usa outra base de dados e outras credenciais.
-    - A configuração OpenAI de produção é separada.
-- Recommendation direction (sem implementar):
-    - Remover segredos ativos do `backend/.env` dentro do repo e carregá-los a partir de configuração local externa.
-    - Manter `.env.example` apenas com placeholders.
-    - Adicionar secret scanning preventivo em CI e pre-commit.
-- Confidence:
-    - High
-
-### [F-002] [High] [Auth] Segredos JWT fracos/default aceites pelo runtime
-
-- Status: Confirmed
-- Category: Security
-- Impact: em ambientes mal configurados, tokens podem ser assinados com segredos previsíveis.
-- Why this matters: segredos default em auth são um anti-pattern grave; em ambientes clonados, staging ou dev exposto, isto torna a confiança nos JWTs muito fraca.
-- Evidence:
-    - `backend/.env:4-5`
-    - `backend/src/config/env.ts:48-55`
-- Expected / state-of-the-art behavior:
-    - Nenhum ambiente deve arrancar com segredos default ou placeholders triviais para JWT.
-- Current behavior:
-    - O runtime aceita `dev-access-secret` / `dev-refresh-secret` por fallback e o `.env` usa `change-me-*`.
-- Risk scenario:
-    - Um deploy ou ambiente partilhado arranca com defaults; um atacante assina os próprios tokens.
-- Recommendation direction (sem implementar):
-    - Tornar os segredos obrigatórios em todos os ambientes relevantes.
-    - Rejeitar placeholders conhecidos em bootstrap.
-- Confidence:
-    - High
-
-### [F-003] [Medium] [Auth] JWT sem pinning explícito de algoritmo, issuer e audience
-
-- Status: Confirmed
-- Category: State-of-the-Art Gap
-- Impact: validação abaixo do baseline moderno de JWT; reduz defense-in-depth.
-- Why this matters: RFC 8725 recomenda restringir algoritmos e validar claims contextuais mínimas. Usar `jwt.verify` sem `algorithms`, `issuer`, `audience` e afins deixa demasiado comportamento implícito na library/configuração.
-- Evidence:
-    - `backend/src/lib/jwt.ts:15-35`
-- Expected / state-of-the-art behavior:
-    - Algoritmo explicitamente fixado.
-    - Claims mínimas e estáveis (`iss`, `aud`) validadas.
-- Current behavior:
-    - Tokens são assinados/verificados apenas com secret e expiração.
-- Risk scenario:
-    - Mudança futura de config/lib ou integração heterogénea introduz aceitação indevida de tokens fora do contexto esperado.
-- Recommendation direction (sem implementar):
-    - Fixar algoritmo e validar `issuer`/`audience`.
-    - Rever claims para ficarem mínimas e específicas por token type.
-- Confidence:
-    - High
-
-### [F-004] [Medium] [Auth] Política de password demasiado fraca
-
-- Status: Confirmed
-- Category: Validation
-- Impact: aumenta risco de credenciais fracas e brute-force bem sucedido.
-- Why this matters: `min(6)` está abaixo do baseline moderno para 2026, especialmente numa app financeira.
-- Evidence:
-    - `backend/src/modules/auth/validators.ts:8-12`
-    - `backend/src/modules/auth/validators.ts:54-57`
-- Expected / state-of-the-art behavior:
-    - Política orientada para passwords longas e resistentes, com mínimo mais robusto e controlos complementares.
-- Current behavior:
-    - Registo e alteração de password aceitam 6 caracteres.
-- Risk scenario:
-    - Passwords triviais passam a validação e acabam comprometidas por stuffing/guessing.
-- Recommendation direction (sem implementar):
-    - Aumentar o mínimo e complementar com controlos de brute-force e listas de passwords comprometidas.
-- Confidence:
-    - High
-
-### [F-005] [High] [Auth] Alteração de password não revoga refresh tokens/sessões
-
-- Status: Confirmed
-- Category: Auth
-- Impact: um atacante com sessão já roubada continua autenticado após a vítima mudar a password.
-- Why this matters: mudança de password é um evento de segurança; deve cortar sessões existentes por default ou pelo menos as restantes.
-- Evidence:
-    - `backend/src/modules/auth/service.ts:498-510`
-- Expected / state-of-the-art behavior:
-    - Alterar password deve revogar refresh tokens ativos e, idealmente, forçar relogin de outras sessões.
-- Current behavior:
-    - Apenas `passwordHash` é atualizado.
-- Risk scenario:
-    - Conta comprometida mantém sessões paralelas ativas mesmo depois de mitigação pelo utilizador.
-- Recommendation direction (sem implementar):
-    - Revogar todas as sessões no change-password e refletir isso na UX.
-- Confidence:
-    - High
-
-### [F-006] [High] [Auth] Refresh rotation sem reuse detection real
-
-- Status: Confirmed
-- Category: Auth
-- Impact: um refresh token roubado reutilizado não provoca revogação da cadeia de descendentes.
-- Why this matters: rotação sem reuse detection é uma mitigação incompleta. O código só invalida o token atual e cria o próximo; se o token antigo aparecer de novo, responde 401, mas não trata o evento como compromisso.
-- Evidence:
-    - `backend/src/modules/auth/service.ts:322-350`
-    - `backend/src/models/refresh-token.model.ts:24-30`
-- Expected / state-of-the-art behavior:
-    - Reuso de refresh previamente rotacionado deve ser tratado como incidente e revogar descendentes/sessões relevantes.
-- Current behavior:
-    - Tokens revogados ou expirados devolvem `REFRESH_TOKEN_REVOKED`, sem chain revocation.
-- Risk scenario:
-    - Atacante e utilizador correm em paralelo; quando o reuso é detetado, a sessão mais recente pode continuar viva.
-- Recommendation direction (sem implementar):
-    - Implementar família de tokens com reuse detection e revogação em cascata.
-- Confidence:
-    - High
-
-### [F-007] [Medium] [Auth] Logout e revogação de sessões não invalidam access tokens já emitidos
-
-- Status: Confirmed
-- Category: Auth
-- Impact: acesso residual até expirar o access token.
-- Why this matters: o modelo atual revoga apenas refresh tokens persistidos. Access tokens permanecem puramente stateless até `exp`.
-- Evidence:
-    - `backend/src/modules/auth/service.ts:526-566`
-    - `backend/src/lib/jwt.ts:15-35`
-- Expected / state-of-the-art behavior:
-    - Eventos de revogação sensíveis devem reduzir ao mínimo a janela de validade residual.
-- Current behavior:
-    - `revokeSession`, `revokeAllSessions` e `logout` não interagem com access tokens já emitidos.
-- Risk scenario:
-    - Dispositivo comprometido continua a operar durante a janela do access token após revogação.
-- Recommendation direction (sem implementar):
-    - Reduzir TTL efetivo ou introduzir mecanismo de invalidation/versioning para eventos sensíveis.
-- Confidence:
-    - High
-
-### [F-008] [High] [API] Cliente pode criar transações com `origin=recurring`
-
-- Status: Confirmed
-- Category: API Contract
-- Impact: quebra da separação entre lançamentos manuais e lançamentos gerados pelo sistema.
-- Why this matters: a regra documental diz que transações recorrentes internas não passam pelo bloqueio de budget manual. Ao aceitar `origin=recurring` do cliente, a API entrega esse poder ao frontend/chamador.
-- Evidence:
-    - `backend/src/modules/transactions/validators.ts:9-18`
-    - `backend/src/modules/transactions/service.ts:152-159`
-    - `docs/backend/business-rules.md:64-70`
-- Expected / state-of-the-art behavior:
-    - `origin` de sistema não deve ser overpostable por clientes externos.
-- Current behavior:
-    - O endpoint de criação aceita `origin=recurring` e `recurringRuleId`.
-- Risk scenario:
-    - Cliente malicioso cria despesas “recorrentes” manuais, contorna gating e polui idempotência/rastreabilidade.
-- Recommendation direction (sem implementar):
-    - Tornar `origin` server-controlled em endpoints públicos.
-    - Reservar `recurring` para service interna.
-- Confidence:
-    - High
-
-### [F-009] [High] [Backend] Categoria de despesa não é validada contra o budget do mês
-
-- Status: Confirmed
-- Category: Data Integrity
-- Impact: despesas podem apontar para categorias que não existem no budget ativo do mês.
-- Why this matters: o orçamento é a taxonomia de despesa usada em toda a UX, relatórios e invariantes. Só verificar “não vazio” é insuficiente.
-- Evidence:
-    - `backend/src/modules/transactions/service.ts:95-114`
-    - `backend/src/modules/transactions/service.ts:160`
-    - `backend/src/modules/transactions/service.ts:218`
-- Expected / state-of-the-art behavior:
-    - Despesa manual deve validar que `categoryId` existe na conta e no budget/mês aplicável.
-- Current behavior:
-    - Para `expense`, o backend apenas exige `categoryId` não vazio.
-- Risk scenario:
-    - Dados incoerentes entram na base; páginas dependentes deixam de apresentar corretamente as despesas.
-- Recommendation direction (sem implementar):
-    - Validar categoria de despesa contra budget ativo do mês antes de persistir.
-- Confidence:
-    - High
-
-### [F-010] [Medium] [Backend] Sync de `totalBudget` após income não é atómico
-
-- Status: Confirmed
-- Category: Data Integrity
-- Impact: `Transaction` e `Budget.totalBudget` podem divergir após falhas parciais.
-- Why this matters: `totalBudget` é documentado como derivado e backend source of truth, mas a implementação faz duas escritas separadas.
-- Evidence:
-    - `backend/src/modules/transactions/service.ts:162-179`
-    - `backend/src/modules/transactions/service.ts:242-267`
-    - `backend/src/modules/budgets/service.ts:266-279`
-    - `docs/backend/business-rules.md:71-79`
-- Expected / state-of-the-art behavior:
-    - Atualização da transação de income e do total derivado devem ser consistentes/atómicas.
-- Current behavior:
-    - Cria/atualiza/apaga transação e só depois corre `syncBudgetTotalFromTransactions`.
-- Risk scenario:
-    - Crash, timeout ou erro intermédio deixa `totalBudget` stale.
-- Recommendation direction (sem implementar):
-    - Agrupar atualização derivada em operação transacional ou calcular on-read sem persistência redundante.
-- Confidence:
-    - High
-
-### [F-011] [Medium] [Backend] `GET /budgets/:month` altera estado
-
-- Status: Confirmed
-- Category: Maintainability
-- Impact: leituras podem escrever em BD, mascarar problemas e introduzir efeitos laterais inesperados.
-- Why this matters: endpoints GET com mutação escondida prejudicam cacheabilidade, observabilidade, troubleshooting e testes.
-- Evidence:
-    - `backend/src/modules/budgets/service.ts:305-335`
-- Expected / state-of-the-art behavior:
-    - GET deve ser side-effect free ou, no limite, ter side-effects explicitamente controlados e operacionalizados.
-- Current behavior:
-    - `getBudget` pode recalcular `totalBudget`, normalizar categorias e fazer `budget.save()`.
-- Risk scenario:
-    - Uma simples leitura corrige/reescreve dados e torna difícil distinguir reparação automática de alteração intencional.
-- Recommendation direction (sem implementar):
-    - Separar reparação de leitura e remover persistência implícita do fluxo GET.
-- Confidence:
-    - High
-
-### [F-012] [High] [Backend] Remover categoria não verifica referências existentes
-
-- Status: Confirmed
-- Category: Data Integrity
-- Impact: transações históricas ficam a apontar para categorias removidas.
-- Why this matters: a app simula integridade relacional em MongoDB; remover chaves referenciadas sem reatribuição ou bloqueio cria órfãos funcionais.
-- Evidence:
-    - `backend/src/modules/budgets/service.ts:429-463`
-    - `backend/src/modules/transactions/service.ts:36-69`
-- Expected / state-of-the-art behavior:
-    - Bloquear remoção com referências vivas, ou migrar/reatribuir consistentemente.
-- Current behavior:
-    - A categoria sai do budget sem qualquer verificação sobre `Transaction.categoryId`.
-- Risk scenario:
-    - Histórico financeiro deixa de estar alinhado com a taxonomia apresentada e com os relatórios.
-- Recommendation direction (sem implementar):
-    - Impedir remoção de categorias em uso ou oferecer migração explícita e auditável.
-- Confidence:
-    - High
-
-### [F-013] [High] [FE <-> BE <-> BD] UI mensal esconde despesas órfãs
-
-- Status: Confirmed
-- Category: Frontend
-- Impact: o utilizador pode deixar de ver gastos reais na principal vista mensal, criando perceção falsa do estado financeiro.
-- Why this matters: depois do finding anterior, o frontend só renderiza grupos de despesa a partir de `budget.categories`. Despesas órfãs deixam de ter um row/entry visível na navegação principal.
-- Evidence:
-    - `frontend/src/app/components/month-page.tsx:434-474`
-    - `frontend/src/app/components/month-page.tsx:721-739`
-    - `backend/src/modules/budgets/service.ts:429-463`
-- Expected / state-of-the-art behavior:
-    - O frontend deve continuar a mostrar todas as despesas persistidas, mesmo quando a categoria configuracional driftou.
-- Current behavior:
-    - A UI deriva linhas de despesa apenas do budget atual.
-- Risk scenario:
-    - Gasto histórico continua na BD, afeta totais, mas “desaparece” da exploração normal por categoria.
-- Recommendation direction (sem implementar):
-    - Introduzir representação explícita para órfãos/fallbacks e alinhar modelo de exibição com a verdade da BD.
-- Confidence:
-    - High
-
-### [F-014] [Medium] [Frontend] UI permite lançar manualmente na categoria técnica de fallback
-
-- Status: Confirmed
-- Category: Frontend
-- Impact: categoria interna do sistema entra no fluxo manual e perde semântica operacional.
-- Why this matters: a categoria `fallback_recurring_expense` existe para reter recorrências com drift; não deveria aparecer como escolha de lançamento manual.
-- Evidence:
-    - `frontend/src/app/components/month-page.tsx:1086-1112`
-    - `docs/backend/business-rules.md:107-117`
-- Expected / state-of-the-art behavior:
-    - Categorias técnicas protegidas devem ficar fora do seletor de input manual.
-- Current behavior:
-    - O `select` usa `expenseCategories.map(...)` sem filtrar a categoria protegida.
-- Risk scenario:
-    - O utilizador passa a classificar manualmente despesas numa categoria pensada só para exceções do sistema.
-- Recommendation direction (sem implementar):
-    - Filtrar categorias técnicas/protegidas do seletor manual.
-- Confidence:
-    - High
-
-### [F-015] [High] [Multi-account] Backend faz fallback silencioso para conta pessoal sem `X-Account-Id`
-
-- Status: Confirmed
-- Category: Authorization
-- Impact: pedidos autenticados mal formados ou parcialmente contextuais podem operar na conta errada sem erro explícito.
-- Why this matters: o domínio é explicitamente account-scoped. Em multi-conta, falhar fechado é mais seguro do que escolher um tenant implícito.
-- Evidence:
-    - `backend/src/middleware/account-context.ts:24-33`
-    - `docs/backend/business-rules.md:7-10`
-- Expected / state-of-the-art behavior:
-    - Endpoints account-scoped relevantes devem falhar quando o contexto esperado não é enviado/consistente.
-- Current behavior:
-    - O middleware usa `personalAccountId` quando o header falta.
-- Risk scenario:
-    - Um bug de frontend ou proxy retira o header e o utilizador passa a ler/escrever a conta pessoal em vez da partilhada.
-- Recommendation direction (sem implementar):
-    - Diferenciar endpoints onde o header é obrigatório e fazer fail-closed nesses casos.
-- Confidence:
-    - High
-
-### [F-016] [High] [Frontend] `MonthPage` vulnerável a stale responses na troca de conta
-
-- Status: Confirmed
-- Category: Frontend
-- Impact: estado da UI pode mostrar dados de uma conta enquanto a conta ativa já é outra.
-- Why this matters: a própria documentação fala em robustez de concorrência. `StatsPage` implementa um guard `requestIdRef`; `MonthPage` não.
-- Evidence:
-    - `frontend/src/app/components/month-page.tsx:301-321`
-    - `frontend/src/app/components/stats-page.tsx:116-126`
-    - `docs/frontend/state-and-api.md:184-190`
-- Expected / state-of-the-art behavior:
-    - Requests antigos devem ser cancelados ou ignorados ao trocar conta/período.
-- Current behavior:
-    - `MonthPage` faz `Promise.all` e aplica o resultado diretamente sem request identity guard.
-- Risk scenario:
-    - Resposta lenta da conta A chega depois da troca para conta B e substitui `summary`, `budget` e `incomeCategories`.
-- Recommendation direction (sem implementar):
-    - Aplicar request guards/cancelation consistentes entre páginas account-scoped.
-- Confidence:
-    - High
-
-### [F-017] [High] [Frontend] Tokens persistidos em `localStorage`
-
-- Status: Confirmed
-- Category: Security
-- Impact: qualquer XSS passa a equivaler a roubo total de sessão, incluindo refresh token.
-- Why this matters: guardar refresh token em `localStorage` é abaixo do baseline atual para aplicações com dados financeiros.
-- Evidence:
-    - `frontend/src/app/lib/token-store.ts:4-37`
-    - `docs/frontend/state-and-api.md:172-176`
-- Expected / state-of-the-art behavior:
-    - Preferir mecanismos menos expostos a XSS para refresh/session continuity.
-- Current behavior:
-    - Access token e refresh token são lidos/escritos diretamente em `localStorage`.
-- Risk scenario:
-    - Uma única superfície XSS no frontend exfiltra sessão longa.
-- Recommendation direction (sem implementar):
-    - Reavaliar storage de tokens com prioridade no refresh token e na modelação de sessão.
-- Confidence:
-    - High
-
-### [F-018] [Medium] [Frontend] Interceptor repete pedidos não idempotentes após refresh
-
-- Status: Confirmed
-- Category: Concurrency
-- Impact: requests mutáveis podem ser executados duas vezes.
-- Why this matters: o interceptor reenvia o request original após refresh, independentemente do método. Em falhas limítrofes de auth/expiração, POST/PUT/DELETE podem voltar a correr.
-- Evidence:
-    - `frontend/src/app/lib/http-client.ts:54-105`
-- Expected / state-of-the-art behavior:
-    - Reexecução automática deve ser limitada a operações seguras/idempotentes ou protegida por idempotency keys.
-- Current behavior:
-    - Qualquer request 401 não marcado como `_retry` é reenviado.
-- Risk scenario:
-    - Ação destrutiva ou criação manual repete-se quando o access token expira durante a operação.
-- Recommendation direction (sem implementar):
-    - Restringir retries automáticos e rever endpoints mutáveis com idempotência explícita.
-- Confidence:
-    - High
-
-### [F-019] [Medium] [Frontend] Refresh queue é apenas intra-tab
-
-- Status: Likely / Needs confirmation
-- Category: Concurrency
-- Impact: múltiplos tabs podem competir pelo mesmo refresh token rotativo.
-- Why this matters: a queue global em memória (`isRefreshing`, `pendingQueue`) existe só por contexto JS atual. Com refresh rotation no backend, tabs independentes podem invalidar-se mutuamente.
-- Evidence:
-    - `frontend/src/app/lib/http-client.ts:39-105`
-    - `frontend/src/app/lib/token-store.ts:11-37`
-- Expected / state-of-the-art behavior:
-    - Gestão de refresh em multi-tab deve coordenar-se entre tabs ou aceitar explicitamente o tradeoff.
-- Current behavior:
-    - Não há coordenação cross-tab; tokens ficam em `localStorage`.
-- Risk scenario:
-    - Tab A roda o refresh, Tab B usa token antigo e falha, disparando logout global.
-- Recommendation direction (sem implementar):
-    - Coordenar refresh cross-tab ou redesenhar o modelo de sessão.
-- Confidence:
-    - Medium
-
-### [F-020] [High] [Docs/Operations] Setup/documentação subestima requisito real de replica set
-
-- Status: Confirmed
-- Category: Docs Drift
-- Impact: ambientes montados “segundo a documentação” podem falhar em operações críticas que usam transações Mongo.
-- Why this matters: a documentação apresenta `MongoDB local ou Atlas` e um URI default standalone, enquanto o código usa `withTransaction` em registo, contas e delete-self.
-- Evidence:
-    - `backend/.env.example:3-5`
-    - `docs/backend/setup-config.md:5-16`
-    - `docs/backend/operations.md:132-137`
-    - `backend/src/modules/auth/service.ts:192-249`
-    - `backend/src/modules/accounts/service.ts:54-65`
-- Expected / state-of-the-art behavior:
-    - O requisito de replica set/transações deve ser explícito e tratado como obrigatório para features dependentes.
-- Current behavior:
-    - A doc só diz “recomendado para transações”.
-- Risk scenario:
-    - Equipa arranca num Mongo standalone local, valida flows simples, e depois encontra falhas severas em registo/ownership/delete em runtime.
-- Recommendation direction (sem implementar):
-    - Atualizar documentação e validação de startup para refletir dependência real de transações.
-- Confidence:
-    - High
-
-### [F-021] [Medium] [Backend] `trust proxy` fixo em `1`
-
-- Status: Confirmed
-- Category: Security
-- Impact: confiança errada em headers forwarded pode distorcer rate limiting, IP logging e política de segurança.
-- Why this matters: `trust proxy` é topology-sensitive. Hardcode `1` assume um reverse proxy único e estável.
-- Evidence:
-    - `backend/src/app.ts:26-28`
-- Expected / state-of-the-art behavior:
-    - `trust proxy` deve ser configurado por ambiente/topologia, não hardcoded.
-- Current behavior:
-    - A app confia sempre no primeiro proxy.
-- Risk scenario:
-    - Em topologia diferente, um cliente consegue influenciar IP percebido via forwarding headers.
-- Recommendation direction (sem implementar):
-    - Parametrizar `trust proxy` por ambiente e documentar topologias suportadas.
-- Confidence:
-    - High
-
-### [F-022] [Medium] [Security] Rate limiting in-memory e pouco adaptado às superfícies críticas
-
-- Status: Confirmed
-- Category: State-of-the-Art Gap
-- Impact: limitação não escala horizontalmente e pode interagir mal com refresh/auth flows.
-- Why this matters: `express-rate-limit` default usa memória local do processo. Isso perde eficácia em multi-instância e trata `/auth` de forma demasiado uniforme.
-- Evidence:
-    - `backend/src/app.ts:71-82`
-    - `backend/src/routes/index.ts:14-25`
-- Expected / state-of-the-art behavior:
-    - Stores distribuídos para produção e políticas diferenciadas por superfície sensível.
-- Current behavior:
-    - Limiter global e limiter auth sem backend distribuído; refresh cai no mesmo grupo.
-- Risk scenario:
-    - Um burst num nó não protege os restantes; ao mesmo tempo, clientes em refresh podem atingir rate limits colaterais.
-- Recommendation direction (sem implementar):
-    - Introduzir store partilhado e políticas específicas para login, refresh, join code e restantes superfícies.
-- Confidence:
-    - High
-
-### [F-023] [Medium] [Operations] Scheduler não é seguro para multi-instância e falha em cascata
-
-- Status: Likely / Needs confirmation
-- Category: Backend
-- Impact: jobs duplicados em deploys horizontais e interrupção do loop de snapshots por uma conta problemática.
-- Why this matters: o cron é arrancado por cada processo. Não existe lock distribuído/leader election, nem `try/catch` por conta no loop.
-- Evidence:
-    - `backend/src/jobs/scheduler.ts:14-37`
-- Expected / state-of-the-art behavior:
-    - Apenas um executor efetivo por job ou mecanismo robusto de dedupe.
-    - Falhas por conta não devem abortar o restante batch.
-- Current behavior:
-    - Cada instância agenda o job e o loop `for` aguarda cada conta sem isolamento de erros.
-- Risk scenario:
-    - N instâncias geram o mesmo job ao mesmo tempo; uma conta com erro em `materializeCurrentSnapshots` impede as seguintes.
-- Recommendation direction (sem implementar):
-    - Introduzir coordenação distribuída e isolamento de falhas por unidade de trabalho.
-- Confidence:
-    - Medium
-
-### [F-024] [Medium] [Operations] `/metrics` público e com cardinalidade de labels não controlada
-
-- Status: Confirmed
-- Category: Security
-- Impact: exposição de informação operacional e risco de blow-up em métricas.
-- Why this matters: `req.path` para rotas não resolvidas cria labels potencialmente muito numerosas. Além disso, `/metrics` está aberto sem auth ou allowlist.
-- Evidence:
-    - `backend/src/app.ts:97-100`
-    - `backend/src/middleware/metrics.ts:22-35`
-- Expected / state-of-the-art behavior:
-    - Endpoint de métricas protegido por rede/autorização.
-    - Labels limitadas a templates estáveis.
-- Current behavior:
-    - Qualquer cliente consegue consultar métricas; paths não mapeados usam `req.path`.
-- Risk scenario:
-    - Bot faz spam de paths distintos, aumentando cardinalidade e custo; atacante recolhe insight operacional interno.
-- Recommendation direction (sem implementar):
-    - Proteger `/metrics` e normalizar labels para nomes de rota estáveis.
-- Confidence:
-    - High
-
-### [F-025] [Low] [Database] Refresh tokens e invite codes sem TTL cleanup
-
-- Status: Confirmed
-- Category: Database
-- Impact: crescimento desnecessário de coleções e operações de manutenção manual.
-- Why this matters: ambos os documentos têm `expiresAt`, mas não há index TTL. O cleanup fica dependente de código ad hoc.
-- Evidence:
-    - `backend/src/models/refresh-token.model.ts:19-23`
-    - `backend/src/models/account-invite-code.model.ts:16-24`
-- Expected / state-of-the-art behavior:
-    - Artefactos expirados devem ser limpos automaticamente quando não há razão forte para retenção.
-- Current behavior:
-    - Existem índices normais em `expiresAt`, não TTL.
-- Risk scenario:
-    - Acumulação de histórico morto degrada listas e manutenção.
-- Recommendation direction (sem implementar):
-    - Definir estratégia explícita de retenção e cleanup automático.
-- Confidence:
-    - High
-
-### [F-026] [Low] [Backend] Snapshots de stats materializados mas não consumidos
-
-- Status: Confirmed
-- Category: Maintainability
-- Impact: trabalho em background e complexidade adicional sem benefício funcional demonstrado.
-- Why this matters: o scheduler escreve snapshots, mas os endpoints públicos calculam stats live com `buildStats`.
-- Evidence:
-    - `backend/src/modules/stats/service.ts:360-405`
-    - `backend/src/modules/stats/service.ts:441-480`
-- Expected / state-of-the-art behavior:
-    - Dados materializados devem ter consumidor claro, invalidation definida e ganho operacional justificado.
-- Current behavior:
-    - `StatsSnapshotModel` é atualizado mas não lido nos endpoints analisados.
-- Risk scenario:
-    - A equipa assume cache/snapshot existente quando, na prática, cada request continua pesada.
-- Recommendation direction (sem implementar):
-    - Decidir entre remover a materialização ou passar a usá-la de forma consistente.
-- Confidence:
-    - High
-
-### [F-027] [Medium] [API] `compare-budget` aceita ranges inválidos e corta silenciosamente intervalos grandes
-
-- Status: Confirmed
-- Category: API Contract
-- Impact: a API pode devolver respostas enganadoras para input mal formado.
-- Why this matters: não há validação de `from <= to`, e o loop termina silenciosamente após 36 meses.
-- Evidence:
-    - `backend/src/modules/stats/validators.ts:32-35`
-    - `backend/src/modules/stats/service.ts:408-423`
-- Expected / state-of-the-art behavior:
-    - Range inválido deve falhar com 4xx explícito.
-    - Hard limits devem ser documentados e sinalizados ao cliente.
-- Current behavior:
-    - O serviço aceita os dois parâmetros e trunca implicitamente após 36 meses.
-- Risk scenario:
-    - Cliente recebe uma comparação parcial e assume que está completa.
-- Recommendation direction (sem implementar):
-    - Validar ordenação do range e devolver erro quando excede limites suportados.
-- Confidence:
-    - High
-
-### [F-028] [Medium] [FE <-> BE <-> BD] `currency` aceita qualquer código de 3 caracteres
-
-- Status: Confirmed
-- Category: Validation
-- Impact: dados inválidos no backend podem causar erro de renderização no frontend.
-- Why this matters: o backend só exige string de tamanho 3; `Intl.NumberFormat` espera uma currency ISO válida e pode lançar exceção.
-- Evidence:
-    - `backend/src/modules/auth/validators.ts:27-37`
-    - `frontend/src/app/lib/formatting.ts:9-21`
-- Expected / state-of-the-art behavior:
-    - Validar currency contra enum/lista suportada, ou sanitizar/fallbackar no frontend.
-- Current behavior:
-    - Qualquer valor de 3 chars chega ao perfil e depois entra diretamente em `Intl.NumberFormat`.
-- Risk scenario:
-    - Perfil inválido provoca crash/render break em todas as vistas monetárias.
-- Recommendation direction (sem implementar):
-    - Fechar o conjunto de currencies aceites ou tratar fallback robusto na UI.
-- Confidence:
-    - High
-
-### [F-029] [Medium] [Frontend] Derivação de `monthKey` inconsistente com contrato UTC
-
-- Status: Confirmed
-- Category: Docs Drift
-- Impact: bugs plausíveis em fronteiras de mês quando cliente e backend divergem em timezone/UTC.
-- Why this matters: a documentação estabelece UTC no backend e `YYYY-MM` como contrato. O frontend usa mistura de `new Date(year, month, 1)` local e `toISOString().slice(0, 7)` UTC.
-- Evidence:
-    - `frontend/src/app/components/month-page.tsx:258-293`
-    - `frontend/src/app/components/recurring-rules-page.tsx:25-28`
-    - `frontend/src/app/components/budget-editor-page.tsx:60-64`
-    - `frontend/src/app/components/category-movements-page.tsx:86-91`
-    - `docs/backend/business-rules.md:152-155`
-- Expected / state-of-the-art behavior:
-    - O frontend deve derivar/chavear meses de forma uniforme e conscientemente alinhada com o contrato.
-- Current behavior:
-    - Diferentes páginas calculam mês de modos diferentes.
-- Risk scenario:
-    - À meia-noite em timezones favoráveis, uma vista aponta para um mês e outra para outro.
-- Recommendation direction (sem implementar):
-    - Normalizar utilitário único para `monthKey` e alinhar com UTC do contrato.
-- Confidence:
-    - High
-
-### [F-030] [Low] [Frontend/API] Vistas por categoria filtram tudo em memória após buscar o mês inteiro
-
-- Status: Confirmed
-- Category: Performance
-- Impact: custo cresce linearmente com o número de lançamentos do mês.
-- Why this matters: `CategoryMovementsPage` chama `getMonthSummary(month)` e depois filtra localmente por `categoryId`.
-- Evidence:
-    - `backend/src/modules/transactions/service.ts:116-133`
-    - `frontend/src/app/components/category-movements-page.tsx:131-179`
-- Expected / state-of-the-art behavior:
-    - Endpoints com filtro/paginação para exploração detalhada.
-- Current behavior:
-    - O payload do mês inteiro é descarregado e processado na UI.
-- Risk scenario:
-    - Meses grandes tornam-se pesados no cliente e na API.
-- Recommendation direction (sem implementar):
-    - Considerar endpoint category-scoped com paginação/filtros server-side.
-- Confidence:
-    - High
-
-### [F-031] [Low] [Frontend] Frontend ignora `expiresAt` de convite
-
-- Status: Confirmed
-- Category: Docs Drift
-- Impact: a UI mostra apenas o código, sem informar validade temporal.
-- Why this matters: o contrato devolve `expiresAt`, mas a UX não o aproveita. Isto aumenta confusão em códigos expirados.
-- Evidence:
-    - `backend/src/modules/accounts/service.ts:349-351`
-    - `frontend/src/app/components/profile-shared-members-page.tsx:96-101`
-- Expected / state-of-the-art behavior:
-    - UI deve refletir validade do convite devolvida pelo backend.
-- Current behavior:
-    - O frontend guarda só `next.code`.
-- Risk scenario:
-    - Utilizador partilha um código expirado pensando que continua válido.
-- Recommendation direction (sem implementar):
-    - Expor `expiresAt` na UI e em estados de cópia/gestão de convites.
-- Confidence:
-    - High
-
-### [F-032] [High] [Multi-account] Proteção “último owner” vulnerável a concorrência
-
-- Status: Likely / Needs confirmation
-- Category: Concurrency
-- Impact: uma conta partilhada pode acabar sem owner ativo, quebrando um invariante central.
-- Why this matters: os fluxos contam owners dentro de transação e depois alteram um membership. Sob concorrência, duas operações sobre owners diferentes podem observar o mesmo `ownerCount` e ambas concluir.
-- Evidence:
-    - `backend/src/modules/accounts/service.ts:473-485`
-    - `backend/src/modules/accounts/service.ts:525-538`
-    - `backend/src/modules/accounts/service.ts:560-577`
-    - `backend/src/modules/auth/service.ts:649-661`
-    - `docs/backend/business-rules.md:38-44`
-- Expected / state-of-the-art behavior:
-    - O invariante “conta partilhada nunca fica sem owner ativo” deve ser garantido também sob concorrência.
-- Current behavior:
-    - A proteção depende de `countDocuments` + update em documentos distintos, sem constraint material adicional.
-- Risk scenario:
-    - Dois owners saem/demovem-se/removem-se em paralelo e a conta fica sem owner.
-- Recommendation direction (sem implementar):
-    - Introduzir mecanismo forte de serialização/constraint para esse invariante.
-- Confidence:
-    - Medium
-
-### [F-033] [Medium] [Backend] Geração de convite pode deixar múltiplos códigos ativos em concorrência
-
-- Status: Likely / Needs confirmation
-- Category: Concurrency
-- Impact: o invariante documental “novo código revoga os anteriores” pode falhar sob requests concorrentes.
-- Why this matters: a operação revoga códigos ativos e cria um novo, mas não está protegida por transação/unique partial index que garanta unicidade do ativo.
-- Evidence:
-    - `backend/src/modules/accounts/service.ts:326-347`
-    - `backend/src/models/account-invite-code.model.ts:38`
-    - `docs/backend/business-rules.md:32-36`
-- Expected / state-of-the-art behavior:
-    - Um único código ativo por conta deve ser garantido mesmo com concorrência.
-- Current behavior:
-    - A implementação depende da ordem temporal das chamadas.
-- Risk scenario:
-    - Dois owners geram código ao mesmo tempo e ficam ambos ativos.
-- Recommendation direction (sem implementar):
-    - Reforçar a unicidade do estado ativo por conta.
-- Confidence:
-    - Medium
-
-### [F-034] [Low] [Operations] Readiness check é superficial
+### [F-001] [High] [Backend] Build backend quebrado em stats/service
 
 - Status: Confirmed
 - Category: Backend
-- Impact: `/ready` pode responder pronto enquanto dependências críticas ainda não estão funcionalmente saudáveis.
-- Why this matters: `mongoose.connection.readyState === 1` não valida primary reachability, capacidade transacional nem outros componentes opcionais importantes.
+- Impact: bloqueia build, CI e deploy confiável.
+- Why this matters: com build quebrado, qualquer mudança fica sem garantia de integridade de tipos.
 - Evidence:
-    - `backend/src/app.ts:88-95`
-    - `backend/src/config/db.ts:18-20`
+  - `backend/src/modules/stats/service.ts:215`
+  - `backend/src/modules/stats/service.ts:350`
+  - output `npm run build` (TS2322 / TS2345)
 - Expected / state-of-the-art behavior:
-    - Readiness deve refletir a capacidade real de servir tráfego relevante.
+  - Build TypeScript limpo em pipeline.
 - Current behavior:
-    - O check limita-se ao estado de conexão do mongoose.
+  - Erros de nullability em `colorSlot` impedem compilação.
 - Risk scenario:
-    - O orchestrator começa a enviar tráfego enquanto operações transacionais ou downstreams ainda falham.
+  - Hotfixes urgentes ficam bloqueados; risco de bypass de quality gates.
 - Recommendation direction (sem implementar):
-    - Tornar readiness mais representativo dos requisitos reais de serving.
+  - Corrigir contrato de tipos `colorSlot` (`number | undefined` vs `number | null | undefined`) de ponta a ponta (DTO/model/service).
 - Confidence:
-    - High
+  - High
 
-### [F-035] [Medium] [Privacy/Operations] Insight IA envia dados financeiros agregados por defeito
+### [F-002] [High] [Backend] syncBudgetTotalFromTransactions está vazio (no-op)
 
 - Status: Confirmed
-- Category: State-of-the-Art Gap
-- Impact: há transferência de dados financeiros agregados para um terceiro provider por default funcional.
-- Why this matters: embora o payload seja anonimizado, continua a conter séries temporais e agregados financeiros da conta. O frontend dispara o enrichment automaticamente e o backend assume `includeInsight=true` por default.
+- Category: Data Integrity
+- Impact: `totalBudget` não é sincronizado em mutações de receitas (create/update/delete/reassign/generate).
+- Why this matters: quebra invariante de negócio central e pode induzir decisões financeiras erradas.
 - Evidence:
-    - `backend/src/modules/stats/service.ts:363-405`
-    - `backend/src/modules/stats/insight.service.ts:201-280`
-    - `backend/src/modules/stats/insight.service.ts:466-499`
-    - `frontend/src/app/components/stats-page.tsx:120-126`
-    - `docs/backend/api-reference.md:610-622`
+  - `backend/src/modules/budgets/service.ts:511-514`
+  - `backend/src/modules/transactions/service.ts:311-313`
+  - `backend/src/modules/transactions/service.ts:390-392`
+  - `backend/src/modules/transactions/service.ts:405-407`
+  - `backend/src/modules/recurring/service.ts:376-379`
+  - `backend/src/modules/recurring/service.ts:451-453`
 - Expected / state-of-the-art behavior:
-    - Transferências para terceiros devem ser explicitamente governadas, configuráveis e idealmente opt-in para dados financeiros.
+  - Função efetiva de sincronização transacional/consistente de totais derivados.
 - Current behavior:
-    - O enrichment é pedido automaticamente pela UI quando a feature está configurada.
+  - Função não executa lógica.
 - Risk scenario:
-    - Ambiente de produção envia dados agregados de utilizadores sem controlo explícito de consentimento/política por tenant.
+  - Valores derivados ficam stale até leituras específicas, afetando UX e regras dependentes de estado.
 - Recommendation direction (sem implementar):
-    - Rever default, controlo de feature e governança/consentimento para este enrichment.
+  - Restaurar sincronização determinística em write-path, com cobertura de teste para casos cross-month.
 - Confidence:
-    - High
+  - High
 
-### [F-036] [Medium] [CI/CD] CI sem gates modernos de security/supply-chain/secret scanning
+### [F-003] [Medium] [Docs/Backend] Drift: docs prometem sync em mutações de income
 
 - Status: Confirmed
-- Category: CI/CD
-- Impact: falhas de segurança e hygiene podem passar para main/deploy sem deteção dedicada.
-- Why this matters: a pipeline atual faz build/test/lint, mas não inclui `npm audit`, audit signatures/provenance, secret scan, SAST ou gate equivalente.
+- Category: Docs Drift
+- Impact: equipa e integradores tomam decisões com base em comportamento não real.
+- Why this matters: drift em regra financeira crítica gera incidentes difíceis de diagnosticar.
 - Evidence:
-    - `.github/workflows/ci.yml:8-74`
-    - `backend/.env:3-12`
+  - `docs/backend/business-rules.md:76-79`
+  - `README_AGENTS.md:65-66`
+  - `backend/src/modules/budgets/service.ts:511-514`
 - Expected / state-of-the-art behavior:
-    - CI moderna para npm deve incluir pelo menos scanning de segredos e checks dedicados de supply chain.
+  - SSOT alinhado com implementação em invariantes críticas.
 - Current behavior:
-    - Não existem jobs/steps dedicados a segurança de dependências ou segredos.
+  - SSOT diz “sincroniza”; código não sincroniza.
 - Risk scenario:
-    - Dependências vulneráveis, provenance fraca ou segredos acidentais entram sem travão automático.
+  - testes/monitoring desenhados para a regra documentada não capturam o comportamento real.
 - Recommendation direction (sem implementar):
-    - Adicionar security gates específicos em CI e branch protection associada.
+  - Alinhar docs e implementação imediatamente; manter checklist de drift em PR.
 - Confidence:
-    - High
+  - High
 
-### [F-037] [Medium] [Testing] Faltam testes automatizados para riscos críticos de auth/session/concurrency
+### [F-004] [Medium] [API/AuthZ] X-Account-Id opcional vs obrigatório
+
+- Status: Confirmed
+- Category: Docs Drift
+- Impact: contratos API contraditórios criam erros de integração.
+- Why this matters: account context é boundary de segurança multi-tenant.
+- Evidence:
+  - `docs/backend/business-rules.md:9`
+  - `README_AGENTS.md:48`
+  - `docs/backend/api-reference.md:10`
+  - `backend/src/middleware/account-context.ts:30-33`
+- Expected / state-of-the-art behavior:
+  - Um contrato único e explícito para account header.
+- Current behavior:
+  - Parte da doc diz opcional (fallback), parte diz obrigatório; código financeiro usa obrigatório.
+- Risk scenario:
+  - clientes quebram com 422 inesperado ou assumem fallback inexistente.
+- Recommendation direction (sem implementar):
+  - Uniformizar contrato em toda a doc e exemplos de integração.
+- Confidence:
+  - High
+
+### [F-005] [High] [Frontend] StatsPage não reage à troca de conta ativa
+
+- Status: Confirmed
+- Category: Frontend
+- Impact: leitura potencialmente stale de outra conta.
+- Why this matters: risco direto de confusão de dados multi-conta (tenant context).
+- Evidence:
+  - `frontend/src/app/components/stats-page.tsx:80`
+  - `frontend/src/app/components/stats-page.tsx:146`
+  - `frontend/src/app/components/layout.tsx:24-25`
+  - `docs/frontend/screens-flows.md:242`
+- Expected / state-of-the-art behavior:
+  - troca de conta deve disparar reload imediato e invalidar requests antigos.
+- Current behavior:
+  - página não depende de `activeAccountId` e pode manter snapshot antigo.
+- Risk scenario:
+  - utilizador analisa conta A enquanto header já mostra conta B.
+- Recommendation direction (sem implementar):
+  - Ligar página ao contexto de conta ativa e invalidar estado/requestId na troca.
+- Confidence:
+  - High
+
+### [F-006] [High] [Frontend] RecurringRulesPage não recarrega por conta ativa
+
+- Status: Confirmed
+- Category: Frontend
+- Impact: lista/form de regras pode ficar em contexto errado após switch.
+- Why this matters: operações de escrita em regras recorrentes são sensíveis.
+- Evidence:
+  - `frontend/src/app/components/recurring-rules-page.tsx:104`
+  - `frontend/src/app/components/recurring-rules-page.tsx:132-156`
+- Expected / state-of-the-art behavior:
+  - invalidar dados e recarregar ao trocar `activeAccountId`.
+- Current behavior:
+  - `loadData` depende apenas de `currentMonth`.
+- Risk scenario:
+  - utilizador acredita editar regra da conta atual, mas UI vinha da conta anterior.
+- Recommendation direction (sem implementar):
+  - adicionar dependência de conta ativa + guardas anti-race na carga.
+- Confidence:
+  - High
+
+### [F-007] [Medium] [Frontend] MonthPage usa calendário local para fronteiras mensais
+
+- Status: Confirmed
+- Category: Validation
+- Impact: inconsistência de mês/dias remanescentes face ao backend UTC.
+- Why this matters: mês é unidade funcional central da app.
+- Evidence:
+  - `frontend/src/app/components/month-page.tsx:69-75`
+  - `frontend/src/app/components/month-page.tsx:292-295`
+  - `README_AGENTS.md:42`
+- Expected / state-of-the-art behavior:
+  - derivação de mês alinhada a UTC/documented contract.
+- Current behavior:
+  - derivação no FE usa `new Date()` local em partes críticas.
+- Risk scenario:
+  - em timezone limítrofe, FE e BE divergem no mês corrente.
+- Recommendation direction (sem implementar):
+  - consolidar helpers mensais UTC em todos os cálculos de mês.
+- Confidence:
+  - High
+
+### [F-008] [Medium] [Frontend] RecurringRulesPage calcula mês atual em timezone local
+
+- Status: Confirmed
+- Category: Validation
+- Impact: `startMonth` default pode divergir do backend UTC.
+- Why this matters: regras recorrentes usam mês como boundary de geração.
+- Evidence:
+  - `frontend/src/app/components/recurring-rules-page.tsx:25-28`
+  - `backend/src/lib/month.ts:13-15`
+- Expected / state-of-the-art behavior:
+  - default do mês no FE compatível com contrato UTC do BE.
+- Current behavior:
+  - usa `getFullYear()/getMonth()` local.
+- Risk scenario:
+  - regra criada no mês “errado” em fronteiras de dia/mês.
+- Recommendation direction (sem implementar):
+  - reutilizar helper UTC único no FE.
+- Confidence:
+  - High
+
+### [F-009] [Medium] [Frontend] Lint gate falha por no-unsafe-finally
+
+- Status: Confirmed
+- Category: Maintainability
+- Impact: qualidade estática quebrada; comportamento de `finally` com `return` é propenso a bugs.
+- Why this matters: padrões inseguros em fluxo de controlo assíncrono afetam previsibilidade.
+- Evidence:
+  - `frontend/src/app/components/month-page.tsx:324`
+  - `frontend/src/app/components/category-movements-page.tsx:152`
+  - output `npm run lint`
+- Expected / state-of-the-art behavior:
+  - lint verde sem regras de segurança/fluxo violadas.
+- Current behavior:
+  - `return` em `finally` ativa regra `no-unsafe-finally`.
+- Risk scenario:
+  - alterações futuras mascaram exceções ou flow-control inesperado.
+- Recommendation direction (sem implementar):
+  - refatorar blocos `try/catch/finally` para eliminar `return` em `finally`.
+- Confidence:
+  - High
+
+### [F-010] [Medium] [Testing] Suite frontend com falha e warnings de act
 
 - Status: Confirmed
 - Category: Testing
-- Impact: regressões de segurança e multi-conta têm elevada probabilidade de passar sem sinal.
-- Why this matters: existem testes úteis, mas faltam cenários diretamente ligados aos riscos mais severos encontrados nesta auditoria.
+- Impact: sinal de regressão e fragilidade de testes de UI assíncronos.
+- Why this matters: pipeline verde perde valor quando testes críticos estão instáveis.
 - Evidence:
-    - `docs/backend/testing.md:84-102`
-    - command output: `find backend/src/tests -maxdepth 2 -type f`
-    - command output: `find frontend/src -name '*test.ts*'`
+  - `frontend/src/app/components/category-movements-page.test.tsx:135`
+  - output `npm run test` (1 failed, warnings `act(...)`)
 - Expected / state-of-the-art behavior:
-    - Cobertura automatizada para reuse detection, password-change invalidation, corridas de último owner, stale response account-switch, retries não idempotentes e cenários multi-tab/session.
+  - testes determinísticos sem warnings de sincronização React.
 - Current behavior:
-    - A suíte cobre flows felizes e algumas regras críticas, mas não estes cenários específicos.
+  - teste falha em conteúdo esperado e componente mantém warnings de `act`.
 - Risk scenario:
-    - Ajustes futuros em auth/http client/ownership quebram invariantes sem falha de pipeline.
+  - regressões reais passam ou tornam-se intermitentes.
 - Recommendation direction (sem implementar):
-    - Priorizar testes de segurança/concurrency exatamente nos pontos desta auditoria.
+  - estabilizar fluxo assíncrono dos testes e eliminar warnings `act`.
 - Confidence:
-    - High
+  - High
+
+### [F-011] [Medium] [Supply Chain] Vulnerabilidades conhecidas em dependências frontend
+
+- Status: Confirmed
+- Category: Security
+- Impact: exposição a advisories já publicados.
+- Why this matters: cadeia de dependências é vetor comum de incidentes.
+- Evidence:
+  - output `npm audit --package-lock-only` (frontend)
+  - pacote `flatted <=3.4.1` (high)
+  - pacote `vite 6.0.0 - 6.4.0` (moderate)
+- Expected / state-of-the-art behavior:
+  - lockfile sem vulnerabilidades conhecidas de severidade relevante.
+- Current behavior:
+  - 2 vulnerabilidades reportadas.
+- Risk scenario:
+  - exploração via ambiente de dev/tooling ou superfícies runtime associadas.
+- Recommendation direction (sem implementar):
+  - atualizar versões afetadas e validar impacto de breaking changes.
+- Confidence:
+  - High
+
+### [F-012] [Medium] [Supply Chain] Sem gate efetivo de provenance/signatures
+
+- Status: Likely / Needs confirmation
+- Category: CI/CD
+- Impact: integridade de artefactos npm não é atestada na pipeline.
+- Why this matters: baseline moderno exige defesa também contra tampering na supply chain.
+- Evidence:
+  - `.github/workflows/ci.yml` (sem `npm audit signatures`)
+  - `docs/operations/ci-cd.md:62`
+  - tentativa local de `npm audit signatures` não concluída nesta ronda
+- Expected / state-of-the-art behavior:
+  - pipeline com verificação de provenance/signatures e política de falha.
+- Current behavior:
+  - apenas `npm audit` tradicional.
+- Risk scenario:
+  - pacote comprometido com assinatura/proveniência inválida não é barrado.
+- Recommendation direction (sem implementar):
+  - adicionar gate de signatures/provenance no CI com baseline de allowlist.
+- Confidence:
+  - Medium
+
+### [F-013] [Medium] [Backend/Ops] /metrics pode ficar público
+
+- Status: Confirmed
+- Category: Security
+- Impact: telemetria interna exposta quando token não configurado.
+- Why this matters: metadados operacionais ajudam reconhecimento de ataque.
+- Evidence:
+  - `backend/src/app.ts:107-114`
+  - `backend/src/config/env.ts:22`
+  - `backend/src/config/env.ts:83`
+- Expected / state-of-the-art behavior:
+  - endpoint de métricas sempre protegido por auth de infraestrutura.
+- Current behavior:
+  - proteção condicional a variável opcional.
+- Risk scenario:
+  - scraping externo de métricas HTTP e disponibilidade.
+- Recommendation direction (sem implementar):
+  - tornar token obrigatório em ambientes expostos e restringir network ACL.
+- Confidence:
+  - High
+
+### [F-014] [Medium] [Operations] Sem graceful shutdown explícito
+
+- Status: Confirmed
+- Category: Backend
+- Impact: término abrupto pode interromper requests/jobs e aumentar inconsistências.
+- Why this matters: operação resiliente exige drenagem e fecho limpo.
+- Evidence:
+  - `backend/src/server.ts:7-16`
+- Expected / state-of-the-art behavior:
+  - handlers para `SIGTERM/SIGINT`, fecho de listener e DB.
+- Current behavior:
+  - bootstrap simples sem shutdown lifecycle.
+- Risk scenario:
+  - rollout/restart com requisições perdidas.
+- Recommendation direction (sem implementar):
+  - implementar shutdown coordenado com timeout e logs estruturados.
+- Confidence:
+  - High
+
+### [F-015] [Medium] [Security] Logging sem redaction formal
+
+- Status: Confirmed
+- Category: Security
+- Impact: risco de exposição acidental de dados sensíveis em logs.
+- Why this matters: logs são superfície de exfiltração comum.
+- Evidence:
+  - `backend/src/config/logger.ts:4-16`
+  - `backend/src/app.ts:54`
+- Expected / state-of-the-art behavior:
+  - política de `redact` explícita (`authorization`, cookies, tokens, payloads sensíveis).
+- Current behavior:
+  - logger sem `redact` configurado; request log inclui URL completa.
+- Risk scenario:
+  - dados sensíveis persistidos em agregadores de logs.
+- Recommendation direction (sem implementar):
+  - definir redaction padrão e checklist de campos sensíveis.
+- Confidence:
+  - Medium
+
+### [F-016] [High] [Auth/Accounts] deleteMe valida último owner fora da transação
+
+- Status: Likely / Needs confirmation
+- Category: Concurrency
+- Impact: possível violação do invariante “conta partilhada não pode ficar sem owner”.
+- Why this matters: regra crítica de autorização e governança da conta.
+- Evidence:
+  - `backend/src/modules/auth/service.ts:759-766`
+  - `backend/src/modules/auth/service.ts:777-807`
+- Expected / state-of-the-art behavior:
+  - check + update de owner count no mesmo escopo transacional com revalidação.
+- Current behavior:
+  - pré-check antes de iniciar transação; decrementos depois.
+- Risk scenario:
+  - duas operações concorrentes podem ambas passar no check e remover owners em excesso.
+- Recommendation direction (sem implementar):
+  - mover validação para dentro da transação com condição atómica.
+- Confidence:
+  - Medium
+
+### [F-017] [Medium] [Scheduler] Lease sem heartbeat
+
+- Status: Likely / Needs confirmation
+- Category: Concurrency
+- Impact: job diário pode executar em paralelo em cenários de execução longa.
+- Why this matters: recorrências duplicadas geram ruído operacional e custo.
+- Evidence:
+  - `backend/src/jobs/scheduler.ts:10`
+  - `backend/src/jobs/scheduler.ts:14`
+  - `backend/src/jobs/scheduler.ts:72-76`
+- Expected / state-of-the-art behavior:
+  - lease renovável/heartbeat ou lock com fencing token.
+- Current behavior:
+  - janela fixa de 15 min sem renew.
+- Risk scenario:
+  - instância A excede janela; instância B adquire lock e executa também.
+- Recommendation direction (sem implementar):
+  - adotar lock renovável e fencing para execução distribuída.
+- Confidence:
+  - Medium
+
+### [F-018] [Medium] [API] IDs de transação/recorrência sem validação ObjectId nos validators
+
+- Status: Likely / Needs confirmation
+- Category: Validation
+- Impact: entradas inválidas podem produzir erros de cast e respostas 500.
+- Why this matters: API hardening exige rejeição precoce e coerente (`422/400`).
+- Evidence:
+  - `backend/src/modules/transactions/validators.ts:41-43`
+  - `backend/src/modules/recurring/validators.ts:5-7`
+- Expected / state-of-the-art behavior:
+  - validação de formato ObjectId ao nível de contrato.
+- Current behavior:
+  - apenas `min(1)`.
+- Risk scenario:
+  - payload malformado aciona paths não cobertos por erro de domínio.
+- Recommendation direction (sem implementar):
+  - alinhar para regex/validator de ObjectId em todos params de id Mongo.
+- Confidence:
+  - Medium
+
+### [F-019] [Low] [API] Schemas não estritos (campos extra ignorados silenciosamente)
+
+- Status: Confirmed
+- Category: API Contract
+- Impact: cliente pode enviar campos inválidos sem feedback.
+- Why this matters: contratos explícitos reduzem drift e ambiguidades.
+- Evidence:
+  - `backend/src/modules/transactions/validators.ts:20-27`
+  - `backend/src/modules/budgets/validators.ts:27-30`
+- Expected / state-of-the-art behavior:
+  - rotas críticas com contrato estrito (ou política explícita de passthrough).
+- Current behavior:
+  - campos extras são descartados sem erro na maioria dos schemas.
+- Risk scenario:
+  - breaking changes silenciosas e bugs de integração difíceis de detetar.
+- Recommendation direction (sem implementar):
+  - definir estratégia consistente (`strict` vs `passthrough`) por endpoint.
+- Confidence:
+  - Medium
+
+### [F-020] [Medium] [FE<->BE Contract] Password mínima diverge entre FE e BE
+
+- Status: Confirmed
+- Category: API Contract
+- Impact: fricção de UX e falha evitável no registo.
+- Why this matters: validação inconsistente cria retrabalho e abandono de fluxo.
+- Evidence:
+  - `frontend/src/app/components/auth-page.tsx:80-83`
+  - `frontend/src/app/components/auth-page.tsx:236-237`
+  - `backend/src/modules/auth/validators.ts:11`
+- Expected / state-of-the-art behavior:
+  - FE e BE com mesma policy mínima.
+- Current behavior:
+  - FE aceita >=6, BE exige >=10.
+- Risk scenario:
+  - utilizador preenche formulário válido no FE e recebe erro de backend.
+- Recommendation direction (sem implementar):
+  - centralizar política de password e expor contrato único para FE.
+- Confidence:
+  - High
+
+### [F-021] [Medium] [Docs Drift] Arquitetura diz que FE guarda refresh token
+
+- Status: Confirmed
+- Category: Docs Drift
+- Impact: documentação de segurança desatualizada.
+- Why this matters: modelo de ameaça depende de onde tokens são armazenados.
+- Evidence:
+  - `docs/architecture/system-overview.md:29`
+  - `frontend/src/app/lib/token-store.ts:1-5`
+  - `backend/src/lib/cookies.ts:27-33`
+- Expected / state-of-the-art behavior:
+  - docs refletirem cookie HttpOnly + access em memória.
+- Current behavior:
+  - doc descreve armazenamento de refresh no frontend.
+- Risk scenario:
+  - decisões de segurança/auditoria baseadas em premissa errada.
+- Recommendation direction (sem implementar):
+  - corrigir SSOT arquitetural e runbooks de auth.
+- Confidence:
+  - High
+
+### [F-022] [Medium] [Docs Drift] Scheduler e snapshots de stats em conflito documental
+
+- Status: Confirmed
+- Category: Docs Drift
+- Impact: operações e observabilidade podem ser desenhadas incorretamente.
+- Why this matters: materialização vs on-demand altera capacidade e troubleshooting.
+- Evidence:
+  - `docs/architecture/system-overview.md:50`
+  - `docs/backend/operations.md:26`
+  - `backend/src/jobs/scheduler.ts:82-91`
+- Expected / state-of-the-art behavior:
+  - um comportamento documentado único.
+- Current behavior:
+  - docs contraditórias; código só gera recorrências.
+- Risk scenario:
+  - equipa assume snapshots pré-calculados quando não existem.
+- Recommendation direction (sem implementar):
+  - alinhar documentação e runbooks com comportamento real.
+- Confidence:
+  - High
+
+### [F-023] [Medium] [Docs Drift] Docs FE sobre robustez de troca de conta não batem com implementação
+
+- Status: Confirmed
+- Category: Docs Drift
+- Impact: falsa confiança em isolamento de estado.
+- Why this matters: conta ativa é boundary funcional e de segurança de dados.
+- Evidence:
+  - `docs/frontend/state-and-api.md:194`
+  - `docs/frontend/screens-flows.md:242`
+  - `frontend/src/app/components/stats-page.tsx:115-157`
+  - `frontend/src/app/components/recurring-rules-page.tsx:132-156`
+- Expected / state-of-the-art behavior:
+  - comportamento documentado e implementado de recarga consistente em account switch.
+- Current behavior:
+  - pelo menos duas páginas não cumprem.
+- Risk scenario:
+  - incidentes de “dados de conta errada” difíceis de reproduzir.
+- Recommendation direction (sem implementar):
+  - revisar docs após fechar gaps reais de dependência em `activeAccountId`.
+- Confidence:
+  - High
+
+### [F-024] [High] [Business Rules] Categoria técnica de fallback pode ser escolhida diretamente em recorrências
+
+- Status: Confirmed
+- Category: Data Integrity
+- Impact: categoria interna (`fallback_recurring_expense`) entra no fluxo funcional normal.
+- Why this matters: categorias técnicas devem ser invisíveis para criação normal.
+- Evidence:
+  - `frontend/src/app/components/recurring-rules-page.tsx:158-159`
+  - `frontend/src/app/components/recurring-rules-page.tsx:427-429`
+  - `backend/src/modules/recurring/service.ts:121-140`
+  - `docs/backend/business-rules.md:108-113`
+- Expected / state-of-the-art behavior:
+  - bloquear seleção/aceitação de IDs técnicos no FE e no BE.
+- Current behavior:
+  - FE oferece categoria do budget sem filtrar fallback; BE só verifica não-vazio para expense.
+- Risk scenario:
+  - regras novas criadas já em modo fallback técnico, mascarando erros de configuração.
+- Recommendation direction (sem implementar):
+  - tratar fallback como categoria reservada e inválida para input explícito.
+- Confidence:
+  - High
+
+### [F-025] [Medium] [Database] Índice insuficiente para listagem paginada/sort de transações
+
+- Status: Likely / Needs confirmation
+- Category: Performance
+- Impact: degradação com crescimento de dados (sort/filter em memória ou scans caros).
+- Why this matters: endpoint de movimentos tende a alto volume.
+- Evidence:
+  - `backend/src/models/transaction.model.ts:73-77`
+  - `backend/src/modules/transactions/service.ts:245-247`
+  - `backend/src/modules/transactions/service.ts:226-233`
+- Expected / state-of-the-art behavior:
+  - índices compostos alinhados ao padrão de filtro+sort+cursor.
+- Current behavior:
+  - só índice base `(accountId, month)` + índice de idempotência recorrente.
+- Risk scenario:
+  - aumento de latência e custo de CPU/IO com dados reais.
+- Recommendation direction (sem implementar):
+  - desenhar índices por padrão de query de `listTransactions`.
+- Confidence:
+  - Medium
+
+### [F-026] [Medium] [Database] Queries de fallback recorrente sem índice composto dedicado
+
+- Status: Likely / Needs confirmation
+- Category: Performance
+- Impact: operações de fallback/migração podem escalar mal.
+- Why this matters: manutenção de recorrências é caminho operacional sensível.
+- Evidence:
+  - `backend/src/modules/recurring/service.ts:143-148`
+  - `backend/src/modules/recurring/service.ts:346-351`
+  - `backend/src/modules/recurring/service.ts:356-362`
+  - `backend/src/models/transaction.model.ts:73-77`
+- Expected / state-of-the-art behavior:
+  - índices compostos para filtros frequentes (`accountId`,`recurringRuleId`,`origin`,`categoryResolution`).
+- Current behavior:
+  - sem índice dedicado para esse padrão.
+- Risk scenario:
+  - reassign/migração degrada em contas com histórico extenso.
+- Recommendation direction (sem implementar):
+  - adicionar e validar índices por explain plans.
+- Confidence:
+  - Medium
+
+### [F-027] [Low] [Security] Default de CORS frágil fora de produção
+
+- Status: Confirmed
+- Category: State-of-the-Art Gap
+- Impact: configuração permissiva/ambígua aumenta risco de erro operacional.
+- Why this matters: defaults inseguros propagam para ambientes de staging.
+- Evidence:
+  - `backend/src/config/env.ts:60`
+  - `backend/src/app.ts:68-74`
+- Expected / state-of-the-art behavior:
+  - exigir origem explícita em todos ambientes conectados.
+- Current behavior:
+  - fallback para `*` quando variável ausente (fora de produção).
+- Risk scenario:
+  - deploy intermédio com CORS aberto ou com comportamento de credenciais inesperado.
+- Recommendation direction (sem implementar):
+  - eliminar fallback `*` e forçar configuração explícita por ambiente.
+- Confidence:
+  - Medium
+
+### [F-028] [Low] [Security] Rate limiting de auth apenas por IP
+
+- Status: Likely / Needs confirmation
+- Category: State-of-the-Art Gap
+- Impact: proteção limitada contra brute-force distribuído.
+- Why this matters: ataques modernos usam pools de IP e rotação.
+- Evidence:
+  - `backend/src/modules/auth/routes.ts:24-43`
+- Expected / state-of-the-art behavior:
+  - combinação de limites por IP + identidade (email/user) + deteção adaptativa.
+- Current behavior:
+  - limite padrão do middleware sem chave adicional por identidade.
+- Risk scenario:
+  - brute force lento distribuído evita bloqueio efetivo.
+- Recommendation direction (sem implementar):
+  - reforçar estratégia de throttling em múltiplas dimensões.
+- Confidence:
+  - Medium
+
+### [F-029] [Low] [CI/CD] E2E não executa em CI
+
+- Status: Confirmed
+- Category: Testing
+- Impact: fluxos críticos de UI/autenticação multi-conta sem verificação automatizada em PR.
+- Why this matters: unit/integration não capturam todas as regressões de jornada.
+- Evidence:
+  - `docs/operations/ci-cd.md:49`
+  - `.github/workflows/ci.yml`
+- Expected / state-of-the-art behavior:
+  - smoke E2E mínimo em CI para caminhos de maior risco.
+- Current behavior:
+  - Playwright apenas manual/local.
+- Risk scenario:
+  - regressão de login/switch-account chega a produção com CI verde.
+- Recommendation direction (sem implementar):
+  - adicionar subset E2E curto e estável como gate opcional/obrigatório.
+- Confidence:
+  - High
+
+### [F-030] [Medium] [CI/CD] Pipeline sem SAST/CodeQL/Semgrep
+
+- Status: Confirmed
+- Category: State-of-the-Art Gap
+- Impact: classes de vulnerabilidade não são detetadas automaticamente.
+- Why this matters: `npm audit` não cobre bugs lógicos de segurança no código.
+- Evidence:
+  - `.github/workflows/ci.yml`
+- Expected / state-of-the-art behavior:
+  - pipeline com scanning estático de segurança e policy de triagem.
+- Current behavior:
+  - só gitleaks + audit + testes/build.
+- Risk scenario:
+  - falhas de authz/validation escapam até auditoria manual.
+- Recommendation direction (sem implementar):
+  - integrar SAST com baseline de severidade e suppressions auditáveis.
+- Confidence:
+  - Medium
+
+### [F-031] [Info] [Security] Segredos reais em `.env` local do workspace
+
+- Status: Confirmed
+- Category: Other
+- Impact: risco operacional local imediato; exposição acidental fora do VCS.
+- Why this matters: mesmo sem commit, segredos em ficheiros locais podem vazar via logs/screenshots/cópias.
+- Evidence:
+  - `backend/.env:3`
+  - `backend/.env:12`
+  - `git ls-files backend/.env` (não rastreado)
+- Expected / state-of-the-art behavior:
+  - uso de segredos rotativos e gestão segura mesmo em dev local.
+- Current behavior:
+  - valores sensíveis presentes em ficheiro local.
+- Risk scenario:
+  - partilha acidental do ficheiro ou terminal output.
+- Recommendation direction (sem implementar):
+  - rodar credenciais expostas e reforçar disciplina de secrets local.
+- Confidence:
+  - Medium
+
+### [F-032] [Medium] [Stats] Dedupe de jobs de insight é local à instância
+
+- Status: Likely / Needs confirmation
+- Category: Concurrency
+- Impact: custo duplicado no provider e estados concorrentes em ambientes multi-instância.
+- Why this matters: endpoint de IA é caro e sensível a duplicação.
+- Evidence:
+  - `backend/src/modules/stats/service.ts:134`
+  - `backend/src/modules/stats/service.ts:515-594`
+- Expected / state-of-the-art behavior:
+  - coordenação distribuída para execução única por insight pendente.
+- Current behavior:
+  - dedupe runtime em `Map` local por processo.
+- Risk scenario:
+  - duas instâncias processam o mesmo insight pendente em paralelo.
+- Recommendation direction (sem implementar):
+  - lock distribuído por `insightId`/estado pendente no DB.
+- Confidence:
+  - Medium
+
+### [F-033] [Medium] [Backend] Contrato de nullability `colorSlot` inconsistente
+
+- Status: Confirmed
+- Category: API Contract
+- Impact: fricção constante entre modelos, DTOs e build TypeScript.
+- Why this matters: inconsistência de tipos é origem de regressões silenciosas.
+- Evidence:
+  - `backend/src/modules/stats/service.ts:215`
+  - `backend/src/modules/stats/service.ts:350`
+  - output `npm run build`
+- Expected / state-of-the-art behavior:
+  - contrato único para `colorSlot` (nullable ou opcional, não ambos incoerentes).
+- Current behavior:
+  - combinação de tipos incompatíveis (`null` vs `undefined`) no pipeline de stats/insights.
+- Risk scenario:
+  - patches locais de tipagem escondem bug semântico de dados.
+- Recommendation direction (sem implementar):
+  - normalizar contrato desde schema Mongo até tipos FE.
+- Confidence:
+  - High
+
+### [F-034] [Low] [Operations] Readiness pode false-negative com permissões Mongo restritas
+
+- Status: Likely / Needs confirmation
+- Category: Other
+- Impact: pods/instâncias podem ser marcados “not ready” apesar de operacionais.
+- Why this matters: disponibilidade depende de readiness correto.
+- Evidence:
+  - `backend/src/config/db.ts:29-36`
+- Expected / state-of-the-art behavior:
+  - readiness robusta a perfis mínimos de privilégio.
+- Current behavior:
+  - check inclui `admin().command({ hello: 1 })` e avaliação de transações.
+- Risk scenario:
+  - ambiente com permissões limitadas reprova readiness sem necessidade.
+- Recommendation direction (sem implementar):
+  - separar checks de conectividade e capacidade transacional com fallback explícito.
+- Confidence:
+  - Medium
 
 ## 5. Cross-Cutting Risks
 
-- Trust excessivo em dados vindos do cliente:
-    - `origin` de transação
-    - `currency`
-    - contexto implícito de conta quando falta header
-- Invariantes críticos dependem de lógica aplicacional sem constraints fortes:
-    - último owner
-    - um código de convite ativo
-    - coerência entre categorias, budget e transações
-- Modelo de sessão fica aquém do estado da arte:
-    - refresh rotation incompleta
-    - revogação parcial
-    - storage exposto no browser
-    - retry automático de requests mutáveis
-- Drift entre intenções documentadas e comportamento real:
-    - setup Mongo/transações
-    - coerência UTC no frontend
-    - contratos devolvidos e não consumidos (`expiresAt`)
-- Reparação implícita no runtime mascara problemas estruturais:
-    - `getBudget` corrige drift em leitura
-    - snapshots de stats são produzidos sem estratégia clara de leitura
-- Operação/observabilidade insuficientes para produção real:
-    - `/metrics` público
-    - readiness superficial
-    - cron sem coordenação distribuída
-    - CI sem gates modernos de segurança
+- Root cause 1: **drift documental recorrente** em contratos críticos (`X-Account-Id`, scheduler snapshots, armazenamento de tokens, comportamento de account switch).
+- Root cause 2: **consistência eventual não intencional** em domínio financeiro por bug de sincronização e gaps de reload FE.
+- Root cause 3: **concorrência distribuída parcialmente tratada** (locks simples sem heartbeat, jobs IA com dedupe local).
+- Root cause 4: **pipeline de qualidade incompleta** para baseline 2026 (SAST/provenance/e2e CI).
+
+Padrões repetidos:
+- Contratos definidos em múltiplos documentos com divergência real.
+- Dependência excessiva de comportamento “best effort” em fluxos sensíveis.
+- Cobertura de testes forte em alguns blocos, mas sem fechar cenários multi-conta concorrentes no FE.
 
 ## 6. FE <-> BE <-> BD Contract Mismatches
 
-| Tema                 | Contrato/intenção                                               | Comportamento real                                    | Evidência                                                                                                               | Risco                                          |
-| -------------------- | --------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Contexto de conta    | FE deve operar na conta ativa e injetar `X-Account-Id`          | Backend aceita omissão e cai para conta pessoal       | `frontend/src/app/lib/http-client.ts:30-35`, `backend/src/middleware/account-context.ts:24-33`                          | Escritas/leitura no tenant errado              |
-| Categoria de despesa | Budget e transações devem usar taxonomia coerente do mês        | Backend aceita qualquer `categoryId` não vazio        | `backend/src/modules/transactions/service.ts:95-114`                                                                    | Dados órfãos/invisíveis                        |
-| Remoção de categoria | Categoria removida não deveria apagar visibilidade de histórico | UI deriva tudo de `budget.categories`                 | `frontend/src/app/components/month-page.tsx:434-474`                                                                    | Gastos desaparecem da vista principal          |
-| Convites             | Backend devolve `code` + `expiresAt`                            | FE guarda só `code`                                   | `backend/src/modules/accounts/service.ts:349-351`, `frontend/src/app/components/profile-shared-members-page.tsx:96-101` | UX enganadora com códigos expirados            |
-| `totalBudget`        | Backend é source of truth derivada de incomes                   | Coerência depende de sync pós-escrita não atómico     | `backend/src/modules/transactions/service.ts:177-179`, `backend/src/modules/budgets/service.ts:266-279`                 | Drift entre receita e orçamento                |
-| Mês/UTC              | Backend define semântica UTC para mês                           | FE usa mistura de local time e UTC                    | `docs/backend/business-rules.md:152-155`, `frontend/src/app/components/month-page.tsx:258-293`                          | Bugs em fronteiras de mês                      |
-| Stats insight        | Enrichment é opcional                                           | FE pede automaticamente enrichment IA                 | `frontend/src/app/components/stats-page.tsx:120-126`, `docs/backend/api-reference.md:610-622`                           | Transferência a terceiro por default funcional |
-| `currency`           | Contrato implícito de moeda válida                              | Backend aceita qualquer 3-char e FE assume ISO válida | `backend/src/modules/auth/validators.ts:27-37`, `frontend/src/app/lib/formatting.ts:18-21`                              | Crash/render break                             |
+| Mismatch | Documented behavior | Real behavior | Evidence | Risk |
+|---|---|---|---|---|
+| Password mínimo | FE aparenta mínimo 6 | BE exige mínimo 10 | `frontend/src/app/components/auth-page.tsx:80-83`, `backend/src/modules/auth/validators.ts:11` | Erro UX/fluxo de registo |
+| Header de conta | Parte da doc diz `X-Account-Id` opcional | Rotas financeiras exigem header | `docs/backend/business-rules.md:9`, `backend/src/middleware/account-context.ts:30-33` | Integrações falham e confusão de scoping |
+| Refresh token storage | Arquitetura indica FE guarda refresh | Implementação usa cookie HttpOnly | `docs/architecture/system-overview.md:29`, `backend/src/lib/cookies.ts:27-33`, `frontend/src/app/lib/token-store.ts:1-5` | Threat model/documentação incorretos |
+| Scheduler stats snapshots | Arquitetura diz materialização diária | Scheduler só gera recorrências | `docs/architecture/system-overview.md:50`, `backend/src/jobs/scheduler.ts:82-91` | Runbooks/expectativas de dados erradas |
+| Account switch em Stats | Docs de fluxo dizem reload Month/Stats | `StatsPage` não depende de conta ativa | `docs/frontend/screens-flows.md:242`, `frontend/src/app/components/stats-page.tsx:115-157` | Stale view entre contas |
+| Account switch em Recorrências | Docs de robustez sugerem recarga segura | `RecurringRulesPage` não depende de `activeAccountId` | `docs/frontend/state-and-api.md:194`, `frontend/src/app/components/recurring-rules-page.tsx:132-156` | UI fora de contexto |
+| Sync `totalBudget` | Docs afirmam sync em write path de income | função de sync está vazia | `docs/backend/business-rules.md:76-79`, `backend/src/modules/budgets/service.ts:511-514` | Invariante quebrada |
 
 ## 7. Security Gaps vs Modern Baseline
 
-### OWASP ASVS 5.0 / general security engineering
+### OWASP ASVS 5.0 / API Security Top 10 (resumo)
 
-- Sessão/Auth:
-    - F-002, F-003, F-005, F-006, F-007, F-017
-- Secrets management:
-    - F-001, F-036
-- Authorization / tenant isolation:
-    - F-015, F-016, F-032
-- Data validation / integrity:
-    - F-008, F-009, F-012, F-028
-- Operational hardening:
-    - F-021, F-022, F-024, F-034
-
-### OWASP API Security Top 10 2023
-
-- API1 Broken Object Level Authorization / tenant context risk:
-    - F-015, F-016
-- API3 Broken Object Property Level Authorization / mass assignment style overposting:
-    - F-008
-- API4 Unrestricted Resource Consumption:
-    - F-022, F-024, F-030
-- API8 Security Misconfiguration:
-    - F-001, F-002, F-021, F-024, F-034, F-036
-- API10 Unsafe Consumption of APIs:
-    - F-035
+- API2/BOLA: base geral boa com `accountId` + membership checks; **gap** em consistência FE account-switch (risco de exposição contextual na UI).
+- API4/Unrestricted resource consumption: rate limits existem, mas **gaps** em dimensão/estratégia (auth por IP apenas; jobs IA sem coordenação distribuída robusta).
+- API8/Security misconfiguration: **gaps** em `/metrics` opcionalmente público, CORS default permissivo fora de produção, falta de redaction formal em logs.
+- API10/Unsafe consumption/dependencies: **gaps** por vulnerabilidades frontend e ausência de gate de provenance/signatures.
 
 ### RFC 8725 (JWT BCP)
 
-- Falta de algorithm pinning e claims contextuais:
-    - F-003
-- Gestão de segredos inadequada:
-    - F-002
-- Lifecycle/session invalidation incompleta:
-    - F-005, F-006, F-007, F-019
+- Ponto positivo: verificação explícita de algoritmo, issuer e audience (`backend/src/lib/jwt.ts:57-69`).
+- Gap residual: fluxo de refresh ainda aceita token no body por compatibilidade (`backend/src/modules/auth/routes.ts:79`), aumentando superfície de exposição operacional.
 
-### Express / Node.js / MongoDB / npm production baselines
+### Node/Express/Mongo hardening
 
-- Express/Node:
-    - `trust proxy` hardcoded (F-021)
-    - `/metrics` exposto (F-024)
-    - readiness superficial (F-034)
-- MongoDB:
-    - dependência real de transações não refletida no setup (F-020)
-    - invariantes sem constraints fortes (F-032, F-033)
-    - retenção/crescimento desnecessário (F-025)
-- npm / supply chain:
-    - FE lockfile com vulnerabilidades conhecidas (`npm audit --package-lock-only` apontou `flatted` e `vite`)
-    - ausência de gates CI para audit/provenance/secret scanning (F-036)
+- Ponto positivo: `helmet`, rate limit global, readiness/liveness, cookies HttpOnly.
+- Gaps: graceful shutdown ausente, logs sem redaction policy, lock de scheduler simplificado, potencial false-negative de readiness por permissões admin.
+
+### npm supply-chain baseline
+
+- Ponto positivo: `npm audit` em CI + secret scan (`gitleaks`).
+- Gaps: sem provenance/signature gate e vulnerabilidades abertas no frontend lockfile.
 
 ## 8. Test Coverage Gaps
 
-- Prioridade máxima:
-    - Reuse detection de refresh token comprometido
-    - Revogação automática de sessões ao mudar password
-    - Corridas de “último owner” em `updateMemberRole`, `removeMember`, `leaveAccount`, `deleteMe`
-    - Criação manual com `origin=recurring`
-    - Rejeição de `expense.categoryId` fora do budget
-    - Remoção de categoria com transações históricas referenciadas
-- Frontend crítico:
-    - Race de `MonthPage` ao trocar de conta
-    - Retry de POST/PUT/DELETE após refresh
-    - Coordenação multi-tab no refresh flow
-    - Proteção contra exibição de dados stale entre contas
-- Operação:
-    - Smoke test de scheduler em ambiente multi-instância
-    - Teste de startup/readiness com Mongo sem suporte transacional
-    - Testes de `/metrics` exposure e cardinalidade
-- Observação de ambiente:
-    - nesta auditoria não foi possível executar os checks frontend por problema local de dependências/binários, o que reduz o sinal prático disponível sobre regressões atuais na UI
+- Cenários críticos sem cobertura efetiva observável nesta execução:
+  - troca de conta com invalidação correta em `StatsPage` e `RecurringRulesPage`.
+  - concorrência de `deleteMe`/owner protection.
+  - coordenação multi-instância para scheduler e insight jobs.
+  - hardening de validação de IDs inválidos em params.
+- Fragilidade atual detectada:
+  - falha em `category-movements-page.test.tsx` + warnings `act` indicam falta de sincronização robusta em testes assíncronos.
+- Prioridades de cobertura:
+  1. Multi-account switch com asserts de stale-state.
+  2. Invariantes de `totalBudget` no write path de income.
+  3. Concorrência owner-removal/deleteMe.
+  4. Fluxos de recorrência com categoria técnica/fallback.
 
 ## 9. Docs vs Implementation Drift
 
-| Tema                   | Documentado                                                  | Implementado                                                 | Risco                                            |
-| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------ |
-| Mongo setup            | `MongoDB local ou Atlas`; replica set “recomendado”          | código usa transações em flows críticos                      | instalações “válidas” pela doc falham em runtime |
-| Contrato UTC/mês       | backend define fronteiras de mês em UTC                      | frontend deriva mês de formas inconsistentes                 | bugs timezone e drift de UX                      |
-| Convite partilhado     | contrato devolve `expiresAt`                                 | UI ignora campo                                              | UX e suporte operacional piores                  |
-| Concorrência FE        | docs indicam robustez para mudanças rápidas de conta/periodo | `MonthPage` não tem guard equivalente ao `StatsPage`         | data leakage visual entre contas                 |
-| Budget source of truth | docs afirmam backend source of truth                         | coerência depende de sync pós-escrita e reparação em leitura | drift silencioso e side effects escondidos       |
-| Invólucro de segurança | docs avisam para nunca commitar `.env` com segredos          | workspace local contém segredos ativos de desenvolvimento    | risco operacional no ambiente local/dev          |
+- `X-Account-Id` opcional vs obrigatório (`docs/backend/business-rules.md:9` vs `backend/src/middleware/account-context.ts:30-33`).
+- Scheduler “materializa snapshots” vs código real apenas gera recorrências (`docs/architecture/system-overview.md:50` vs `backend/src/jobs/scheduler.ts:82-91`).
+- Frontend “guarda access+refresh” vs implementação de refresh em cookie HttpOnly (`docs/architecture/system-overview.md:29` vs `backend/src/lib/cookies.ts:27-33`).
+- Frontend “Month/Stats robustos na troca de conta” vs `StatsPage`/`RecurringRulesPage` sem dependência de conta ativa.
+- Regra de sync imediata de `totalBudget` vs função de sync vazia.
+
+Risco do drift:
+- onboarding técnico incorreto,
+- incident response mais lento,
+- decisões de produto/segurança baseadas em premissas falsas.
 
 ## 10. Prioritized Remediation Order
 
 ### P0 imediatos
 
-- Rodar e substituir imediatamente os segredos expostos do `MongoDB` e `OpenAI`.
-- Remover segredos ativos de desenvolvimento/testes do workspace do repositório e ativar secret scanning.
-- Fechar o overposting de `origin=recurring`.
-- Corrigir o modelo de sessão:
-    - segredos JWT fortes obrigatórios
-    - revogação ao mudar password
-    - reuse detection/chain revocation
-- Impedir persistência de despesas com categorias inválidas/orfandade de categoria.
-- Corrigir o risco de mistura de dados entre contas no `MonthPage`.
+1. Corrigir build backend (`F-001`, `F-033`).
+2. Restaurar sincronização efetiva de `totalBudget` no write path de income (`F-002`, `F-003`).
+3. Corrigir reload seguro por conta ativa em `StatsPage` e `RecurringRulesPage` (`F-005`, `F-006`).
+4. Bloquear uso explícito da categoria técnica de fallback em recorrências (`F-024`).
 
 ### P1 curto prazo
 
-- Rever storage de tokens no frontend e política de retry automático.
-- Endurecer `X-Account-Id`/account context com fail-closed nos endpoints relevantes.
-- Corrigir/documentar de forma inequívoca a dependência de replica set/transações.
-- Reforçar proteção de “último owner” contra concorrência.
-- Fechar `/metrics` e reduzir cardinalidade de labels.
+1. Fechar falhas de lint/test frontend (`F-009`, `F-010`).
+2. Resolver vulnerabilidades frontend (`F-011`).
+3. Endurecer `/metrics` e logging/redaction (`F-013`, `F-015`).
+4. Alinhar contratos/documentação críticos (`F-004`, `F-021`, `F-022`, `F-023`).
 
 ### P2 médio prazo
 
-- Tornar scheduler seguro para multi-instância.
-- Reestruturar `totalBudget` para consistência mais forte.
-- Remover side effects de GET em `getBudget`.
-- Introduzir TTL/retention policy para artefactos expirados.
-- Harmonizar derivação de `monthKey` no frontend.
-- Rever governança/opt-in do insight IA.
+1. Reforçar concorrência em `deleteMe` e scheduler lease (`F-016`, `F-017`).
+2. Endurecer validações de IDs e schemas (`F-018`, `F-019`).
+3. Melhorar índices para queries de transações/recorrências (`F-025`, `F-026`).
+4. Uniformizar UTC no frontend (`F-007`, `F-008`).
 
 ### P3 melhorias estruturais
 
-- Decidir entre usar de facto `StatsSnapshot` ou remover a materialização.
-- Introduzir endpoints filtrados/paginados para exploração detalhada de movimentos.
-- Expandir a suíte de testes para auth/session/concurrency/multi-account.
-- Adicionar CI security gates modernos: audit, provenance/signatures, secret scanning, SAST.
+1. Evoluir CI para SAST/provenance e smoke E2E (`F-012`, `F-029`, `F-030`).
+2. Rever defaults e observabilidade operacional (`F-027`, `F-028`, `F-034`).
+3. Reforçar hygiene de segredos locais e rotação (`F-031`).
 
 ## 11. Appendix
 
-### Comandos executados
+### Comandos executados (principais)
 
-```bash
-node -v
-npm -v
-cd backend && npm ci
-cd frontend && npm ci
-cd backend && npm run build
-cd backend && npm run test:unit
-cd backend && npm run test:integration
-cd backend && npm audit --package-lock-only
-cd frontend && npm audit --package-lock-only
-cd backend && npm audit signatures --package-lock-only
-cd frontend && npm audit signatures --package-lock-only
-cd frontend && npm run typecheck
-cd frontend && npm run lint
-cd frontend && npm run test
-cd frontend && npm run build
-git ls-files backend/.env frontend/.env backend/.env.example
-```
+- Inventário/estrutura:
+  - `ls -la`
+  - `rg --files docs | sort`
+  - `rg --files backend/src | sort`
+  - `rg --files frontend/src | sort`
+- Leitura com evidência:
+  - `nl -ba <ficheiro> | sed -n ...` em docs/backend/frontend/models/services/routes
+- Qualidade backend:
+  - `npm run build` (falha)
+  - `npm run test:unit` (passa)
+  - `npm run test:integration` (falha por EPERM sandbox)
+- Qualidade frontend:
+  - `npm run typecheck` (passa)
+  - `npm run lint` (falha)
+  - `npm run check:tokens` (passa)
+  - `npm run check-theme-contract` (passa)
+  - `npm run test` (falha)
+  - `npm run build` (passa)
+- Supply-chain:
+  - `npm audit --package-lock-only` backend (0)
+  - `npm audit --package-lock-only` frontend (2 vuln)
 
 ### Outputs relevantes
 
-- `backend npm run build`:
-    - sucesso
-- `backend npm run test:unit`:
-    - sucesso, `30 tests`
-- `backend npm run test:integration`:
-    - falhou por ambiente/sandbox com `listen EPERM: operation not permitted 0.0.0.0`
-- `frontend npm run typecheck/lint/test/build`:
-    - falharam com `tsc/eslint/vitest/vite: command not found`
-- `backend npm audit --package-lock-only`:
-    - `found 0 vulnerabilities`
-- `frontend npm audit --package-lock-only`:
-    - vulnerabilidades conhecidas em `flatted <=3.4.1` e `vite 6.0.0 - 6.4.0`
-- `npm audit signatures --package-lock-only`:
-    - falhou por `EACCES` na cache local npm
-- `npm ci` backend/frontend:
-    - falhou por `EACCES` em `node_modules`
+- Backend build:
+  - `TS2322` e `TS2345` em `src/modules/stats/service.ts` (linhas 215 e 350).
+- Frontend lint:
+  - `no-unsafe-finally` em `month-page.tsx:324` e `category-movements-page.tsx:152`.
+- Frontend test:
+  - falha em `category-movements-page.test.tsx` (“Unable to find text: Continente”) + warnings `act(...)`.
+- Backend integration tests:
+  - `listen EPERM: operation not permitted 0.0.0.0` (sandbox).
+- npm audit frontend:
+  - `flatted <=3.4.1` (high), `vite 6.0.0-6.4.0` (moderate advisories).
 
-### Ficheiros lidos
+### Ficheiros lidos (resumo)
 
-- Documentação SSOT listada na secção 2
-- Código principal auditado em:
-    - `backend/src/app.ts`
-    - `backend/src/config/*`
-    - `backend/src/middleware/*`
-    - `backend/src/modules/**/*`
-    - `backend/src/models/*`
-    - `backend/src/jobs/scheduler.ts`
-    - `backend/src/tests/**/*`
-    - `frontend/src/app/**/*`
-    - `frontend/src/main.tsx`
-    - `.github/workflows/ci.yml`
+- SSOT completo conforme secção 2.
+- Backend core: `app.ts`, `server.ts`, `config/*`, `middleware/*`, `modules/*`, `models/*`, `jobs/scheduler.ts`.
+- Frontend core: `lib/*`, páginas principais (`month`, `stats`, `stats-insights`, `recurring-rules`, `auth`, `layout`).
+- Operação/CI: `.github/workflows/ci.yml`, docs de deployment/ci/runbooks.
 
 ### Notas de ambiente
 
-- O worktree estava sem alterações trackadas antes da criação deste report.
-- `backend/.env` estava presente no workspace mas não trackado pelo Git nesta auditoria.
-- O estado local de dependências limitou a execução dos checks frontend e de `npm ci`.
+- Ambiente com limitações de sandbox para testes de integração Mongo in-memory.
+- Auditoria de signatures/provenance npm não foi consolidada nesta ronda.
 
 ### Dúvidas em aberto
 
-- F-019: a race multi-tab do refresh é tecnicamente muito provável, mas exigiria reprodução controlada em browser com vários tabs para confirmação empírica.
-- F-023: a duplicação do scheduler depende do modo de deploy efetivo; se existir uma única instância dedicada, o risco atual baixa.
-- F-032: a race do último owner precisa de teste concorrente/instrumentado para confirmação empírica, embora a estrutura atual já seja vulnerável por desenho.
-- F-033: a race de convites também requer reprodução concorrente para confirmar frequência real.
+- `F-016` (race em deleteMe): requer teste concorrente controlado para confirmação empírica.
+- `F-017` (lease scheduler): requer simulação multi-instância com job > 15 min.
+- `F-018` (IDs inválidos -> 500): requer teste de integração com IDs malformados.
+- `F-025`/`F-026` (índices): requer `explain()` em dataset real para quantificar impacto.
+- `F-034` (readiness false-negative): requer validação no perfil de permissões do ambiente alvo.

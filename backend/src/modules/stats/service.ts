@@ -148,6 +148,10 @@ function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function isIntegerNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
 function categoryMonthKey(categoryId: string, month: string): string {
   return `${categoryId}::${month}`;
 }
@@ -191,16 +195,19 @@ function toInsightStatusDto(doc: {
   errorMessage?: string | null;
 }): StatsInsightStatusDto {
   const hasReport = doc.status === "ready" && doc.summary && doc.confidence;
-  const categoryInsights = (doc.categoryInsights ?? []).map((item) => ({
-    categoryId: item.categoryId,
-    categoryAlias: item.categoryAlias,
-    categoryKind: item.categoryKind,
-    categoryName: item.categoryName,
-    ...(Number.isInteger(item.colorSlot) ? { colorSlot: item.colorSlot } : {}),
-    title: item.title,
-    detail: item.detail,
-    ...(item.action ? { action: item.action } : {}),
-  }));
+  const categoryInsights = (doc.categoryInsights ?? []).map((item) => {
+    const colorSlot = item.colorSlot;
+    return {
+      categoryId: item.categoryId,
+      categoryAlias: item.categoryAlias,
+      categoryKind: item.categoryKind,
+      categoryName: item.categoryName,
+      ...(isIntegerNumber(colorSlot) ? { colorSlot } : {}),
+      title: item.title,
+      detail: item.detail,
+      ...(item.action ? { action: item.action } : {}),
+    };
+  });
 
   return {
     id: doc._id.toString(),
@@ -343,11 +350,12 @@ async function buildStats(
     for (const category of budget.categories) {
       const budgetedAmount = (category.percent / 100) * monthIncome;
       const key = categoryMonthKey(category.id, budget.month);
+      const categoryColorSlot = category.colorSlot;
 
       expenseCategoryNames.set(category.id, category.name);
       expenseCategoryKinds.set(category.id, category.kind === "reserve" ? "reserve" : "expense");
-      if (Number.isInteger(category.colorSlot)) {
-        expenseCategoryColorSlots.set(category.id, category.colorSlot);
+      if (isIntegerNumber(categoryColorSlot)) {
+        expenseCategoryColorSlots.set(category.id, categoryColorSlot);
       }
       budgetByCategoryMonth.set(key, (budgetByCategoryMonth.get(key) ?? 0) + budgetedAmount);
       expenseCategoryIds.add(category.id);
@@ -384,6 +392,7 @@ async function buildStats(
   const totalExpense = trend.reduce((sum, item) => sum + item.expense, 0);
 
   const budgetVsActual: BudgetVsActualItem[] = Array.from(expenseCategoryIds).map((categoryId) => {
+    const colorSlot = expenseCategoryColorSlots.get(categoryId);
     const budgeted = round(
       months.reduce(
         (sum, month) => sum + (budgetByCategoryMonth.get(categoryMonthKey(categoryId, month)) ?? 0),
@@ -400,9 +409,7 @@ async function buildStats(
     return {
       categoryId,
       categoryName: expenseCategoryNames.get(categoryId) ?? categoryId,
-      ...(Number.isInteger(expenseCategoryColorSlots.get(categoryId))
-        ? { colorSlot: expenseCategoryColorSlots.get(categoryId) }
-        : {}),
+      ...(isIntegerNumber(colorSlot) ? { colorSlot } : {}),
       categoryKind: expenseCategoryKinds.get(categoryId) ?? "expense",
       budgeted,
       actual,
