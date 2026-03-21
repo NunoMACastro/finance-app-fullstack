@@ -31,6 +31,7 @@ Recomendadas:
 
 Restricoes:
 - `CORS_ORIGIN` nao pode ser `*` em producao.
+- Se frontend e backend estiverem em domínios diferentes, o refresh cookie precisa de ser enviado com `SameSite=None; Secure` em produção.
 
 ### Frontend
 
