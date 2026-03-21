@@ -1,9 +1,17 @@
+import { createElement } from "react";
 import { createBrowserRouter } from "react-router";
+import { RouteErrorBoundary } from "./components/route-error-page";
+import { NotFoundPage } from "./components/not-found-page";
 
-export function createAppRouter() {
-  return createBrowserRouter([
+export function createAppRoutes() {
+  return [
+    {
+      path: "*",
+      Component: NotFoundPage,
+    },
     {
       path: "/",
+      errorElement: createElement(RouteErrorBoundary),
       lazy: async () => {
         const mod = await import("./components/layout");
         return { Component: mod.AppLayout };
@@ -123,5 +131,9 @@ export function createAppRouter() {
         },
       ],
     },
-  ]);
+  ];
+}
+
+export function createAppRouter() {
+  return createBrowserRouter(createAppRoutes());
 }

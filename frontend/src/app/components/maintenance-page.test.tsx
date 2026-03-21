@@ -7,7 +7,9 @@ describe("MaintenancePage", () => {
   test("renders maintenance title and message", () => {
     render(<MaintenancePage />);
 
+    expect(screen.getByText("503")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: config.maintenanceTitle })).toBeInTheDocument();
     expect(screen.getByText(config.maintenanceMessage)).toBeInTheDocument();
+    expect(screen.getByText("Serviço temporariamente indisponível.")).toBeInTheDocument();
   });
 });

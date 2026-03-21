@@ -6,6 +6,7 @@ import { getAccountRoleLabel } from "../lib/account-role-label";
 import { getErrorMessage } from "../lib/api-error";
 import type { AccountRole } from "../lib/types";
 import { ConfirmActionDialog } from "./confirm-action-dialog";
+import { ForbiddenPage } from "./forbidden-page";
 import { ProfileSectionShell } from "./profile-section-shell";
 import { Button } from "./ui/button";
 import { PROFILE_FIELD_LABEL_CLASS, SELECT_CLASS_NAME } from "./profile-options";
@@ -66,6 +67,26 @@ export function ProfileSharedMembersPage() {
     };
   }, [activeAccount, canManageMembers, listMembers]);
 
+  if (!activeAccount || activeAccount.type !== "shared") {
+    return (
+      <ForbiddenPage
+        title="Membros e convites"
+        description="Esta secção só está disponível numa conta partilhada ativa."
+        backTo="/profile/shared"
+      />
+    );
+  }
+
+  if (!canManageMembers) {
+    return (
+      <ForbiddenPage
+        title="Membros e convites"
+        description={`O teu role nesta conta é ${getAccountRoleLabel(activeAccountRole ?? activeAccount.role)}. Só o gestor da conta pode abrir esta secção.`}
+        backTo="/profile/shared"
+      />
+    );
+  }
+
   return (
     <ProfileSectionShell
       title="Membros e convites"
@@ -74,101 +95,85 @@ export function ProfileSharedMembersPage() {
       backTo="/profile/shared"
     >
       <section className="space-y-2 border-y border-border/60 py-4">
-        {!activeAccount || activeAccount.type !== "shared" ? (
-          <>
-            <p className="text-sm text-foreground">A conta ativa não é partilhada.</p>
-            <p className="text-xs text-muted-foreground">Ativa uma conta partilhada para veres membros e convites.</p>
-          </>
-        ) : !canManageMembers ? (
-          <>
-            <p className="text-sm text-foreground">Sem permissões para gerir membros.</p>
-            <p className="text-xs text-muted-foreground">
-              O teu role nesta conta é {getAccountRoleLabel(activeAccountRole ?? activeAccount.role)}.
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-foreground">Membros de {activeAccount.name}</p>
+          <Button
+            type="button"
+            className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
+            disabled={generatingInvite}
+            onClick={async () => {
+              setGeneratingInvite(true);
+              try {
+                const next = await generateInviteCode(activeAccount.id);
+                setInviteCode(next.code);
+                setInviteExpiresAt(next.expiresAt);
+                toast.success("Código de convite gerado");
+              } catch (error) {
+                toast.error(getErrorMessage(error, "Não foi possível gerar código"));
+              } finally {
+                setGeneratingInvite(false);
+              }
+            }}
+          >
+            {generatingInvite ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gerar código"}
+          </Button>
+        </div>
+        {inviteCode ? (
+          <div className="space-y-1">
+            <p className={PROFILE_FIELD_LABEL_CLASS}>
+              Código atual: <span className="font-medium text-foreground">{inviteCode}</span>
             </p>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-foreground">Membros de {activeAccount.name}</p>
-              <Button
-                type="button"
-                className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
-                disabled={generatingInvite}
-                onClick={async () => {
-                  setGeneratingInvite(true);
-                  try {
-                    const next = await generateInviteCode(activeAccount.id);
-                    setInviteCode(next.code);
-                    setInviteExpiresAt(next.expiresAt);
-                    toast.success("Código de convite gerado");
-                  } catch (error) {
-                    toast.error(getErrorMessage(error, "Não foi possível gerar código"));
-                  } finally {
-                    setGeneratingInvite(false);
-                  }
-                }}
-              >
-                {generatingInvite ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gerar código"}
-              </Button>
-            </div>
-            {inviteCode ? (
-              <div className="space-y-1">
-                <p className={PROFILE_FIELD_LABEL_CLASS}>
-                  Código atual: <span className="font-medium text-foreground">{inviteCode}</span>
-                </p>
-                {inviteExpiresAt ? (
-                  <p className="text-xs text-muted-foreground">
-                    Expira em {new Date(inviteExpiresAt).toLocaleString("pt-PT")}
-                  </p>
-                ) : null}
-              </div>
+            {inviteExpiresAt ? (
+              <p className="text-xs text-muted-foreground">
+                Expira em {new Date(inviteExpiresAt).toLocaleString("pt-PT")}
+              </p>
             ) : null}
+          </div>
+        ) : null}
 
-            {membersLoading ? (
-              <p className="text-xs text-muted-foreground">A carregar membros...</p>
-            ) : members.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sem membros para mostrar.</p>
-            ) : (
-              <div className="divide-y divide-border/60 border-y border-border/60">
-                {members.map((member) => (
-                  <div key={member.userId} className="space-y-2 py-3">
-                    <p className="truncate text-sm text-foreground">{member.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{member.email}</p>
-                    <div className="flex items-center gap-2">
-                      <select
-                        className={`${SELECT_CLASS_NAME} flex-1`}
-                        value={member.role}
-                        onChange={async (event) => {
-                          try {
-                            const role = event.target.value as AccountRole;
-                            const updated = await updateMemberRole(activeAccount.id, member.userId, role);
-                            setMembers((previous) =>
-                              previous.map((item) => (item.userId === updated.userId ? updated : item)),
-                            );
-                            toast.success("Role atualizada");
-                          } catch (error) {
-                            toast.error(getErrorMessage(error, "Não foi possível atualizar role"));
-                          }
-                        }}
-                      >
-                        <option value="owner">{getAccountRoleLabel("owner")}</option>
-                        <option value="editor">{getAccountRoleLabel("editor")}</option>
-                        <option value="viewer">{getAccountRoleLabel("viewer")}</option>
-                      </select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-12 rounded-xl px-3 text-destructive hover:bg-danger-soft"
-                        onClick={() => setPendingMemberRemoval({ userId: member.userId, name: member.name })}
-                      >
-                        Remover
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+        {membersLoading ? (
+          <p className="text-xs text-muted-foreground">A carregar membros...</p>
+        ) : members.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Sem membros para mostrar.</p>
+        ) : (
+          <div className="divide-y divide-border/60 border-y border-border/60">
+            {members.map((member) => (
+              <div key={member.userId} className="space-y-2 py-3">
+                <p className="truncate text-sm text-foreground">{member.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                <div className="flex items-center gap-2">
+                  <select
+                    className={`${SELECT_CLASS_NAME} flex-1`}
+                    value={member.role}
+                    onChange={async (event) => {
+                      try {
+                        const role = event.target.value as AccountRole;
+                        const updated = await updateMemberRole(activeAccount.id, member.userId, role);
+                        setMembers((previous) =>
+                          previous.map((item) => (item.userId === updated.userId ? updated : item)),
+                        );
+                        toast.success("Role atualizada");
+                      } catch (error) {
+                        toast.error(getErrorMessage(error, "Não foi possível atualizar role"));
+                      }
+                    }}
+                  >
+                    <option value="owner">{getAccountRoleLabel("owner")}</option>
+                    <option value="editor">{getAccountRoleLabel("editor")}</option>
+                    <option value="viewer">{getAccountRoleLabel("viewer")}</option>
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 rounded-xl px-3 text-destructive hover:bg-danger-soft"
+                    onClick={() => setPendingMemberRemoval({ userId: member.userId, name: member.name })}
+                  >
+                    Remover
+                  </Button>
+                </div>
               </div>
-            )}
-          </>
+            ))}
+          </div>
         )}
       </section>
 

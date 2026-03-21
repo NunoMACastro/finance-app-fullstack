@@ -11,6 +11,9 @@
 4. injeta `Toaster` global
 5. injeta `Analytics` (`@vercel/analytics/react`) para page views
 
+Nota:
+- o router so monta depois do gate de auth; rotas inexistentes e erros de pagina aparecem dentro do fluxo autenticado, mas o `404` e o `500` usam ecrã full-screen sem shell interno.
+
 ## Routing
 
 Arquivo: `app/routes.ts`
@@ -31,6 +34,7 @@ Rotas lazy:
 - `/profile/shared/join` -> `ProfileSharedJoinPage`
 - `/profile/shared/members` -> `ProfileSharedMembersPage`
 - `/month/:month/category/:categoryId/movements` -> `CategoryMovementsPage`
+- `*` -> `NotFoundPage` (top-level, fora do shell do `AppLayout`)
 
 Layout comum:
 - `AppLayout`
@@ -43,6 +47,13 @@ Layout comum:
   - area de conteudo sem animação global no `Outlet`
   - os blocos principais de cada página usam `PageSectionFadeInV3` para `fade-only` local (`opacity` apenas, sem slide)
   - tutorial overlay
+
+Status pages:
+- `MaintenancePage` mostra o estado `503` e substitui o router inteiro quando `VITE_MAINTENANCE_MODE=true`.
+- `RouteErrorBoundary` serve como `errorElement` do root route e cobre `500` genérico.
+- `NotFoundPage` é o catch-all visual fora do shell da app.
+- `ForbiddenPage` é usado como ecrã full-screen de bloqueio sem depender do shell de navegação.
+- `ProfileSharedMembersPage` devolve `ForbiddenPage` quando a conta ativa não é partilhada ou quando o role não é `owner`.
 
 ## Componentes de pagina
 

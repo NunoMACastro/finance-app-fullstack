@@ -20,6 +20,12 @@ Este README e um atalho rapido. A documentacao detalhada do frontend esta em:
   - `npm run check-theme-contract`
   - `npm run check:tokens`
 
+## Status pages
+
+- `src/app/components/status-page.tsx`: base partilhada para `404/403/500/503`.
+- `src/app/routes.ts`: catch-all `*` para `404` e `errorElement` do root route para `500`.
+- `src/app/components/maintenance-page.tsx`: `503` de manutencao alinhado com o mesmo sistema visual.
+
 ## Quick start
 
 ```bash

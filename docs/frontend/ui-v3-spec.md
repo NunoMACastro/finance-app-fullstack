@@ -114,6 +114,14 @@ Normativa:
 ### Empty States
 - `MUST` conter: mensagem curta + CTA + contexto mínimo.
 
+### Status Screens
+- `MUST` usar ecrãs full-screen flat, sem cards, sem sombras pesadas e sem blocos empilhados desnecessários.
+- `MUST` privilegiar uma composição em duas zonas:
+  - hero superior com código/ícone/estado
+  - corpo inferior com título, descrição e CTAs
+- `MUST` usar `PageSectionFadeInV3` nas zonas principais e manter a animação em `fade-only`.
+- `SHOULD` usar o mesmo vocabulário visual de auth e manutenção: gradiente ou superfície temática, separador curvo quando fizer sentido, e conteúdo legível em coluna estreita.
+
 ## 5. Regras por Página
 
 - páginas autenticadas `MUST` usar stack base `pageStack` (`flex flex-col gap-6 pb-6`).

@@ -48,10 +48,12 @@ Suites atuais (resumo por area):
 - account/layout: `layout.account-select.test.tsx`
 - month e movimentos: `month-page.financial-ruler.test.tsx`, `month-financial-ruler.test.tsx`, `month-expense-category-row.test.tsx`, `category-expenses-sheet.test.tsx`, `category-movements-page.test.tsx`
 - recorrencias: `recurring-rules-page.test.tsx`
+- status pages: `status-page.test.tsx`, `route-error-page.test.tsx`, `maintenance-page.test.tsx`
+- permissions e routing: `profile-shared-members-page.test.tsx`, `routes.test.tsx`
 - stats/ui v3: `stats-page.test.tsx`, `stats-view-model.test.ts`, `ui-v3-structure.test.tsx`, `ui-v3-contracts.test.ts`, `v3/page-header-v3.test.tsx`, `v3/segmented-control-v3.test.tsx`, `v3/bottom-nav-v3.test.tsx`
 - interactions v3: `v3/interaction-primitives-v3.test.tsx`, `v3/overflow-actions-sheet-v3.test.tsx`
 - dialogos e overlays: `confirm-action-dialog.test.tsx`, `responsive-overlay.test.tsx`
-- onboarding/manutencao/mobile: `tutorial-tour.test.tsx`, `maintenance-page.test.tsx`
+- onboarding/mobile: `tutorial-tour.test.tsx`
 - estado/lib: `theme-preferences.test.tsx`, `category-color-slot.test.ts`, `category-kind.test.ts`
 - estado/lib (theming): `theme-preferences.test.tsx`, `theme-palette.test.ts`, `theme-palette.contract.test.ts`
 - bootstrap app: `main.test.ts`
@@ -91,6 +93,8 @@ Recomendacoes continuas:
 - [ ] troca de conta ativa funciona (header + dados)
 - [ ] month page respeita bloqueio sem budget valido
 - [ ] stats page lida com erro e retry
+- [ ] status pages e routing fallback passam (`status-page.test.tsx`, `route-error-page.test.tsx`, `routes.test.tsx`)
+- [ ] acessos restritos mostram 403 correto (`profile-shared-members-page.test.tsx`)
 - [ ] contratos visuais UI v3 passam (`ui-v3-contracts.test.ts`)
 - [ ] contratos de interação passam (sem `<button>` direto fora de primitives no escopo `src/app/**/*.tsx` e radius de botões normalizado)
 - [ ] tutorial continua por escopo e sem jump visual

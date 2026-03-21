@@ -244,3 +244,18 @@ Comportamento:
 Fallback:
 - se conta guardada localmente ficar invalida,
   - contexto cai para conta pessoal automaticamente
+
+## 9) Status pages
+
+Estados formais:
+- `503` - manutenção/indisponibilidade, mostrado quando `VITE_MAINTENANCE_MODE=true`
+- `404` - rota inexistente dentro do router ativo
+- `403` - secção existente, mas sem permissões suficientes na conta ativa
+- `500` - erro inesperado de renderização/rota
+
+Comportamento:
+- `503` substitui toda a app antes do router e não depende do shell normal
+- `404` usa o catch-all `*` do router, fora do `AppLayout`, e mostra CTA para regressar ao início
+- `403` aparece em secções restritas, como a gestão de membros da conta partilhada, e cobre o ecrã em full-screen quando o role não é `owner`
+- `500` mostra retry explícito e CTA para regressar ao início, também em full-screen
+- o router ativo continua a ser gateado por auth, por isso `404/403/500` aparecem dentro do fluxo autenticado; fora dele, a app continua a mostrar o `AuthPage`
