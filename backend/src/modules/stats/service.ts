@@ -29,6 +29,7 @@ interface TrendItem {
 interface BudgetVsActualItem {
   categoryId: string;
   categoryName: string;
+  colorSlot?: number;
   categoryKind?: "expense" | "reserve";
   budgeted: number;
   actual: number;
@@ -44,6 +45,7 @@ interface CategorySeriesMonthItem {
 interface CategorySeriesItem {
   categoryId: string;
   categoryName: string;
+  colorSlot?: number;
   categoryKind?: "expense" | "reserve";
   monthly: CategorySeriesMonthItem[];
 }
@@ -178,6 +180,7 @@ function toInsightStatusDto(doc: {
     categoryAlias: string;
     categoryKind: "expense" | "reserve";
     categoryName: string;
+    colorSlot?: number | null;
     title: string;
     detail: string;
     action?: string | null;
@@ -193,6 +196,7 @@ function toInsightStatusDto(doc: {
     categoryAlias: item.categoryAlias,
     categoryKind: item.categoryKind,
     categoryName: item.categoryName,
+    ...(Number.isInteger(item.colorSlot) ? { colorSlot: item.colorSlot } : {}),
     title: item.title,
     detail: item.detail,
     ...(item.action ? { action: item.action } : {}),
@@ -314,6 +318,7 @@ async function buildStats(
   const budgetByCategoryMonth = new Map<string, number>();
   const expenseCategoryNames = new Map<string, string>();
   const expenseCategoryKinds = new Map<string, "expense" | "reserve">();
+  const expenseCategoryColorSlots = new Map<string, number>();
   const expenseCategoryIds = new Set<string>();
   const incomeByCategoryMonth = new Map<string, number>();
   const incomeCategoryIds = new Set<string>();
@@ -341,6 +346,9 @@ async function buildStats(
 
       expenseCategoryNames.set(category.id, category.name);
       expenseCategoryKinds.set(category.id, category.kind === "reserve" ? "reserve" : "expense");
+      if (Number.isInteger(category.colorSlot)) {
+        expenseCategoryColorSlots.set(category.id, category.colorSlot);
+      }
       budgetByCategoryMonth.set(key, (budgetByCategoryMonth.get(key) ?? 0) + budgetedAmount);
       expenseCategoryIds.add(category.id);
     }
@@ -392,6 +400,9 @@ async function buildStats(
     return {
       categoryId,
       categoryName: expenseCategoryNames.get(categoryId) ?? categoryId,
+      ...(Number.isInteger(expenseCategoryColorSlots.get(categoryId))
+        ? { colorSlot: expenseCategoryColorSlots.get(categoryId) }
+        : {}),
       categoryKind: expenseCategoryKinds.get(categoryId) ?? "expense",
       budgeted,
       actual,
@@ -404,6 +415,7 @@ async function buildStats(
   const categorySeries: CategorySeriesItem[] = budgetVsActual.map((item) => ({
     categoryId: item.categoryId,
     categoryName: item.categoryName,
+    ...(Number.isInteger(item.colorSlot) ? { colorSlot: item.colorSlot } : {}),
     categoryKind: item.categoryKind,
     monthly: months.map((month) => ({
       month,
@@ -517,6 +529,7 @@ function scheduleInsightJob(insightId: string): void {
       categoryId: string;
       categoryName: string;
       categoryKind: "expense" | "reserve" | "income";
+      colorSlot?: number;
     }>;
 
     if (!rawPayload || !Array.isArray(categoryMappings)) {

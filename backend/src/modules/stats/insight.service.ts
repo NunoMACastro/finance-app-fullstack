@@ -33,6 +33,7 @@ export interface StatsInsightCategoryItem {
   categoryAlias: string;
   categoryKind: StatsInsightCategoryKind;
   categoryName: string;
+  colorSlot?: number;
   title: string;
   detail: string;
   action?: string;
@@ -75,6 +76,7 @@ interface StatsTrendItemLike {
 interface StatsBudgetVsActualItemLike {
   categoryId: string;
   categoryName: string;
+  colorSlot?: number;
   categoryKind?: "expense" | "reserve";
   budgeted: number;
   actual: number;
@@ -193,6 +195,7 @@ export interface StatsInsightCategoryMapping {
   categoryId: string;
   categoryName: string;
   categoryKind: StatsInsightMappingKind;
+  colorSlot?: number;
 }
 
 interface OpenAiInsightResponse {
@@ -401,6 +404,7 @@ export function buildInsightCategoryMappings(snapshot: StatsSnapshotForInsight):
     categoryId: item.categoryId,
     categoryName: item.categoryName,
     categoryKind: item.categoryKind === "reserve" ? "reserve" : "expense",
+    ...(Number.isInteger(item.colorSlot) ? { colorSlot: item.colorSlot } : {}),
   }));
 
   const incomeMappings: StatsInsightCategoryMapping[] = selectedIncomeCategories.map((item) => ({
@@ -741,6 +745,7 @@ export function remapInsightOutput(
         categoryAlias: item.categoryAlias,
         categoryKind: mapping.categoryKind,
         categoryName: mapping.categoryName,
+        ...(Number.isInteger(mapping.colorSlot) ? { colorSlot: mapping.colorSlot } : {}),
         title: replaceAliases(item.title, mappings),
         detail: replaceAliases(item.detail, mappings),
         ...(item.action ? { action: replaceAliases(item.action, mappings) } : {}),

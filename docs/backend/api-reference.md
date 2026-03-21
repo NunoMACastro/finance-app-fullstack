@@ -778,12 +778,14 @@ Regras:
 - dedupe por `accountId + periodType + periodKey + forecastWindow + inputHash`
 - se ja existir insight `ready` e nao `stale` para o mesmo snapshot, o backend devolve-o sem nova chamada ao provider
 - se ja existir `pending` igual, o backend devolve esse pedido
+- quando `report.categoryInsights` estiver presente, cada item pode incluir `colorSlot` (1..9) para manter coerencia visual com o budget
 
 ### GET `/stats/insights/:id`
 Devolve o estado atual de um pedido de insight IA (`pending | ready | failed`).
 
 Uso esperado:
 - polling apenas depois de `POST /stats/insights` devolver `pending`
+- a UI pode pausar e retomar esse polling localmente sem criar novo pedido
 
 ### GET `/stats/insights/latest?periodType=semester|year&forecastWindow=3|6`
 Devolve o insight mais recente do periodo pedido para a conta ativa.
@@ -835,6 +837,7 @@ Response `200` (`ready`):
         "categoryAlias": "C1",
         "categoryKind": "expense",
         "categoryName": "Despesas",
+        "colorSlot": 1,
         "title": "Maior pressão do período",
         "detail": "Despesas representa o maior desvio agregado neste período.",
         "action": "Acompanha esta categoria todas as semanas."

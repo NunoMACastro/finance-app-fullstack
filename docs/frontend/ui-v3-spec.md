@@ -102,6 +102,15 @@ Normativa:
 - `MUST` usar troca textual entre modos (login/registo), sem tabs.
 - `SHOULD` manter patch notes discretas no fundo da viewport quando visíveis.
 
+### Motion e Page Entry
+- entradas de página/bloco `MUST` ser `fade-only` (`opacity: 0 -> 1`).
+- entradas de página/bloco `MUST` usar o primitive partilhado `PageSectionFadeInV3`.
+- entradas de página/bloco `MUST NOT` usar `translate`, `x`, `y`, `scale` ou slide.
+- entradas de página/bloco `MUST NOT` usar stagger por defeito.
+- o shell global `MUST NOT` animar o `Outlet`; a animação vive nos blocos principais de cada página.
+- `prefers-reduced-motion` `MUST` desativar a animação e mostrar o conteúdo imediatamente.
+- animações funcionais (`spinner`, `skeleton`, overlays, accordions, barras de progresso, tutorial) `MAY` manter comportamento próprio quando não representam page entry.
+
 ### Empty States
 - `MUST` conter: mensagem curta + CTA + contexto mínimo.
 
@@ -132,6 +141,7 @@ Normativa:
   - o seletor de período e projeção `MUST` usar `SegmentedControlV3`.
 - o report IA detalhado `MUST` viver em página dedicada (`/stats/insights`) e nao inline em `/stats`.
 - abrir `/stats` `MUST NOT` disparar qualquer pedido de insight IA.
+- a página dedicada de insight `SHOULD` privilegiar `summary + tabs` para organizar profundidade, evitando accordions múltiplos e blocos longos de texto corrido.
 
 ### Budget Editor
 - `MUST` apresentar templates em lista compacta.
@@ -168,6 +178,7 @@ Uma alteração UI v3 só está pronta quando:
 - spacing e radius seguem os contratos acima,
 - densidade e alinhamento são consistentes entre ecrãs,
 - não há ações mortas no topo,
+- page entry usa apenas fade local por blocos principais,
 - empty states críticos têm CTA,
 - texto PT-PT está consistente,
 - documentação de UI foi atualizada quando houver nova regra visual.
@@ -188,6 +199,7 @@ Uma alteração UI v3 só está pronta quando:
 
 - [ ] Componentes/ecrãs seguem esta spec (`MUST`/`SHOULD`).
 - [ ] Sem sombras fora de overlays/dialogs/sheets.
+- [ ] Page entry = `fade-only`, sem `y`/slide no load.
 - [ ] `...` funcional em mobile via `OverflowActionsSheetV3`.
 - [ ] Guardrail de interação (`ui-v3-contracts.test.ts`) passa com varrimento de `src/app/**/*.tsx`.
 - [ ] `npm run check-theme-contract` e `npm run check:tokens` verdes.

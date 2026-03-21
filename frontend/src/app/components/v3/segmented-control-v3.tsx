@@ -42,7 +42,9 @@ export function SegmentedControlV3<T extends string | number>({
             className={cn(
               UI_V3_CLASS.segmentedItem,
               controlSizeClass,
-              active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+              active
+                ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                : "text-muted-foreground hover:bg-background/40 hover:text-foreground",
             )}
             disabled={option.disabled}
             aria-pressed={active}

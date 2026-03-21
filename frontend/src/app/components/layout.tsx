@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../lib/auth-context";
@@ -111,13 +110,7 @@ export function AppLayout() {
       ) : null}
 
       <main className="flex-1 bg-background px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]" data-ui-v3-shell="content">
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <Outlet />
-        </motion.div>
+        <Outlet />
       </main>
       <BottomNavV3 />
 

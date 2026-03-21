@@ -32,6 +32,7 @@ function buildSnapshotFixture(): StatsSnapshotForInsight {
       {
         categoryId: "cat_b",
         categoryName: "Lazer",
+        colorSlot: 5,
         categoryKind: "expense",
         budgeted: 1800,
         actual: 2000,
@@ -40,6 +41,7 @@ function buildSnapshotFixture(): StatsSnapshotForInsight {
       {
         categoryId: "cat_a",
         categoryName: "Investimento",
+        colorSlot: 3,
         categoryKind: "reserve",
         budgeted: 3200,
         actual: 3000,
@@ -136,6 +138,14 @@ describe("stats insight helpers", () => {
     expect(hashA).toBe(hashB);
   });
 
+  test("buildInsightCategoryMappings preserves color slots for expense and reserve categories", () => {
+    const mappings = buildInsightCategoryMappings(buildSnapshotFixture());
+
+    expect(mappings.find((item) => item.categoryId === "cat_a")?.colorSlot).toBe(3);
+    expect(mappings.find((item) => item.categoryId === "cat_b")?.colorSlot).toBe(5);
+    expect(mappings.find((item) => item.categoryId === "inc_a")?.colorSlot).toBeUndefined();
+  });
+
   test("parseInsightStructuredOutput extracts structured report", () => {
     const parsed = parseInsightStructuredOutput(
       JSON.stringify({
@@ -191,6 +201,7 @@ describe("stats insight helpers", () => {
     expect(report.summary).toContain("Salario");
     expect(report.categoryInsights[0]?.categoryId).toBe("cat_a");
     expect(report.categoryInsights[0]?.categoryName).toBe("Investimento");
+    expect(report.categoryInsights[0]?.colorSlot).toBe(3);
     expect(report.limitations?.[0]).toContain("Salario");
   });
 });

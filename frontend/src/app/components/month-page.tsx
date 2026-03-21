@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { motion } from "motion/react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -59,6 +58,7 @@ import {
   RowActionButtonV3,
   TextActionButtonV3,
 } from "./v3/interaction-primitives-v3";
+import { PageSectionFadeInV3 } from "./v3/page-section-fade-in-v3";
 import { SegmentedControlV3 } from "./v3/segmented-control-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
@@ -505,323 +505,318 @@ export function MonthPage() {
 
   return (
     <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="month">
-      <div className="-mx-4 flex items-center justify-between" data-tour="month-budget-select">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 rounded-xl text-muted-foreground hover:bg-accent/60"
-          onClick={goToPreviousMonth}
-          aria-label="Ver mês anterior"
-          disabled={monthOffset <= minimumOffset}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => void openMonthPicker()}
-          className="min-h-11 rounded-xl px-3 text-center hover:bg-accent/30"
-          aria-label="Selecionar mês do orçamento"
-        >
-          <motion.span
-            key={currentMonth}
-            className="inline-flex items-center gap-1 text-[1.45rem] leading-none tracking-tight text-foreground"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+      <PageSectionFadeInV3 asChild>
+        <div className="-mx-4 flex items-center justify-between" data-tour="month-budget-select">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 rounded-xl text-muted-foreground hover:bg-accent/60"
+            onClick={goToPreviousMonth}
+            aria-label="Ver mês anterior"
+            disabled={monthOffset <= minimumOffset}
           >
-            {compactCurrentMonthLabel}
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-          </motion.span>
-        </Button>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 rounded-xl text-muted-foreground hover:bg-accent/60"
-          onClick={goToNextMonth}
-          aria-label="Ver mês seguinte"
-          disabled={monthOffset >= 0}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Button>
-      </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => void openMonthPicker()}
+            className="min-h-11 rounded-xl px-3 text-center hover:bg-accent/30"
+            aria-label="Selecionar mês do orçamento"
+          >
+            <PageSectionFadeInV3 asChild key={currentMonth}>
+              <span className="inline-flex items-center gap-1 text-[1.45rem] leading-none tracking-tight text-foreground">
+                {compactCurrentMonthLabel}
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </span>
+            </PageSectionFadeInV3>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 rounded-xl text-muted-foreground hover:bg-accent/60"
+            onClick={goToNextMonth}
+            aria-label="Ver mês seguinte"
+            disabled={monthOffset >= 0}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+      </PageSectionFadeInV3>
 
       {canWriteFinancial ? (
-        isBudgetReady ? (
-          <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-            <div className="min-w-0">
-              <Button
-                data-tour="month-add-transaction"
-                className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground"
-                onClick={() => {
-                  setShowAddDialog(true);
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                Novo lançamento
-              </Button>
+        <PageSectionFadeInV3 asChild>
+          {isBudgetReady ? (
+            <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+              <div className="min-w-0">
+                <Button
+                  data-tour="month-add-transaction"
+                  className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground"
+                  onClick={() => {
+                    setShowAddDialog(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Novo lançamento
+                </Button>
+              </div>
+              <div className="shrink-0">
+                <Button
+                  data-tour="month-budget-button"
+                  variant="ghost"
+                  className="h-11 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => navigate(`/budget/${currentMonth}/edit`)}
+                >
+                  Editar orçamento
+                </Button>
+              </div>
             </div>
-            <div className="shrink-0">
-              <Button
-                data-tour="month-budget-button"
-                variant="ghost"
-                className="h-11 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => navigate(`/budget/${currentMonth}/edit`)}
-              >
-                Editar orçamento
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            data-tour="month-budget-button"
-            className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground transition-transform hover:opacity-95 active:scale-[0.99]"
-            onClick={() => navigate(`/budget/${currentMonth}/edit`)}
-          >
-            <Settings2 className="w-4 h-4" />
-            Criar orçamento
-          </Button>
-        )
+          ) : (
+            <Button
+              data-tour="month-budget-button"
+              className="h-11 w-full rounded-xl border-0 bg-brand-gradient text-primary-foreground transition-transform hover:opacity-95 active:scale-[0.99]"
+              onClick={() => navigate(`/budget/${currentMonth}/edit`)}
+            >
+              <Settings2 className="w-4 h-4" />
+              Criar orçamento
+            </Button>
+          )}
+        </PageSectionFadeInV3>
       ) : null}
 
       {!isBudgetReady && canWriteFinancial ? (
-        <section className="rounded-xl border border-warning/35 bg-warning-soft/80 px-1 py-1">
-          <div className="px-2 py-1 text-center">
-            <p className="text-xs text-warning-foreground">
-              Ainda sem orçamento para este mês. Cria um orçamento para continuar.
-            </p>
-          </div>
-        </section>
+        <PageSectionFadeInV3 asChild>
+          <section className="rounded-xl border border-warning/35 bg-warning-soft/80 px-1 py-1">
+            <div className="px-2 py-1 text-center">
+              <p className="text-xs text-warning-foreground">
+                Ainda sem orçamento para este mês. Cria um orçamento para continuar.
+              </p>
+            </div>
+          </section>
+        </PageSectionFadeInV3>
       ) : null}
 
       {!canWriteFinancial && (
+        <PageSectionFadeInV3 asChild>
           <section className="rounded-xl border border-border/70 bg-info-soft">
             <div className="p-3 text-xs text-info-foreground">
               Modo leitura ({getAccountRoleLabel(activeAccountRole)}): não tens permissão para criar ou editar
               lançamentos/orçamento.
             </div>
           </section>
-        )}
+        </PageSectionFadeInV3>
+      )}
 
       {loading ? (
-        <div className="flex flex-col gap-5 px-1 pt-2">
-          <div className="animate-pulse space-y-5" aria-hidden>
-            <div className="mx-auto h-12 w-44 rounded bg-muted/70" />
-            <div className="space-y-2">
-              <div className="h-2.5 w-full rounded-full bg-muted/70" />
-              <div className="h-3 w-full rounded bg-muted/70" />
-            </div>
-          </div>
-          <MonthFinancialRuler state="loading" />
-        </div>
-      ) : loadError ? (
-        <MonthFinancialRuler
-          state="error"
-          message={loadError}
-          onRetry={() => {
-            void loadData();
-          }}
-        />
-      ) : summary && budget ? (
-        <motion.div
-          className="relative flex flex-col gap-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* Budget Hero (flat) */}
-          <motion.div
-            className="px-1"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-          >
-            <div className="mt-5 text-center">
-              <p className="text-xs text-muted-foreground">Total do orçamento</p>
-              <p className="mt-1 text-[1.45rem] leading-none tracking-tight text-foreground">{formatCurrency(totalBudget)}</p>
-            </div>
-
-            {isBudgetReady ? (
-              <MonthFinancialRuler
-                state="ready"
-                progressPercent={rulerReadyModel.progressPercent}
-                tone={rulerReadyModel.tone}
-                dailyLabel="Disponível por dia"
-                dailyValue={
-                  rulerReadyModel.dailyValue === null
-                    ? "—"
-                    : `${formatCurrency(rulerReadyModel.dailyValue)}/dia`
-                }
-                macroLine={macroLine}
-                statusLine={rulerReadyModel.statusText}
-                hint={rulerReadyModel.hint}
-              />
-            ) : (
-              <MonthFinancialRuler
-                state="budget-not-ready"
-                canWriteFinancial={canWriteFinancial}
-                onEditBudget={() => navigate(`/budget/${currentMonth}/edit`)}
-              />
-            )}
-          </motion.div>
-
-          {/* ========== Unified Movements Section ========== */}
-          <motion.div
-            className={`mt-6 ${!isBudgetReady ? "pointer-events-none opacity-50 grayscale-[0.35] saturate-0" : ""}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-          >
-            {!isBudgetReady ? (
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1 text-[11px] text-muted-foreground ring-1 ring-border/70">
-                <Lock className="h-3.5 w-3.5" />
-                Movimentos desativados até criares orçamento
+        <PageSectionFadeInV3 asChild>
+          <div className="flex flex-col gap-5 px-1 pt-2">
+            <div className="animate-pulse space-y-5" aria-hidden>
+              <div className="mx-auto h-12 w-44 rounded bg-muted/70" />
+              <div className="space-y-2">
+                <div className="h-2.5 w-full rounded-full bg-muted/70" />
+                <div className="h-3 w-full rounded bg-muted/70" />
               </div>
-            ) : null}
-            <div className="space-y-6">
-              <section className="space-y-3" data-tour="month-view-tabs">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm text-foreground whitespace-nowrap">Categorias de despesa</h3>
-                  <p className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    Toque numa categoria para ver saídas
-                  </p>
-                </div>
+            </div>
+            <MonthFinancialRuler state="loading" />
+          </div>
+        </PageSectionFadeInV3>
+      ) : loadError ? (
+        <PageSectionFadeInV3>
+          <MonthFinancialRuler
+            state="error"
+            message={loadError}
+            onRetry={() => {
+              void loadData();
+            }}
+          />
+        </PageSectionFadeInV3>
+      ) : summary && budget ? (
+        <div className="relative flex flex-col gap-4">
+          <PageSectionFadeInV3 asChild>
+            <div className="px-1">
+              <div className="mt-5 text-center">
+                <p className="text-xs text-muted-foreground">Total do orçamento</p>
+                <p className="mt-1 text-[1.45rem] leading-none tracking-tight text-foreground">{formatCurrency(totalBudget)}</p>
+              </div>
 
-                {budget.categories.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border/70 bg-surface-soft/70 px-4 py-6 text-center">
-                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-card/80 text-muted-foreground">
-                      <ShoppingCart className="w-5 h-5" />
-                    </div>
-                    <p className="text-sm text-foreground">Sem categorias de despesas neste mês</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Cria um orçamento para começares a registar despesas.
+              {isBudgetReady ? (
+                <MonthFinancialRuler
+                  state="ready"
+                  progressPercent={rulerReadyModel.progressPercent}
+                  tone={rulerReadyModel.tone}
+                  dailyLabel="Disponível por dia"
+                  dailyValue={
+                    rulerReadyModel.dailyValue === null
+                      ? "—"
+                      : `${formatCurrency(rulerReadyModel.dailyValue)}/dia`
+                  }
+                  macroLine={macroLine}
+                  statusLine={rulerReadyModel.statusText}
+                  hint={rulerReadyModel.hint}
+                />
+              ) : (
+                <MonthFinancialRuler
+                  state="budget-not-ready"
+                  canWriteFinancial={canWriteFinancial}
+                  onEditBudget={() => navigate(`/budget/${currentMonth}/edit`)}
+                />
+              )}
+            </div>
+          </PageSectionFadeInV3>
+
+          <PageSectionFadeInV3 asChild>
+            <div className={`mt-6 ${!isBudgetReady ? "pointer-events-none opacity-50 grayscale-[0.35] saturate-0" : ""}`}>
+              {!isBudgetReady ? (
+                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1 text-[11px] text-muted-foreground ring-1 ring-border/70">
+                  <Lock className="h-3.5 w-3.5" />
+                  Movimentos desativados até criares orçamento
+                </div>
+              ) : null}
+              <div className="space-y-6">
+                <section className="space-y-3" data-tour="month-view-tabs">
+                  <div className="space-y-0.5">
+                    <h3 className="whitespace-nowrap text-sm text-foreground">Categorias de despesa</h3>
+                    <p className="whitespace-nowrap text-[11px] text-muted-foreground">
+                      Toque numa categoria para ver saídas
                     </p>
-                    <div className="mt-3 flex justify-center">
-                      <Button
-                        onClick={() => navigate(`/budget/${currentMonth}/edit`)}
-                        disabled={!canWriteFinancial}
-                        className="rounded-xl"
-                      >
-                        Criar orçamento
-                      </Button>
-                    </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div className="flex h-full">
-                        {budget.categories.map((cat, ci) => (
-                          <div
-                            key={cat.id}
-                            className={`h-full bg-gradient-to-r ${getCatColor(resolveCategoryColorSlot(cat, ci), ci).gradient} first:rounded-l-full last:rounded-r-full`}
-                            style={{ width: `${cat.percent}%` }}
-                            title={`${cat.name}: ${cat.percent}%`}
+
+                  {budget.categories.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-surface-soft/70 px-4 py-6 text-center">
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-card/80 text-muted-foreground">
+                        <ShoppingCart className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm text-foreground">Sem categorias de despesas neste mês</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Cria um orçamento para começares a registar despesas.
+                      </p>
+                      <div className="mt-3 flex justify-center">
+                        <Button
+                          onClick={() => navigate(`/budget/${currentMonth}/edit`)}
+                          disabled={!canWriteFinancial}
+                          className="rounded-xl"
+                        >
+                          Criar orçamento
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="flex h-full">
+                          {budget.categories.map((cat, ci) => (
+                            <div
+                              key={cat.id}
+                              className={`h-full bg-gradient-to-r ${getCatColor(resolveCategoryColorSlot(cat, ci), ci).gradient} first:rounded-l-full last:rounded-r-full`}
+                              style={{ width: `${cat.percent}%` }}
+                              title={`${cat.name}: ${cat.percent}%`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {Math.abs(allocatedPct - 100) > 0.01 ? (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 text-status-warning" />
+                          <span className="text-[10px] text-status-warning">{allocatedPct.toFixed(0)}% alocado</span>
+                        </div>
+                      ) : null}
+
+                      <div
+                        className="divide-y divide-border/60 border-y border-border/60"
+                        data-tour="month-categories"
+                      >
+                        {expenseCategoryRows.map((row) => (
+                          <MonthExpenseCategoryRow
+                            key={row.category.id}
+                            name={row.category.name}
+                            percentLabel={`${row.category.percent}%`}
+                            spentLabel={formatCurrency(row.spent)}
+                            allocatedLabel={formatCurrency(row.allocated)}
+                            remainingLabel={formatCurrency(row.remaining)}
+                            movementsLabel={`${row.movementsCount} mov.`}
+                            progressPercent={row.usedPct}
+                            tone={row.tone}
+                            dotClassName={row.color.solid}
+                            onOpen={() => setActiveExpenseCategoryId(row.category.id)}
                           />
                         ))}
                       </div>
-                    </div>
-                    {Math.abs(allocatedPct - 100) > 0.01 ? (
-                      <div className="flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3 text-status-warning" />
-                        <span className="text-[10px] text-status-warning">{allocatedPct.toFixed(0)}% alocado</span>
-                      </div>
-                    ) : null}
+                      {summary.expenseTransactions.length === 0 ? (
+                        <div className="flex items-center justify-between gap-3 pt-1">
+                          <p className="text-xs text-muted-foreground">Ainda sem despesas neste mês.</p>
+                          {canWriteFinancial ? (
+                            <Button
+                              variant="ghost"
+                              className="h-10 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
+                              onClick={() => setShowAddDialog(true)}
+                              disabled={!isBudgetReady}
+                            >
+                              Adicionar lançamento
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </section>
 
-                    <div
-                      className="divide-y divide-border/60 border-y border-border/60"
-                      data-tour="month-categories"
-                    >
-                      {expenseCategoryRows.map((row) => (
-                        <MonthExpenseCategoryRow
-                          key={row.category.id}
-                          name={row.category.name}
-                          percentLabel={`${row.category.percent}%`}
-                          spentLabel={formatCurrency(row.spent)}
-                          allocatedLabel={formatCurrency(row.allocated)}
-                          remainingLabel={formatCurrency(row.remaining)}
-                          movementsLabel={`${row.movementsCount} mov.`}
-                          progressPercent={row.usedPct}
-                          tone={row.tone}
-                          dotClassName={row.color.solid}
-                          onOpen={() => setActiveExpenseCategoryId(row.category.id)}
-                        />
+                <section className="space-y-3 border-t border-border/60 pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm text-foreground">Receitas</h3>
+                    <span className="text-xs text-muted-foreground">{formatCurrency(summary.totalIncome)}</span>
+                  </div>
+
+                  {incomeTransactionsSorted.length === 0 ? (
+                    <div className="space-y-2 py-1">
+                      <p className="text-xs text-muted-foreground">
+                        Ainda não tens movimentos de receita neste mês.
+                      </p>
+                      {canWriteFinancial ? (
+                        <Button
+                          variant="ghost"
+                          className="h-10 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          onClick={() => setShowAddDialog(true)}
+                          disabled={!isBudgetReady}
+                        >
+                          Adicionar lançamento
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/60 border-y border-border/60">
+                      {incomeTransactionsSorted.map((tx) => (
+                        <div key={tx.id} className="flex items-center gap-2 py-2.5">
+                          {tx.origin === "recurring" ? (
+                            <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                          ) : (
+                            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                          )}
+                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{tx.description}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{formatDate(tx.date)}</span>
+                          <span className="shrink-0 text-sm tabular-nums text-status-success">
+                            +{formatCurrency(tx.amount)}
+                          </span>
+                          {tx.origin === "manual" && canWriteFinancial ? (
+                            <IconActionButtonV3
+                              size="compact"
+                              tone="danger"
+                              onClick={() => setPendingDeleteTransactionId(tx.id)}
+                              ariaLabel="Remover lançamento"
+                            >
+                              <Trash2 className="mx-auto h-4 w-4" />
+                            </IconActionButtonV3>
+                          ) : null}
+                        </div>
                       ))}
                     </div>
-                    {summary.expenseTransactions.length === 0 ? (
-                      <div className="flex items-center justify-between gap-3 pt-1">
-                        <p className="text-xs text-muted-foreground">Ainda sem despesas neste mês.</p>
-                        {canWriteFinancial ? (
-                          <Button
-                            variant="ghost"
-                            className="h-10 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
-                            onClick={() => setShowAddDialog(true)}
-                            disabled={!isBudgetReady}
-                          >
-                            Adicionar lançamento
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </section>
-
-              <section className="space-y-3 border-t border-border/60 pt-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm text-foreground">Receitas</h3>
-                  <span className="text-xs text-muted-foreground">{formatCurrency(summary.totalIncome)}</span>
-                </div>
-
-                {incomeTransactionsSorted.length === 0 ? (
-                  <div className="space-y-2 py-1">
-                    <p className="text-xs text-muted-foreground">
-                      Ainda não tens movimentos de receita neste mês.
-                    </p>
-                    {canWriteFinancial ? (
-                      <Button
-                        variant="ghost"
-                        className="h-10 rounded-xl px-3 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        onClick={() => setShowAddDialog(true)}
-                        disabled={!isBudgetReady}
-                      >
-                        Adicionar lançamento
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border/60 border-y border-border/60">
-                    {incomeTransactionsSorted.map((tx) => (
-                      <div key={tx.id} className="flex items-center gap-2 py-2.5">
-                        {tx.origin === "recurring" ? (
-                          <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-                        ) : (
-                          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-                        )}
-                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{tx.description}</span>
-                        <span className="shrink-0 text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                        <span className="shrink-0 text-sm tabular-nums text-status-success">
-                          +{formatCurrency(tx.amount)}
-                        </span>
-                        {tx.origin === "manual" && canWriteFinancial ? (
-                          <IconActionButtonV3
-                            size="compact"
-                            tone="danger"
-                            onClick={() => setPendingDeleteTransactionId(tx.id)}
-                            ariaLabel="Remover lançamento"
-                          >
-                            <Trash2 className="mx-auto h-4 w-4" />
-                          </IconActionButtonV3>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
+                  )}
+                </section>
+              </div>
             </div>
-          </motion.div>
-        </motion.div>
+          </PageSectionFadeInV3>
+        </div>
       ) : null}
 
       <ResponsiveOverlay

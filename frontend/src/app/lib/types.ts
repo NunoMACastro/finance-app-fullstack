@@ -236,6 +236,7 @@ export interface TrendItem {
 export interface BudgetVsActualItem {
   categoryId: string;
   categoryName: string;
+  colorSlot?: number;
   categoryKind?: "expense" | "reserve";
   budgeted: number;
   actual: number;
@@ -251,6 +252,7 @@ export interface CategorySeriesMonthlyItem {
 export interface CategorySeriesItem {
   categoryId: string;
   categoryName: string;
+  colorSlot?: number;
   categoryKind?: "expense" | "reserve";
   monthly: CategorySeriesMonthlyItem[];
 }
@@ -326,6 +328,7 @@ export interface StatsInsightCategoryItem {
   categoryAlias: string;
   categoryKind: "expense" | "reserve";
   categoryName: string;
+  colorSlot?: number;
   title: string;
   detail: string;
   action?: string;

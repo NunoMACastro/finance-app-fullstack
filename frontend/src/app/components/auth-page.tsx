@@ -10,6 +10,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { TextActionButtonV3 } from "./v3/interaction-primitives-v3";
+import { PageSectionFadeInV3 } from "./v3/page-section-fade-in-v3";
 
 export function AuthPage() {
   const { login, register, isLoading } = useAuth();
@@ -90,238 +91,232 @@ export function AuthPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <motion.header
-        className="relative isolate flex min-h-[28svh] max-h-[34svh] items-center justify-center overflow-hidden bg-brand-gradient px-6 pb-16 pt-10"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-      >
-        <div className="pointer-events-none absolute inset-0 bg-brand-gradient-soft opacity-40" />
-        <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-primary-foreground/20 blur-3xl" />
+      <PageSectionFadeInV3 asChild>
+        <header className="relative isolate flex min-h-[28svh] max-h-[34svh] items-center justify-center overflow-hidden bg-brand-gradient px-6 pb-16 pt-10">
+          <div className="pointer-events-none absolute inset-0 bg-brand-gradient-soft opacity-40" />
+          <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-primary-foreground/20 blur-3xl" />
 
-        <div className="relative z-10 flex flex-col items-center gap-3 text-primary-foreground">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-foreground/20">
-            <Wallet className="h-7 w-7" />
+          <div className="relative z-10 flex flex-col items-center gap-3 text-primary-foreground">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-foreground/20">
+              <Wallet className="h-7 w-7" />
+            </div>
+            <h1 className="text-center text-3xl font-medium tracking-tight">Poupérrimo</h1>
           </div>
-          <h1 className="text-center text-3xl font-medium tracking-tight">Poupérrimo</h1>
-        </div>
 
-        <svg
-          data-testid="auth-hero-wave"
-          aria-hidden="true"
-          viewBox="0 0 390 110"
-          preserveAspectRatio="none"
-          className="pointer-events-none absolute -bottom-px left-0 h-24 w-full"
-        >
-          <path
-            d="M0,64 C96,0 184,118 390,46 L390,110 L0,110 Z"
-            fill="var(--background)"
-          />
-          <path
-            d="M0,64 C96,0 184,118 390,46"
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth="1.25"
-          />
-        </svg>
-      </motion.header>
+          <svg
+            data-testid="auth-hero-wave"
+            aria-hidden="true"
+            viewBox="0 0 390 110"
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute -bottom-px left-0 h-24 w-full"
+          >
+            <path
+              d="M0,64 C96,0 184,118 390,46 L390,110 L0,110 Z"
+              fill="var(--background)"
+            />
+            <path
+              d="M0,64 C96,0 184,118 390,46"
+              fill="none"
+              stroke="var(--border)"
+              strokeWidth="1.25"
+            />
+          </svg>
+        </header>
+      </PageSectionFadeInV3>
 
       <main className="mx-auto flex min-h-[72svh] w-full max-w-md flex-col px-6 pb-8 pt-5">
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut", delay: 0.04 }}
-        >
-          {mode === "login" ? (
-            <form onSubmit={handleLogin} className="flex flex-col gap-5" noValidate>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="auth-login-email" className="text-sm text-muted-foreground">
-                  Email
-                </label>
-                <Input
-                  id="auth-login-email"
-                  type="email"
-                  placeholder="nome@exemplo.pt"
-                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
-                  value={loginEmail}
-                  onChange={(event) => setLoginEmail(event.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="auth-login-password" className="text-sm text-muted-foreground">
-                  Password
-                </label>
-                <Input
-                  id="auth-login-password"
-                  type="password"
-                  placeholder="A tua password"
-                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
-                  value={loginPassword}
-                  onChange={(event) => setLoginPassword(event.target.value)}
-                />
-                <p className="pt-1 text-right text-xs text-muted-foreground">
-                  Recuperação de password disponível em breve.
-                </p>
-              </div>
-
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              <div className="mt-4 flex flex-col gap-1">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
-                >
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
-                </Button>
-
-                <p className="text-center text-sm text-muted-foreground">
-                  Ainda não tens conta?{" "}
-                  <TextActionButtonV3
-                    size="sm"
-                    onClick={() => {
-                      setError("");
-                      setMode("register");
-                    }}
-                  >
-                    Regista-te
-                  </TextActionButtonV3>
-                </p>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="flex flex-col gap-5" noValidate>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="auth-register-name" className="text-sm text-muted-foreground">
-                  Nome
-                </label>
-                <Input
-                  id="auth-register-name"
-                  placeholder="O teu nome"
-                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
-                  value={regName}
-                  onChange={(event) => setRegName(event.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="auth-register-email" className="text-sm text-muted-foreground">
-                  Email
-                </label>
-                <Input
-                  id="auth-register-email"
-                  type="email"
-                  placeholder="nome@exemplo.pt"
-                  className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
-                  value={regEmail}
-                  onChange={(event) => setRegEmail(event.target.value)}
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
+        <PageSectionFadeInV3 asChild>
+          <section>
+            {mode === "login" ? (
+              <form onSubmit={handleLogin} className="flex flex-col gap-5" noValidate>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="auth-register-password" className="text-sm text-muted-foreground">
+                  <label htmlFor="auth-login-email" className="text-sm text-muted-foreground">
+                    Email
+                  </label>
+                  <Input
+                    id="auth-login-email"
+                    type="email"
+                    placeholder="nome@exemplo.pt"
+                    className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                    value={loginEmail}
+                    onChange={(event) => setLoginEmail(event.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="auth-login-password" className="text-sm text-muted-foreground">
                     Password
                   </label>
                   <Input
-                    id="auth-register-password"
+                    id="auth-login-password"
                     type="password"
-                    placeholder="Min. 6 caracteres"
+                    placeholder="A tua password"
                     className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
-                    value={regPassword}
-                    onChange={(event) => setRegPassword(event.target.value)}
+                    value={loginPassword}
+                    onChange={(event) => setLoginPassword(event.target.value)}
                   />
+                  <p className="pt-1 text-right text-xs text-muted-foreground">
+                    Recuperação de password disponível em breve.
+                  </p>
                 </div>
+
+                <AnimatePresence>
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                <div className="mt-4 flex flex-col gap-1">
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
+                  >
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
+                  </Button>
+
+                  <p className="text-center text-sm text-muted-foreground">
+                    Ainda não tens conta?{" "}
+                    <TextActionButtonV3
+                      size="sm"
+                      onClick={() => {
+                        setError("");
+                        setMode("register");
+                      }}
+                    >
+                      Regista-te
+                    </TextActionButtonV3>
+                  </p>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="flex flex-col gap-5" noValidate>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="auth-register-confirm" className="text-sm text-muted-foreground">
-                    Confirmar
+                  <label htmlFor="auth-register-name" className="text-sm text-muted-foreground">
+                    Nome
                   </label>
                   <Input
-                    id="auth-register-confirm"
-                    type="password"
-                    placeholder="Repete a password"
+                    id="auth-register-name"
+                    placeholder="O teu nome"
                     className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
-                    value={regConfirm}
-                    onChange={(event) => setRegConfirm(event.target.value)}
+                    value={regName}
+                    onChange={(event) => setRegName(event.target.value)}
                   />
                 </div>
-              </div>
 
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="auth-register-email" className="text-sm text-muted-foreground">
+                    Email
+                  </label>
+                  <Input
+                    id="auth-register-email"
+                    type="email"
+                    placeholder="nome@exemplo.pt"
+                    className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                    value={regEmail}
+                    onChange={(event) => setRegEmail(event.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="auth-register-password" className="text-sm text-muted-foreground">
+                      Password
+                    </label>
+                    <Input
+                      id="auth-register-password"
+                      type="password"
+                      placeholder="Min. 6 caracteres"
+                      className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                      value={regPassword}
+                      onChange={(event) => setRegPassword(event.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="auth-register-confirm" className="text-sm text-muted-foreground">
+                      Confirmar
+                    </label>
+                    <Input
+                      id="auth-register-confirm"
+                      type="password"
+                      placeholder="Repete a password"
+                      className="h-12 rounded-2xl border-0 bg-surface-soft px-4 text-base placeholder:text-muted-foreground/75 focus-visible:ring-2 focus-visible:ring-ring/30"
+                      value={regConfirm}
+                      onChange={(event) => setRegConfirm(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="rounded-xl bg-status-danger-soft px-3 py-2 text-sm text-status-danger"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                <div className="mt-4 flex flex-col gap-1">
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
                   >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
+                  </Button>
 
-              <div className="mt-4 flex flex-col gap-1">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="h-12 rounded-xl border-0 bg-brand-gradient text-primary-foreground hover:opacity-95"
-                >
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
-                </Button>
-
-                <p className="text-center text-sm text-muted-foreground">
-                  Já tens conta?{" "}
-                  <TextActionButtonV3
-                    size="sm"
-                    onClick={() => {
-                      setError("");
-                      setMode("login");
-                    }}
-                  >
-                    Entrar
-                  </TextActionButtonV3>
-                </p>
-              </div>
-            </form>
-          )}
-        </motion.section>
+                  <p className="text-center text-sm text-muted-foreground">
+                    Já tens conta?{" "}
+                    <TextActionButtonV3
+                      size="sm"
+                      onClick={() => {
+                        setError("");
+                        setMode("login");
+                      }}
+                    >
+                      Entrar
+                    </TextActionButtonV3>
+                  </p>
+                </div>
+              </form>
+            )}
+          </section>
+        </PageSectionFadeInV3>
 
         {patchNotes && (
-          <motion.aside
-            className="mt-auto pt-7 text-xs text-muted-foreground"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
-            aria-live="polite"
-          >
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground/85">
-              Notas {patchNotes.version}
-            </p>
-            {patchNotes.updatedAt && (
-              <p className="mt-1 text-[11px] text-muted-foreground">{patchNotes.updatedAt}</p>
-            )}
-            {patchNotes.changes.length > 0 && (
-              <ul className="mt-2 space-y-1.5">
-                {patchNotes.changes.slice(0, 3).map((item, index) => (
-                  <li key={`${item}-${index}`} className="text-muted-foreground">
-                    - {item}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </motion.aside>
+          <PageSectionFadeInV3 asChild>
+            <aside
+              className="mt-auto pt-7 text-xs text-muted-foreground"
+              aria-live="polite"
+            >
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground/85">
+                Notas {patchNotes.version}
+              </p>
+              {patchNotes.updatedAt && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{patchNotes.updatedAt}</p>
+              )}
+              {patchNotes.changes.length > 0 && (
+                <ul className="mt-2 space-y-1.5">
+                  {patchNotes.changes.slice(0, 3).map((item, index) => (
+                    <li key={`${item}-${index}`} className="text-muted-foreground">
+                      - {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </aside>
+          </PageSectionFadeInV3>
         )}
 
         <div className="flex justify-center pt-8">

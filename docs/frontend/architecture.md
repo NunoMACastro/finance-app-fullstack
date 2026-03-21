@@ -40,7 +40,8 @@ Layout comum:
     - existe conta `shared`
     - rota é `/` ou `/stats`
   - `BottomNavV3`: tabs compactas com estado ativo discreto
-  - area de conteudo
+  - area de conteudo sem animação global no `Outlet`
+  - os blocos principais de cada página usam `PageSectionFadeInV3` para `fade-only` local (`opacity` apenas, sem slide)
   - tutorial overlay
 
 ## Componentes de pagina
@@ -82,11 +83,21 @@ Responsabilidades:
 Responsabilidades:
 - receber `period` e `forecastWindow` via query params
 - mostrar o período recebido apenas como contexto visual; sem seletor `6M/12M`
+- não expor um controlo visível para `forecastWindow`; o valor é herdado do contexto de origem ou do deep link
 - não disparar geração no load
 - iniciar geração apenas após clique explícito em `Gerar insight IA`
 - usar `POST /stats/insights` como entrypoint principal
 - fazer polling de `GET /stats/insights/:id` enquanto estado = `pending`
-- renderizar report IA estruturado (`summary/highlights/risks/actions/categoryInsights`)
+- suspender polling automático após falhas consecutivas e expor CTA explícita para retomar a verificação
+- renderizar report IA estruturado em formato `summary + tabs`
+- limpar o estado local quando muda `period`, `forecastWindow` ou conta ativa
+- organizar a leitura em tabs internas:
+  - `Agora`
+- `Ações`
+- `Categorias`
+- reduzir o resumo visível a 1-2 frases, sem `Ver mais`
+- mostrar a lista completa de categorias em foco na respetiva tab
+- usar `colorSlot` opcional nas `categoryInsights` quando disponível para manter coerência visual com o budget
 - suportar `Gerar novamente` e `Voltar para estatísticas`
 
 ### BudgetEditorPage
@@ -168,6 +179,14 @@ Caracteristicas:
 - delay de auto-start (feito no `layout.tsx`, 1000ms)
 - auto-run apenas se `user.tutorialSeenAt === null`
 - `skip` e `done` marcam tutorial como concluido no backend
+
+## Motion de entrada
+
+- o contrato de page entry vive no primitive `PageSectionFadeInV3`
+- entradas de página são aplicadas por blocos principais/top-level sections, não no shell
+- o efeito é `fade-only` curto (`opacity`), sem `x`, sem `y`, sem `scale`
+- `prefers-reduced-motion` desativa estas animações
+- animações funcionais fora de page entry podem manter comportamento próprio quando justificadas
 
 ## Design constraints implementadas
 

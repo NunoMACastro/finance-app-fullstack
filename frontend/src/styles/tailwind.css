@@ -2,3 +2,25 @@
 @source '../**/*.{js,ts,jsx,tsx}';
 
 @import 'tw-animate-css';
+
+@keyframes page-section-fade-in-v3 {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.page-section-fade-in-v3 {
+  animation: page-section-fade-in-v3 220ms ease-out both;
+  will-change: opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-section-fade-in-v3 {
+    animation: none;
+    opacity: 1;
+  }
+}

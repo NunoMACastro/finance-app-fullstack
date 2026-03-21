@@ -20,6 +20,7 @@ Contem contratos espelho do backend para:
   - `StatsInsightStatusResponse`
   - `StatsInsightReport`
   - `StatsInsightHighlight`, `StatsInsightRisk`, `StatsInsightAction`, `StatsInsightCategoryItem`
+  - `StatsInsightCategoryItem.colorSlot?` preserva o slot de cor estável da categoria quando o backend o conhece
 - transactions incluem metadados de categoria recorrente:
   - `categoryResolution?: direct | fallback`
   - `requestedCategoryId?` quando houve fallback
@@ -194,6 +195,7 @@ Arquivo: `app/lib/account-store.ts`
 - `/stats` carrega apenas o snapshot base e nunca dispara pedidos de insight IA.
 - a analise IA vive em `/stats/insights` e so faz `POST /stats/insights` apos clique explicito do utilizador.
 - a pagina dedicada usa `POST /stats/insights` como entrypoint principal; `GET /stats/insights/:id` serve apenas para polling quando o backend responde `pending`.
+- a pagina dedicada pausa o polling automatico apos falhas consecutivas e permite retoma manual sem perder o pedido pendente.
 - `getLatestInsight` permanece disponivel no client por compatibilidade/API auxiliar, mas nao faz parte do fluxo automatico da interface.
 - metricas do `Pulse`:
   - preferem `snapshot.totalsBreakdown` quando presente

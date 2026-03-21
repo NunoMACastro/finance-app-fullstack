@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "./ui/button";
 import { PageHeaderV3 } from "./v3/page-header-v3";
+import { PageSectionFadeInV3 } from "./v3/page-section-fade-in-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 export function ProfileSectionShell({
@@ -37,7 +38,16 @@ export function ProfileSectionShell({
           </Button>
         )}
       />
-      {children}
+      {Children.toArray(children).map((child, index) => {
+        if (isValidElement(child) && typeof child.type === "string") {
+          return (
+            <PageSectionFadeInV3 key={child.key ?? index} asChild>
+              {child}
+            </PageSectionFadeInV3>
+          );
+        }
+        return child;
+      })}
     </div>
   );
 }

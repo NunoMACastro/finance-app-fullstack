@@ -36,6 +36,7 @@ import {
 } from "./ui/responsive-overlay";
 import { PageHeaderV3 } from "./v3/page-header-v3";
 import { IconActionButtonV3 } from "./v3/interaction-primitives-v3";
+import { PageSectionFadeInV3 } from "./v3/page-section-fade-in-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
 type OriginFilter = "all" | "manual" | "recurring";
@@ -350,128 +351,144 @@ export function CategoryMovementsPage() {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
+        <PageSectionFadeInV3 asChild>
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        </PageSectionFadeInV3>
       ) : loadError ? (
-        <div className="rounded-xl border border-warning/35 bg-warning-soft/70 p-4">
-          <p className="text-sm text-warning-foreground">{loadError}</p>
-          <Button className="mt-3 h-10 rounded-xl" variant="outline" onClick={() => void loadData()}>
-            Tentar novamente
-          </Button>
-        </div>
+        <PageSectionFadeInV3 asChild>
+          <div className="rounded-xl border border-warning/35 bg-warning-soft/70 p-4">
+            <p className="text-sm text-warning-foreground">{loadError}</p>
+            <Button className="mt-3 h-10 rounded-xl" variant="outline" onClick={() => void loadData()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </PageSectionFadeInV3>
       ) : (
         <>
-          <div className="space-y-1 border-b border-border/60 pb-3">
-            <p className="text-xs text-muted-foreground">
-              {transactionsState?.totalCount ?? 0} mov. · {formatCurrency(totalSpent)} gasto
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {filteredTransactions.length} resultados
-              {filteredTransactions.length !== (transactionsState?.items.length ?? 0)
-                ? ` de ${transactionsState?.items.length ?? 0}`
-                : ""}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Pesquisar descrição"
-                className="h-11 flex-1 rounded-xl"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 rounded-xl px-3"
-                onClick={openFilters}
-                aria-label="Abrir filtros avançados"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Filtros
-              </Button>
+          <PageSectionFadeInV3 asChild>
+            <div className="space-y-1 border-b border-border/60 pb-3">
+              <p className="text-xs text-muted-foreground">
+                {transactionsState?.totalCount ?? 0} mov. · {formatCurrency(totalSpent)} gasto
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {filteredTransactions.length} resultados
+                {filteredTransactions.length !== (transactionsState?.items.length ?? 0)
+                  ? ` de ${transactionsState?.items.length ?? 0}`
+                  : ""}
+              </p>
             </div>
-            {hasAnyFilters ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {activeFilterChips.map((chip) => (
-                  <FilterChip key={chip.key} label={chip.label} onClear={chip.onClear} />
-                ))}
+          </PageSectionFadeInV3>
+
+          <PageSectionFadeInV3 asChild>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Pesquisar descrição"
+                  className="h-11 flex-1 rounded-xl"
+                />
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 rounded-xl px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={clearFilters}
+                  variant="outline"
+                  className="h-11 rounded-xl px-3"
+                  onClick={openFilters}
+                  aria-label="Abrir filtros avançados"
                 >
-                  Limpar filtros
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filtros
                 </Button>
               </div>
-            ) : null}
-          </div>
-
-          {(transactionsState?.totalCount ?? 0) === 0 ? (
-            <div className="rounded-xl border border-border/60 py-8 text-center text-sm text-muted-foreground">
-              Ainda sem despesas nesta categoria.
-            </div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="rounded-xl border border-border/60 py-8 text-center text-sm text-muted-foreground">
-              Nenhum movimento corresponde aos filtros.
-            </div>
-          ) : (
-            <div className="divide-y divide-border/60 border-y border-border/60">
-              {filteredTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center gap-2 py-2.5">
-                  {transaction.origin === "recurring" ? (
-                    <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-                  ) : (
-                    <ArrowDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                    {transaction.description}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{formatDate(transaction.date)}</span>
-                  <span className="shrink-0 text-sm tabular-nums text-status-danger">
-                    -{formatCurrency(transaction.amount)}
-                  </span>
-                  {transaction.origin === "manual" && canWriteFinancial ? (
-                    <IconActionButtonV3
-                      size="compact"
-                      tone="danger"
-                      onClick={() => setPendingDeleteId(transaction.id)}
-                      ariaLabel="Remover lançamento"
-                    >
-                      <Trash2 className="mx-auto h-4 w-4" />
-                    </IconActionButtonV3>
-                  ) : null}
-                </div>
-              ))}
-              {transactionsState?.hasMore ? (
-                <div className="py-3">
+              {hasAnyFilters ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeFilterChips.map((chip) => (
+                    <FilterChip key={chip.key} label={chip.label} onClear={chip.onClear} />
+                  ))}
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-11 w-full rounded-xl"
-                    onClick={() => void loadMore()}
-                    disabled={loadingMore}
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 rounded-xl px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                    onClick={clearFilters}
                   >
-                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : "Carregar mais"}
+                    Limpar filtros
                   </Button>
                 </div>
               ) : null}
             </div>
+          </PageSectionFadeInV3>
+
+          {(transactionsState?.totalCount ?? 0) === 0 ? (
+            <PageSectionFadeInV3 asChild>
+              <div className="rounded-xl border border-border/60 py-8 text-center text-sm text-muted-foreground">
+                Ainda sem despesas nesta categoria.
+              </div>
+            </PageSectionFadeInV3>
+          ) : filteredTransactions.length === 0 ? (
+            <PageSectionFadeInV3 asChild>
+              <div className="rounded-xl border border-border/60 py-8 text-center text-sm text-muted-foreground">
+                Nenhum movimento corresponde aos filtros.
+              </div>
+            </PageSectionFadeInV3>
+          ) : (
+            <PageSectionFadeInV3 asChild>
+              <div className="divide-y divide-border/60 border-y border-border/60">
+                {filteredTransactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center gap-2 py-2.5">
+                    {transaction.origin === "recurring" ? (
+                      <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                    ) : (
+                      <ArrowDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                      {transaction.description}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatDate(transaction.date)}</span>
+                    <span className="shrink-0 text-sm tabular-nums text-status-danger">
+                      -{formatCurrency(transaction.amount)}
+                    </span>
+                    {transaction.origin === "manual" && canWriteFinancial ? (
+                      <IconActionButtonV3
+                        size="compact"
+                        tone="danger"
+                        onClick={() => setPendingDeleteId(transaction.id)}
+                        ariaLabel="Remover lançamento"
+                      >
+                        <Trash2 className="mx-auto h-4 w-4" />
+                      </IconActionButtonV3>
+                    ) : null}
+                  </div>
+                ))}
+                {transactionsState?.hasMore ? (
+                  <div className="py-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full rounded-xl"
+                      onClick={() => void loadMore()}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : "Carregar mais"}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            </PageSectionFadeInV3>
           )}
 
           {!canWriteFinancial ? (
-            <div className="rounded-xl border border-info/35 bg-info-soft/70 p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-info-foreground" />
-                <p className="text-xs text-info-foreground">
-                  Modo leitura: não tens permissão para remover lançamentos.
-                </p>
+            <PageSectionFadeInV3 asChild>
+              <div className="rounded-xl border border-info/35 bg-info-soft/70 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-info-foreground" />
+                  <p className="text-xs text-info-foreground">
+                    Modo leitura: não tens permissão para remover lançamentos.
+                  </p>
+                </div>
               </div>
-            </div>
+            </PageSectionFadeInV3>
           ) : null}
         </>
       )}

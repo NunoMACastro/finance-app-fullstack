@@ -11,7 +11,7 @@ export const UI_V3_CLASS = {
   radiusOverlay: "rounded-[20px]",
   ctaPrimary: "rounded-xl",
   ctaSecondary: "rounded-xl",
-  segmentedRoot: "inline-flex items-center gap-1 rounded-xl bg-muted p-1",
+  segmentedRoot: "inline-flex items-center gap-1 rounded-xl border border-border/60 bg-muted/80 p-1",
   segmentedItem: "inline-flex items-center justify-center rounded-xl px-3 text-sm transition-colors",
   interactiveSize: "h-11 w-11",
 } as const;

@@ -125,7 +125,7 @@ Escopo funcional v1:
 - selecao de ponto no grafico de tendencia
 - tap em driver abre `sheet` contextual de detalhe da categoria
 - no `sheet`, CTA opcional para abrir movimentos da categoria no mês mais recente
-- CTA `Abrir análise IA` navega para a página dedicada e preserva contexto (`period`, `forecastWindow`)
+- CTA `Abrir análise IA` navega para a página dedicada e preserva contexto (`period`, `forecastWindow`), embora a página dedicada não exponha esse ajuste como controlo visível
 
 Linhas do `Pulse` (ordem fixa):
 1. `Receitas`
@@ -148,26 +148,29 @@ Linhas do `Pulse` (ordem fixa):
 
 ### Fluxo de carregamento
 1. abrir a página a partir de `/stats` ou por deep link com `period`/`forecastWindow`
-2. mostrar o período atual em modo read-only e permitir apenas ajustar a janela `3M/6M`
+2. mostrar o período atual em modo read-only
 3. mostrar estado inicial vazio, sem disparar pedidos ao backend
 4. quando o utilizador toca `Gerar insight IA`:
    - `POST /stats/insights`
    - se `ready`, renderizar imediatamente
    - se `pending`, iniciar polling de `GET /stats/insights/:id`
+   - se o polling falhar repetidamente, pausar a verificação automática e mostrar CTA `Retomar verificação`
    - se `failed`, mostrar erro curto + retry
 
 ### Interacoes
-- alterar `3M/6M` invalida o insight atual em memória
 - `Gerar novamente` repete o fluxo para o contexto atual
 - `Voltar` regressa a `/stats`
 
 ### Conteúdo
-- resumo executivo
-- highlights
-- riscos
-- ações
-- categorias em foco
-- metadata (`generatedAt`, `model`, `confidence`, `stale`)
+- topo curto com resumo executivo e metadata
+- tabs internas:
+  - `Agora`
+  - `Ações`
+  - `Categorias`
+- `Agora` mostra no máximo os sinais mais importantes do período
+- `Ações` mostra a lista priorizada de próximas ações
+- `Categorias` mostra a lista completa de categorias em foco
+- quando o backend devolver `colorSlot` por categoria, a tab `Categorias` reutiliza as cores estáveis do budget; sem esse campo, usa fallback neutro
 
 ## 6) Profile page (`/profile`)
 

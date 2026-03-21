@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 const COMPONENTS_DIR = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = dirname(COMPONENTS_DIR);
+const SRC_DIR = dirname(APP_DIR);
 
 function readComponent(relativePath: string): string {
   return readFileSync(join(COMPONENTS_DIR, relativePath), "utf8");
@@ -12,6 +13,10 @@ function readComponent(relativePath: string): string {
 
 function readAppFile(relativePath: string): string {
   return readFileSync(join(APP_DIR, relativePath), "utf8");
+}
+
+function readSrcFile(relativePath: string): string {
+  return readFileSync(join(SRC_DIR, relativePath), "utf8");
 }
 
 function collectRuntimeTsxFiles(dirPath: string, basePath = dirPath): string[] {
@@ -56,11 +61,23 @@ describe("UI v3 visual contracts", () => {
       "budget-editor-page.tsx",
       "profile-page.tsx",
       "category-movements-page.tsx",
+      "stats-insights-page.tsx",
     ];
     for (const target of targets) {
       const source = readComponent(target);
       expect(source).toContain("className={UI_V3_CLASS.pageStack}");
     }
+  });
+
+  test("page section fade primitive defines the fade-only contract", () => {
+    const source = readComponent("v3/page-section-fade-in-v3.tsx");
+    const styles = readSrcFile("styles/tailwind.css");
+
+    expect(source).toContain('data-ui-v3-animate="page-fade"');
+    expect(source).toContain("page-section-fade-in-v3");
+    expect(styles).toContain("@keyframes page-section-fade-in-v3");
+    expect(styles).toContain("animation: page-section-fade-in-v3 220ms ease-out both");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
   test("segmented control primitive is used in all key flows", () => {
@@ -88,10 +105,56 @@ describe("UI v3 visual contracts", () => {
       "profile-page.tsx",
       "profile-section-shell.tsx",
       "category-movements-page.tsx",
+      "stats-insights-page.tsx",
     ];
     for (const target of targets) {
       const source = readComponent(target);
       expect(source).toContain("PageHeaderV3");
+    }
+  });
+
+  test("page-entry pages use the shared fade primitive", () => {
+    const targets = [
+      "month-page.tsx",
+      "stats-page.tsx",
+      "stats-insights-page.tsx",
+      "budget-editor-page.tsx",
+      "profile-page.tsx",
+      "auth-page.tsx",
+      "category-movements-page.tsx",
+      "maintenance-page.tsx",
+      "profile-section-shell.tsx",
+    ];
+    for (const target of targets) {
+      const source = readComponent(target);
+      expect(source).toContain("PageSectionFadeInV3");
+    }
+  });
+
+  test("layout leaves page-entry animation to local blocks", () => {
+    const source = readComponent("layout.tsx");
+    expect(source).toContain("<Outlet />");
+    expect(source).not.toContain("motion/react");
+    expect(source).not.toContain("initial={{ opacity: 0");
+    expect(source).not.toContain("data-ui-v3-animate=\"page-fade\"");
+  });
+
+  test("page-entry flows do not use translate-based entrance motion", () => {
+    const targets = [
+      "layout.tsx",
+      "month-page.tsx",
+      "auth-page.tsx",
+      "budget-editor-page.tsx",
+      "stats-page.tsx",
+      "stats-insights-page.tsx",
+      "category-movements-page.tsx",
+      "profile-page.tsx",
+      "maintenance-page.tsx",
+    ];
+    const yMotionPattern = /(?:initial|animate|exit)=\{\{[\s\S]{0,120}\by:/;
+    for (const target of targets) {
+      const source = readComponent(target);
+      expect(source).not.toMatch(yMotionPattern);
     }
   });
 

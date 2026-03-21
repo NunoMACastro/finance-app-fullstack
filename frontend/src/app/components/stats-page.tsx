@@ -18,6 +18,7 @@ import {
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { PageHeaderV3 } from "./v3/page-header-v3";
+import { PageSectionFadeInV3 } from "./v3/page-section-fade-in-v3";
 import { SegmentedControlV3 } from "./v3/segmented-control-v3";
 import { UI_V3_CLASS } from "./v3/layout-contracts";
 
@@ -214,7 +215,9 @@ export function StatsPage() {
             />
           )}
         />
-        <StatsLoadingSkeleton />
+        <PageSectionFadeInV3>
+          <StatsLoadingSkeleton />
+        </PageSectionFadeInV3>
       </div>
     );
   }
@@ -222,23 +225,25 @@ export function StatsPage() {
   if (loadError && !snapshot) {
     return (
       <div className={UI_V3_CLASS.pageStack} data-ui-v3-page="stats">
-        <div className="rounded-2xl border border-warning/40 bg-warning-soft p-4">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
-            <div className="space-y-3">
-              <p className="text-sm text-warning-foreground">{loadError}</p>
-              <Button
-                variant="outline"
-                className="h-11 rounded-xl border-warning/60 text-status-warning hover:bg-warning/20"
-                onClick={() => {
-                  void loadStats();
-                }}
-              >
-                Tentar novamente
-              </Button>
+        <PageSectionFadeInV3 asChild>
+          <div className="rounded-2xl border border-warning/40 bg-warning-soft p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
+              <div className="space-y-3">
+                <p className="text-sm text-warning-foreground">{loadError}</p>
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-warning/60 text-status-warning hover:bg-warning/20"
+                  onClick={() => {
+                    void loadStats();
+                  }}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </PageSectionFadeInV3>
       </div>
     );
   }
@@ -264,83 +269,97 @@ export function StatsPage() {
       />
 
       {refreshing ? (
-        <p className="text-xs text-muted-foreground" aria-live="polite">
-          A atualizar estatísticas...
-        </p>
+        <PageSectionFadeInV3 asChild>
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            A atualizar estatísticas...
+          </p>
+        </PageSectionFadeInV3>
       ) : null}
 
       {loadError ? (
-        <div className="rounded-xl bg-warning-soft px-3 py-2">
-          <p className="text-xs text-warning-foreground">{loadError}</p>
-        </div>
+        <PageSectionFadeInV3 asChild>
+          <div className="rounded-xl bg-warning-soft px-3 py-2">
+            <p className="text-xs text-warning-foreground">{loadError}</p>
+          </div>
+        </PageSectionFadeInV3>
       ) : null}
 
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-surface px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">Análise IA</h2>
+      <PageSectionFadeInV3 asChild>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-surface px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Análise IA</h2>
+          </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-xl"
+              onClick={() => {
+                navigate(`/stats/insights?period=${period}&forecastWindow=${forecastWindow}&from=/stats`);
+              }}
+            >
+              Abrir análise IA
+            </Button>
         </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 rounded-xl"
-            onClick={() => {
-              navigate(`/stats/insights?period=${period}&forecastWindow=${forecastWindow}&from=/stats`);
-            }}
-          >
-            Abrir análise IA
-          </Button>
-      </div>
+      </PageSectionFadeInV3>
 
-      <StatsPulsePanel
-        periodLabel={periodLabel}
-        totalBalance={formatCurrency(model.totalBalance)}
-        totalIncome={formatCurrency(model.totalIncome)}
-        totalConsumption={formatCurrency(model.consumption)}
-        totalSavings={formatCurrency(model.savings)}
-        unallocatedLabel={unallocatedLabel}
-        unallocatedValue={unallocatedDisplay}
-        budgetAdherenceLabel={budgetAdherenceLabel}
-        budgetAdherence={budgetAdherenceDisplay}
-        savingsRate={formatPercent(model.savingsRate)}
-        unallocatedRateLabel={unallocatedRateLabel}
-        unallocatedRate={unallocatedRateDisplay}
-        potentialSavings={formatCurrency(model.potentialSavings)}
-        budgetUsePercent={model.budgetUsePercent}
-        pulseTone={model.pulseTone}
-      />
+      <PageSectionFadeInV3>
+        <StatsPulsePanel
+          periodLabel={periodLabel}
+          totalBalance={formatCurrency(model.totalBalance)}
+          totalIncome={formatCurrency(model.totalIncome)}
+          totalConsumption={formatCurrency(model.consumption)}
+          totalSavings={formatCurrency(model.savings)}
+          unallocatedLabel={unallocatedLabel}
+          unallocatedValue={unallocatedDisplay}
+          budgetAdherenceLabel={budgetAdherenceLabel}
+          budgetAdherence={budgetAdherenceDisplay}
+          savingsRate={formatPercent(model.savingsRate)}
+          unallocatedRateLabel={unallocatedRateLabel}
+          unallocatedRate={unallocatedRateDisplay}
+          potentialSavings={formatCurrency(model.potentialSavings)}
+          budgetUsePercent={model.budgetUsePercent}
+          pulseTone={model.pulseTone}
+        />
+      </PageSectionFadeInV3>
 
-      <StatsDriversList
-        drivers={model.topDrivers}
-        formatCurrency={formatCurrency}
-        onSelectDriver={(driver) => {
-          setSelectedDriver(driver);
-          setInsightOpen(true);
-        }}
-      />
+      <PageSectionFadeInV3>
+        <StatsDriversList
+          drivers={model.topDrivers}
+          formatCurrency={formatCurrency}
+          onSelectDriver={(driver) => {
+            setSelectedDriver(driver);
+            setInsightOpen(true);
+          }}
+        />
+      </PageSectionFadeInV3>
 
-      <StatsTrendPanel
-        trend={trendPoints}
-        selectedIndex={selectedTrendIndex}
-        onSelectPoint={(index) =>
-          setSelectedTrendIndex((previous) => (previous === index ? null : index))
-        }
-        visibleSeries={visibleSeries}
-        onToggleSeries={(series) =>
-          setVisibleSeries((previous) => ({
-            ...previous,
-            [series]: !previous[series],
-          }))
-        }
-        formatCurrency={formatCurrency}
-      />
+      <PageSectionFadeInV3>
+        <StatsTrendPanel
+          trend={trendPoints}
+          selectedIndex={selectedTrendIndex}
+          onSelectPoint={(index) =>
+            setSelectedTrendIndex((previous) => (previous === index ? null : index))
+          }
+          visibleSeries={visibleSeries}
+          onToggleSeries={(series) =>
+            setVisibleSeries((previous) => ({
+              ...previous,
+              [series]: !previous[series],
+            }))
+          }
+          formatCurrency={formatCurrency}
+        />
+      </PageSectionFadeInV3>
 
-      <StatsForecastPanel
-        forecast={model.forecast}
-        forecastWindow={forecastWindow}
-        onForecastWindowChange={setForecastWindow}
-        formatCurrency={formatCurrency}
-      />
+      <PageSectionFadeInV3>
+        <StatsForecastPanel
+          forecast={model.forecast}
+          forecastWindow={forecastWindow}
+          onForecastWindowChange={setForecastWindow}
+          formatCurrency={formatCurrency}
+        />
+      </PageSectionFadeInV3>
 
       <StatsCategoryInsightSheet
         open={insightOpen}
