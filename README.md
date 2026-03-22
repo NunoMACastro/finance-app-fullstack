@@ -80,7 +80,6 @@ npm install
 Criar `frontend/.env`:
 
 ```env
-VITE_USE_MOCK=false
 VITE_API_BASE_URL=http://localhost:3001/api/v1
 VITE_MAINTENANCE_MODE=false
 ```
@@ -130,7 +129,6 @@ npm run build
 
 ### Frontend
 
-- `VITE_USE_MOCK=false`
 - `VITE_API_BASE_URL=https://<backend>/api/v1`
 - `VITE_MAINTENANCE_MODE`
 

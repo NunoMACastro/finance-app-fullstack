@@ -14,7 +14,7 @@ Este README e um atalho rapido. A documentacao detalhada do frontend esta em:
 ## Theming v3
 
 - `src/styles/theme.css`: base semantica (sem cores literais).
-- `src/styles/themes/*.css`: um ficheiro por tema (`brisa`, `calma`, `aurora`, `terra`).
+- `src/styles/themes/*.css`: um ficheiro por tema (`brisa`, `calma`, `aurora`, `terra`, `mare`, `amber`, `ciano`).
 - `src/styles/themes/_template.css`: contrato obrigatorio `--t-*` (gradientes sao extensao opcional por tema).
 - Guardrails:
   - `npm run check-theme-contract`
@@ -40,3 +40,5 @@ npm run dev
 VITE_API_BASE_URL=http://localhost:3001/api/v1
 VITE_MAINTENANCE_MODE=false
 ```
+
+Nao existe modo mock no fluxo oficial do frontend; a app consome a API real.
